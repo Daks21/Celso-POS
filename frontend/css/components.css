@@ -1132,3 +1132,146 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Receipt Modal */
+
+.receipt-modal-card {
+  width: 100%;
+  max-width: 380px;
+  background-color: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+}
+
+.receipt {
+  width: 320px;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 20px;
+
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.receipt-header {
+  text-align: center;
+}
+
+.receipt-header h2 {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.receipt-header p {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.receipt-meta {
+  margin-top: 12px;
+  text-align: left;
+}
+
+.receipt-divider {
+  border-top: 2px dashed var(--color-text);
+  margin: 14px 0;
+}
+
+.receipt-items table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.receipt-items th,
+.receipt-items td {
+  padding: 6px 0;
+  font-size: 12px;
+  text-align: left;
+}
+
+.receipt-items th:nth-child(2),
+.receipt-items td:nth-child(2),
+.receipt-items th:nth-child(3),
+.receipt-items td:nth-child(3),
+.receipt-items th:nth-child(4),
+.receipt-items td:nth-child(4) {
+  text-align: right;
+}
+
+.receipt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.receipt-grand-total {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.receipt-footer {
+  text-align: center;
+  font-size: 12px;
+}
+
+.receipt-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  margin-top: 16px;
+}
+
+/* Print Receipt */
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #receipt-modal,
+  #receipt-modal * {
+    visibility: visible;
+  }
+
+  #receipt-modal {
+    display: block !important;
+    position: static;
+    background: none;
+    padding: 0;
+  }
+
+  .receipt-modal-card {
+    max-width: none;
+    width: 100%;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .receipt {
+    width: 100%;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .receipt-actions,
+  .sidebar,
+  .topbar,
+  .pos-products,
+  .pos-cart,
+  button {
+    display: none !important;
+  }
+
+  @page {
+    margin: 12mm;
+  }
+}
