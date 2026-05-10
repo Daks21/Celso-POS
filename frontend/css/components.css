@@ -59,7 +59,7 @@
 }
 
 .nav-link {
-  padding: 10px 0px;
+  padding: 10px 10px;
   width: 100%;
 
   color: var(--color-text-muted);
@@ -1000,4 +1000,135 @@
 #payment-warning:not(:empty) {
   display: block;
   margin-top: 8px;
+}
+
+/* Sales History Page */
+
+.history-filter-bar {
+  display: grid;
+  grid-template-columns: 180px 180px 1fr auto;
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group label {
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.receipt-search {
+  min-width: 220px;
+}
+
+.reset-filter-button {
+  height: 40px;
+}
+
+.history-summary {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.empty-state {
+  display: none;
+  text-align: center;
+  padding: 40px 16px;
+}
+
+.empty-state-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+.empty-state h3 {
+  color: var(--color-text);
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.empty-state p {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.sale-detail-content {
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+/* Tablet */
+
+@media (max-width: 900px) {
+  .history-filter-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .reset-filter-button {
+    width: 100%;
+  }
+}
+
+/* Mobile */
+
+@media (max-width: 600px) {
+  .history-filter-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .receipt-search {
+    min-width: 0;
+  }
+}
+
+/* Sale Detail Modal */
+
+.sale-detail-info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.sale-detail-info p {
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.sale-detail-totals {
+  margin-top: 20px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 16px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sale-detail-totals div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.sale-detail-totals strong {
+  color: var(--color-primary);
+}
+
+@media (max-width: 600px) {
+  .sale-detail-info {
+    grid-template-columns: 1fr;
+  }
 }
