@@ -167,29 +167,10 @@
 /* ── Dashboard Heatmap (compact) ── */
 
 .dash-hm-outer {
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding-bottom: 4px;
-}
-.dash-hm-outer::-webkit-scrollbar { display: none; }
-
-.dash-hm-month-row {
-  display: flex;
-  align-items: flex-end;
-  margin-bottom: 4px;
+  /* overflow handled by inner scroll area */
 }
 
-.dash-hm-spacer {
-  width: 26px;
-  flex-shrink: 0;
-}
-
-.dash-hm-months {
-  display: flex;
-  gap: 0;
-}
-
-.dash-heatmap-body {
+.dash-hm-main {
   display: flex;
   align-items: flex-start;
   gap: 4px;
@@ -201,6 +182,22 @@
   gap: 2px;
   width: 22px;
   flex-shrink: 0;
+  /* pushes day rows down to align with cells, past the month label row */
+  padding-top: 16px;
+}
+
+.dash-hm-scroll-area {
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1;
+  min-width: 0;
+}
+.dash-hm-scroll-area::-webkit-scrollbar { display: none; }
+
+.dash-hm-months {
+  display: flex;
+  gap: 0;
+  margin-bottom: 4px;
 }
 
 .dash-hm-day-labels span {
@@ -256,7 +253,7 @@ html[data-theme="dark"] .dash-heatmap-cell[data-level="4"] { background-color: #
   align-items: center;
   gap: 3px;
   margin-top: 8px;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 /* ── Responsive ── */

@@ -429,39 +429,6 @@
   display: block;
 }
 
-/* ── FAB ── */
-
-.fab {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  background-color: var(--color-primary);
-  color: #ffffff;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 16px rgba(90, 158, 111, 0.30);
-  z-index: 40;
-  transition: all 0.3s var(--transition-bounce);
-  animation: pulse 2s infinite;
-}
-
-.fab:hover {
-  transform: scale(1.1);
-  box-shadow: 0 12px 32px rgba(90, 158, 111, 0.45);
-}
-
-.fab:active { transform: scale(0.95); }
-
-.fab svg {
-  width: 20px;
-  height: 20px;
-}
 
 /* ── POS Toolbar & Category Pills ── */
 

@@ -272,32 +272,10 @@
 }
 
 .heatmap-wrapper {
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding-bottom: 4px;
+  /* overflow handled by inner scroll area */
 }
 
-.heatmap-wrapper::-webkit-scrollbar {
-  display: none;
-}
-
-.heatmap-month-row {
-  display: flex;
-  align-items: flex-end;
-  margin-bottom: 4px;
-}
-
-.heatmap-day-spacer {
-  width: 28px;
-  flex-shrink: 0;
-}
-
-.heatmap-months-container {
-  display: flex;
-  gap: 0;
-}
-
-.heatmap-body {
+.heatmap-main {
   display: flex;
   align-items: flex-start;
   gap: 6px;
@@ -309,6 +287,25 @@
   gap: 3px;
   width: 22px;
   flex-shrink: 0;
+  /* pushes day rows down to align with cells, past the month label row */
+  padding-top: 18px;
+}
+
+.heatmap-scroll-area {
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1;
+  min-width: 0;
+}
+
+.heatmap-scroll-area::-webkit-scrollbar {
+  display: none;
+}
+
+.heatmap-months-container {
+  display: flex;
+  gap: 0;
+  margin-bottom: 4px;
 }
 
 .heatmap-day-labels span {
@@ -363,7 +360,7 @@ html[data-theme="dark"] .heatmap-cell[data-level="4"] { background-color: #6bb38
   align-items: center;
   gap: 4px;
   margin-top: 10px;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .heatmap-legend-label {
@@ -378,31 +375,7 @@ html[data-theme="dark"] .heatmap-cell[data-level="4"] { background-color: #6bb38
   display: inline-block;
 }
 
-.heatmap-tooltip {
-  display: none;
-  position: fixed;
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 7px 12px;
-  box-shadow: var(--shadow-md);
-  z-index: 500;
-  pointer-events: none;
-  min-width: 160px;
-}
-
-.heatmap-tooltip-date {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin-bottom: 2px;
-}
-
-.heatmap-tooltip-value {
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
+/* .heatmap-tooltip lives in components.css */
 
 /* ── Responsive ── */
 
