@@ -1,33 +1,7 @@
 /* ── Products Page ── */
 
-.products-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.products-header h2 {
-  color: var(--color-text);
-  font-size: 18px;
-  margin-bottom: 4px;
-}
-
-.products-header p {
-  color: var(--color-text-muted);
-  font-size: 14px;
-}
-
 .add-product-button {
   width: auto;
-}
-
-.products-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
 }
 
 .products-toolbar .search-input {
@@ -35,37 +9,6 @@
   flex-shrink: 0;
 }
 
-/* ── Product Table Actions ── */
-
-.table-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.table-button {
-  padding: 6px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-main);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.edit-button {
-  background-color: var(--color-background);
-  color: var(--color-primary);
-}
-
-.delete-button {
-  background-color: var(--color-background);
-  color: var(--color-error);
-}
-
-.table-button:hover {
-  background-color: var(--color-surface);
-}
 
 /* ── Products summary: peso values are wider, use a smaller font ── */
 
@@ -74,6 +17,24 @@
 }
 
 /* ── Responsive ── */
+
+@media (max-width: 900px) {
+  .products-toolbar {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+
+  .products-toolbar .search-input {
+    width: 0;
+    flex: 1 1 0;
+  }
+
+  .products-toolbar .filter-select {
+    min-width: 0;
+    flex: 0 0 auto;
+    width: auto;
+  }
+}
 
 @media (max-width: 600px) {
   .products-header {

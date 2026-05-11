@@ -1,5 +1,9 @@
 /* ── Sales History Page ── */
 
+.products-header p {
+  padding-bottom: 12px;
+}
+
 .history-filter-bar {
   display: grid;
   grid-template-columns: 180px 180px 1fr auto;
