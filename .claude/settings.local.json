@@ -25,7 +25,8 @@
       "Bash(Out-String -Width 500)",
       "Bash(Select-Object -Property FullName, PSIsContainer)",
       "Bash(Sort-Object FullName)",
-      "Bash(Format-Table -AutoSize)"
+      "Bash(Format-Table -AutoSize)",
+      "Bash(git *)"
     ]
   }
 }

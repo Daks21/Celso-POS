@@ -1,5 +1,5 @@
 ================================================================
-  Celso POS v1.0
+  Celso POS v2.0
   SARI-SARI STORE POS + INVENTORY + SALES MANAGEMENT SYSTEM
 ================================================================
 
@@ -147,7 +147,10 @@
   │   │   ├── theme.js         ← Dark/light mode toggle
   │   │   ├── data.js          ← Shared utilities (formatPeso),
   │   │   │                       stock colors, localStorage seeding
-  │   │   └── api.js           ← HTTP/fetch helpers (Phase 2+)
+  │   │   ├── api.js           ← Centralized HTTP client (JWT auth,
+  │   │   │                       401 handling, auto-redirect to login)
+  │   │   └── utils.js         ← Loading states, toast notifications,
+  │   │                           shared UX helpers
   │   │
   │   ├── components/          ← Reusable UI pieces (not page-specific)
   │   │   ├── sidebar.js       ← Active nav link, user initials
@@ -197,29 +200,33 @@
 
   ─────────────────────────────────────────────────────────────
 
-  backend/                     ← Phase 2 (not yet built)
+  backend/                     ← Phase 2 (COMPLETE)
   │
   ├── server.js                ← App entry point. Starts the server.
+  ├── .env                     ← JWT secret and port config (not in git)
   ├── routes/                  ← URL endpoints (API paths)
   │   ├── auth.routes.js       ← /api/auth/login, /api/auth/register
   │   ├── products.routes.js   ← /api/products (CRUD)
-  │   ├── sales.routes.js      ← /api/sales (create, history)
-  │   └── inventory.routes.js  ← /api/inventory (stock updates)
+  │   ├── sales.routes.js      ← /api/sales (create, history, summary)
+  │   ├── inventory.routes.js  ← /api/inventory (stock, low-stock,
+  │   │                           summary, adjust — admin-protected)
+  │   └── analytics.routes.js  ← /api/analytics (summary, heatmap,
+  │                               kpis, charts — JWT-protected)
   │
   ├── controllers/             ← Logic for each feature
   │   ├── auth.controller.js
   │   ├── products.controller.js
   │   ├── sales.controller.js
-  │   └── inventory.controller.js
+  │   ├── inventory.controller.js
+  │   └── analytics.controller.js
   │
-  ├── models/                  ← Database table definitions
-  │   ├── user.model.js
-  │   ├── product.model.js
-  │   ├── sale.model.js
-  │   └── inventory.model.js
+  ├── models/                  ← In-memory data stores + query logic
+  │   ├── user.model.js        ← Users, bcrypt password hashing
+  │   ├── product.model.js     ← Products + stock query/mutation fns
+  │   └── sale.model.js        ← Sales records + aggregation fns
   │
   └── middleware/
-      ├── auth.middleware.js   ← Checks if user is logged in
+      ├── auth.middleware.js   ← JWT verification + admin role check
       └── error.middleware.js  ← Catches and formats errors
 
   ─────────────────────────────────────────────────────────────
@@ -342,19 +349,62 @@
       - localStorage seed data for demo/development
 
   ──────────────────────────────────────────────────────────────
-  PHASE 2: BACKEND (Node.js + Express)              [NEXT]
+  PHASE 2: BACKEND (Node.js + Express)              [COMPLETE]
   ──────────────────────────────────────────────────────────────
 
-  MODULES:
+  MODULES BUILT:
+
     Module 2.1 — Express Server Setup
+      - Node.js + Express server with CORS and JSON middleware
+      - MVC folder structure (routes, controllers, models, middleware)
+      - Environment config via .env (PORT, JWT_SECRET)
+      - Live GET /api/products route as integration test
+
     Module 2.2 — Auth API (Login / Register)
+      - bcrypt password hashing on register
+      - JWT token issued on login (signed with secret, 7-day expiry)
+      - authMiddleware verifies token and attaches user to req
+      - Replaced all localStorage-based auth from Phase 1
+
     Module 2.3 — Products API (CRUD)
+      - 5 endpoints: GET /api/products, GET /:id, POST, PUT /:id,
+        DELETE /:id
+      - Server-side input validation on all write operations
+      - JWT-protected writes; query-based filtering on reads
+
     Module 2.4 — Sales API (Create + History)
-    Module 2.5 — Inventory API (Stock Updates)
-    Module 2.6 — Connect Frontend to Backend (fetch + async/await)
+      - POST /api/sales: atomic two-phase commit — validates stock
+        and price server-side before recording sale and deducting stock
+      - GET /api/sales: paginated history with date-range filtering
+      - GET /api/sales/summary: today's revenue, orders, top products
+      - All endpoints JWT-protected
+
+    Module 2.5 — Analytics API
+      - 6 aggregation functions in sale.model.js
+      - GET /api/analytics/summary: revenue, orders, avg order, units
+      - GET /api/analytics/heatmap: daily activity grid (GitHub-style)
+      - GET /api/analytics/kpis: KPI cards with period comparison
+      - GET /api/analytics/charts: revenue trend + category breakdown
+      - Date-range filtering; zero-gap daily seeding for chart rendering
+
+    Module 2.6 — Inventory API (Role-Protected)
+      - GET /api/inventory: full stock list (auth required)
+      - GET /api/inventory/low-stock: items below threshold
+      - GET /api/inventory/summary: stock status counts
+      - POST /api/inventory/:id/adjust: signed-delta stock adjustment
+        (admin-only); floors at zero; logs type, before/after, user
+
+    Module 2.7 — Frontend-to-Backend Integration
+      - api.js: centralized JWT HTTP client (auto-attach token,
+        handle 401, redirect to login on session expiry)
+      - utils.js: loading states, toast error notifications
+      - 7 page scripts migrated from localStorage to real API calls:
+        dashboard, products, inventory, order, history, analytics, sales
+      - 7 critical integration bugs resolved post-wiring (field name
+        mismatches, broken date filters, charts sourcing wrong data)
 
   ──────────────────────────────────────────────────────────────
-  PHASE 3: DATABASE (SQL)
+  PHASE 3: DATABASE (SQL)                           [NEXT]
   ──────────────────────────────────────────────────────────────
 
   MODULES:
@@ -386,5 +436,5 @@
     Module 5.5 — Final testing and go-live
 
 ================================================================
-  END OF DOCUMENT — Version 1.1 (Phase 1 Complete)
+  END OF DOCUMENT — Version 2.0 (Phase 2 Complete)
 ================================================================
