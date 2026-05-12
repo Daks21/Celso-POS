@@ -22,12 +22,22 @@ const getSummary = (req, res) => {
   const { totalRevenue, transactionCount, avgSaleValue } = saleModel.getSummary(dateStr);
   const products        = productModel.getAll();
   const totalProducts   = products.length;
-  const lowStockCount   = products.filter(p => p.stock > 0 && p.stock <= LOW_STOCK_THRESHOLD).length;
-  const outOfStockCount = products.filter(p => p.stock === 0).length;
+  const lowStockItems   = products.filter(p => p.stock > 0 && p.stock <= LOW_STOCK_THRESHOLD);
+  const outOfStockItems = products.filter(p => p.stock === 0);
+  const lowStockCount   = lowStockItems.length;
+  const outOfStockCount = outOfStockItems.length;
 
   res.status(200).json({
     success: true,
-    data: { totalRevenue, transactionCount, avgSaleValue, totalProducts, lowStockCount, outOfStockCount }
+    data: {
+      todayRevenue:      totalRevenue,
+      todayTransactions: transactionCount,
+      avgSaleValue,
+      totalProducts,
+      lowStockCount,
+      outOfStockCount,
+      lowStockItems:     [...lowStockItems, ...outOfStockItems]
+    }
   });
 };
 

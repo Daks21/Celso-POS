@@ -2,7 +2,9 @@ checkAuth();
 
 // ── Analytics widget rendering for Dashboard ──
 
-var _dashCharts = {};
+var _dashCharts     = {};
+var _dashApiCharts  = null;
+var _dashApiHeatmap = null;
 
 function _destroyDashChart(id) {
   if (_dashCharts[id]) { _dashCharts[id].destroy(); delete _dashCharts[id]; }
@@ -53,54 +55,34 @@ function _formatPeso(amount) {
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 }
 
-function _getLast30Sales() {
-  var allSales = JSON.parse(localStorage.getItem('sales') || '[]');
-  var cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 29);
-  cutoff.setHours(0, 0, 0, 0);
-  return allSales.filter(function (s) { return new Date(s.timestamp) >= cutoff; });
-}
+// Transform API chart data (from /api/analytics/charts) to { labels, data } for Chart.js
 
-function _revenueByDay(sales) {
-  var now = new Date();
-  var dayMap = {};
-  for (var i = 29; i >= 0; i--) {
-    var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-    dayMap[d.toISOString().slice(0, 10)] = 0;
-  }
-  sales.forEach(function (s) {
-    var k = new Date(s.timestamp).toISOString().slice(0, 10);
-    if (k in dayMap) dayMap[k] += s.total;
-  });
-  var keys = Object.keys(dayMap);
+function _transformRevenue(revenueByDay) {
+  if (!revenueByDay) return { labels: [], data: [] };
+  var entries = Object.entries(revenueByDay).sort(function (a, b) { return a[0] < b[0] ? -1 : 1; });
   return {
-    labels: keys.map(function (k) {
-      var d = new Date(k + 'T00:00:00');
+    labels: entries.map(function (e) {
+      var d = new Date(e[0] + 'T00:00:00');
       return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
     }),
-    data: keys.map(function (k) { return dayMap[k]; })
+    data: entries.map(function (e) { return e[1]; })
   };
 }
 
-function _topByRevenue(sales, n) {
-  var map = {};
-  sales.forEach(function (s) { s.items.forEach(function (i) { map[i.name] = (map[i.name] || 0) + i.lineTotal; }); });
-  var sorted = Object.entries(map).sort(function (a, b) { return b[1] - a[1]; }).slice(0, n || 5);
-  return { labels: sorted.map(function (e) { return e[0]; }), data: sorted.map(function (e) { return e[1]; }) };
+function _transformTopRevenue(arr) {
+  if (!Array.isArray(arr) || !arr.length) return { labels: [], data: [] };
+  return { labels: arr.map(function (e) { return e.name; }), data: arr.map(function (e) { return e.revenue; }) };
 }
 
-function _topByQty(sales, n) {
-  var map = {};
-  sales.forEach(function (s) { s.items.forEach(function (i) { map[i.name] = (map[i.name] || 0) + i.quantity; }); });
-  var sorted = Object.entries(map).sort(function (a, b) { return b[1] - a[1]; }).slice(0, n || 5);
-  return { labels: sorted.map(function (e) { return e[0]; }), data: sorted.map(function (e) { return e[1]; }) };
+function _transformTopQty(arr) {
+  if (!Array.isArray(arr) || !arr.length) return { labels: [], data: [] };
+  return { labels: arr.map(function (e) { return e.name; }), data: arr.map(function (e) { return e.qty; }) };
 }
 
-function _byDayOfWeek(sales) {
-  var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  var totals = [0, 0, 0, 0, 0, 0, 0];
-  sales.forEach(function (s) { totals[new Date(s.timestamp).getDay()] += s.total; });
-  return { labels: days, data: totals };
+var _DASH_DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function _transformDayOfWeek(arr) {
+  if (!Array.isArray(arr)) return { labels: _DASH_DOW_LABELS, data: [0, 0, 0, 0, 0, 0, 0] };
+  return { labels: _DASH_DOW_LABELS, data: arr };
 }
 
 var WIDGET_META = {
@@ -133,7 +115,7 @@ function renderDashboardWidgets() {
 
   if (emptyState) emptyState.style.display = 'none';
 
-  var sales = _getLast30Sales();
+  var apiCharts = _dashApiCharts || {};
   var grid = document.createElement('div');
   grid.className = 'dashboard-charts-grid';
   container.appendChild(grid);
@@ -182,12 +164,7 @@ function renderDashboardWidgets() {
         var tooltip  = document.getElementById('heatmap-tooltip');
         if (!cellsEl) return;
 
-        var allSales = JSON.parse(localStorage.getItem('sales') || '[]');
-        var dayRevenue = {};
-        allSales.forEach(function (s) {
-          var key = new Date(s.timestamp).toISOString().slice(0, 10);
-          dayRevenue[key] = (dayRevenue[key] || 0) + s.total;
-        });
+        var dayRevenue = _dashApiHeatmap || {};
 
         var nonZero = Object.values(dayRevenue).filter(function (v) { return v > 0; }).sort(function (a, b) { return a - b; });
         var q1 = nonZero[Math.floor(nonZero.length * 0.25)] || 1;
@@ -325,7 +302,7 @@ function renderDashboardWidgets() {
         }
 
         if (widgetId === 'revenue-chart') {
-          var d = _revenueByDay(sales);
+          var d = _transformRevenue(apiCharts.revenueByDay);
           var hasData = d.data.some(function (v) { return v > 0; });
           showOrHide(hasData);
           if (!hasData) return;
@@ -339,7 +316,7 @@ function renderDashboardWidgets() {
           });
 
         } else if (widgetId === 'top-products-revenue') {
-          var d = _topByRevenue(sales);
+          var d = _transformTopRevenue(apiCharts.topByRevenue);
           var hasData = d.data.length > 0;
           showOrHide(hasData);
           if (!hasData) return;
@@ -355,7 +332,7 @@ function renderDashboardWidgets() {
           });
 
         } else if (widgetId === 'top-products-qty') {
-          var d = _topByQty(sales);
+          var d = _transformTopQty(apiCharts.topByQty);
           var hasData = d.data.length > 0;
           showOrHide(hasData);
           if (!hasData) return;
@@ -371,7 +348,7 @@ function renderDashboardWidgets() {
           });
 
         } else if (widgetId === 'sales-by-day') {
-          var d = _byDayOfWeek(sales);
+          var d = _transformDayOfWeek(apiCharts.byDayOfWeek);
           var hasData = d.data.some(function (v) { return v > 0; });
           showOrHide(hasData);
           if (!hasData) return;
@@ -502,6 +479,16 @@ async function initDashboard() {
       recentTxBody.innerHTML = txHtml;
     }
   }
+
+  // Fetch chart + heatmap data for pinned widgets
+  try {
+    var _now = new Date();
+    var _from30 = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() - 29);
+    var _chartsRes  = await getCharts(_from30.toISOString().slice(0, 10), _now.toISOString().slice(0, 10));
+    var _heatmapRes = await getHeatmap();
+    if (_chartsRes  && _chartsRes.success)  _dashApiCharts  = _chartsRes.data;
+    if (_heatmapRes && _heatmapRes.success)  _dashApiHeatmap = _heatmapRes.data;
+  } catch (e) { /* server may not be running — widgets will show empty state */ }
 
   // Pinned analytics widgets
   if (document.readyState === 'loading') {

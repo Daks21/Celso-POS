@@ -79,7 +79,7 @@ function getDateRange(rangeKey) {
 
 function updateKPIs(kpis) {
   document.getElementById('kpi-revenue').textContent      = formatPeso(kpis.totalRevenue || 0);
-  document.getElementById('kpi-transactions').textContent = kpis.totalTransactions || 0;
+  document.getElementById('kpi-transactions').textContent = kpis.transactionCount || 0;
   document.getElementById('kpi-avg-order').textContent    = formatPeso(kpis.avgOrderValue || 0);
   document.getElementById('kpi-units').textContent        = kpis.totalUnits || 0;
 }
@@ -412,12 +412,43 @@ function renderHeatmap(dayRevenue) {
   if (scrollArea) scrollArea.scrollLeft = scrollArea.scrollWidth;
 }
 
+// ── Chart data transformers (API → { labels, data }) ──
+
+function _toRevenueChart(revenueByDay) {
+  if (!revenueByDay) return { labels: [], data: [] };
+  var entries = Object.entries(revenueByDay).sort(function (a, b) { return a[0] < b[0] ? -1 : 1; });
+  return {
+    labels: entries.map(function (e) {
+      var d = new Date(e[0] + 'T00:00:00');
+      return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+    }),
+    data: entries.map(function (e) { return e[1]; })
+  };
+}
+
+function _toTopRevenue(arr) {
+  if (!Array.isArray(arr) || !arr.length) return { labels: [], data: [] };
+  return { labels: arr.map(function (e) { return e.name; }), data: arr.map(function (e) { return e.revenue; }) };
+}
+
+function _toTopQty(arr) {
+  if (!Array.isArray(arr) || !arr.length) return { labels: [], data: [] };
+  return { labels: arr.map(function (e) { return e.name; }), data: arr.map(function (e) { return e.qty; }) };
+}
+
+var _DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function _toDayOfWeek(arr) {
+  if (!Array.isArray(arr)) return { labels: _DOW_LABELS, data: [0, 0, 0, 0, 0, 0, 0] };
+  return { labels: _DOW_LABELS, data: arr };
+}
+
 // ── Main render ──
 
 async function renderAll() {
   var range   = getDateRange(currentRange);
-  var fromStr = range.from ? range.from.toISOString() : null;
-  var toStr   = range.to   ? range.to.toISOString()   : null;
+  // Backend _parseFrom/_parseTo expect YYYY-MM-DD, not full ISO strings
+  var fromStr = range.from ? range.from.toISOString().slice(0, 10) : null;
+  var toStr   = range.to   ? range.to.toISOString().slice(0, 10)   : null;
 
   try {
     var results = await Promise.all([
@@ -442,10 +473,10 @@ async function renderAll() {
 
     if (chartResult && chartResult.success) {
       var cd = chartResult.data;
-      renderRevenueChart(cd.revenueByDay);
-      renderTopRevenueChart(cd.topByRevenue);
-      renderTopQtyChart(cd.topByQty);
-      renderDayOfWeekChart(cd.byDayOfWeek);
+      renderRevenueChart(_toRevenueChart(cd.revenueByDay));
+      renderTopRevenueChart(_toTopRevenue(cd.topByRevenue));
+      renderTopQtyChart(_toTopQty(cd.topByQty));
+      renderDayOfWeekChart(_toDayOfWeek(cd.byDayOfWeek));
     } else if (chartResult && !chartResult.success) {
       showApiError(chartResult.message || 'Failed to load chart data.');
     }
