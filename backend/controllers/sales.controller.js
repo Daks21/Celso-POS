@@ -113,4 +113,10 @@ const createSale = (req, res) => {
   res.status(201).json({ success: true, data: sale });
 };
 
-module.exports = { getSales, getOne, createSale };
+// GET /api/sales/summary — today's revenue and transaction count
+const getSummary = (req, res) => {
+  const summary = saleModel.getTodaySummary();
+  res.status(200).json({ success: true, data: summary });
+};
+
+module.exports = { getSales, getOne, createSale, getSummary };
