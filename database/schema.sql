@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS products (
 -- 3. Sales
 CREATE TABLE IF NOT EXISTS sales (
   id           INT AUTO_INCREMENT PRIMARY KEY,
-  receipt_no   VARCHAR(20) UNIQUE,
+  receipt_no   VARCHAR(20) DEFAULT NULL UNIQUE,
   subtotal     DECIMAL(10,2) NOT NULL,
   tax          DECIMAL(10,2) DEFAULT 0.00,
   tax_rate     DECIMAL(5,4)  DEFAULT 0.0000,

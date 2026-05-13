@@ -34,7 +34,7 @@ receiptModal.addEventListener("click", function (event) {
 function showReceipt(sale) {
   const saleDate = new Date(sale.timestamp);
 
-  receiptNumber.textContent = `RCPT-${sale.id}`;
+  receiptNumber.textContent = sale.receiptNo || `RCPT-${sale.id}`;
   receiptDate.textContent = saleDate.toLocaleDateString("en-PH");
   receiptTime.textContent = saleDate.toLocaleTimeString("en-PH");
   receiptCashier.textContent = sale.cashier;

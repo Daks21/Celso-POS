@@ -38,8 +38,8 @@ resetFiltersButton.addEventListener("click", async function () {
   }
 });
 
-function formatReceiptNumber(saleId) {
-  return `RCPT-${saleId}`;
+function formatReceiptNumber(sale) {
+  return sale.receiptNo || `RCPT-${sale.id}`;
 }
 
 function renderSales(salesArray) {
@@ -62,7 +62,7 @@ function renderSales(salesArray) {
     }, 0);
 
     row.innerHTML = `
-      <td>${formatReceiptNumber(sale.id)}</td>
+      <td>${formatReceiptNumber(sale)}</td>
       <td>${saleDate.toLocaleDateString("en-PH")}</td>
       <td>${saleDate.toLocaleTimeString("en-PH", { hour: '2-digit', minute: '2-digit' })}</td>
       <td>${itemCount}</td>
@@ -103,7 +103,7 @@ async function filterSales() {
       let filtered = result.data || [];
       if (receiptSearch !== '') {
         filtered = filtered.filter(function (sale) {
-          return formatReceiptNumber(sale.id).toLowerCase().includes(receiptSearch);
+          return formatReceiptNumber(sale).toLowerCase().includes(receiptSearch);
         });
       }
       renderSales(filtered);
