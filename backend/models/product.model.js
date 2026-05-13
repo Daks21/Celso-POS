@@ -1,98 +1,127 @@
-const adjustmentLog = [];
+const db = require('../config/db.config');
 
-let products = [
-  { id: 1, name: 'Instant Coffee',     category: 'Beverages',  price: 8,  cost: 5,  stock: 100, unit: 'sachet' },
-  { id: 2, name: 'Canned Sardines',    category: 'Food',       price: 15, cost: 10, stock: 50,  unit: 'can'    },
-  { id: 3, name: 'Bottled Water',      category: 'Beverages',  price: 15, cost: 8,  stock: 200, unit: 'bottle' },
-  { id: 4, name: 'Laundry Detergent',  category: 'Household',  price: 25, cost: 15, stock: 80,  unit: 'pack'   },
-  { id: 5, name: 'Ballpen',            category: 'Stationery', price: 10, cost: 5,  stock: 150, unit: 'piece'  },
-];
-
-let nextId = 6;
-
-const getAll = (filters = {}) => {
-  let result = products.slice();
-
-  if (filters.category) {
-    const cat = filters.category.toLowerCase();
-    result = result.filter(p => p.category.toLowerCase() === cat);
-  }
-
+const getAll = async (filters = {}) => {
+  let sql = 'SELECT * FROM products WHERE is_active = 1';
+  const params = [];
   if (filters.search) {
-    const term = filters.search.toLowerCase();
-    result = result.filter(p => p.name.toLowerCase().includes(term));
+    sql += ' AND LOWER(name) LIKE ?';
+    params.push(`%${filters.search.toLowerCase()}%`);
   }
-
-  return result;
+  if (filters.category) {
+    sql += ' AND LOWER(category) = ?';
+    params.push(filters.category.toLowerCase());
+  }
+  sql += ' ORDER BY name ASC';
+  const [rows] = await db.query(sql, params);
+  return rows;
 };
 
-const getById = (id) => {
-  return products.find(p => p.id === id) || null;
+const getById = async (id) => {
+  const [rows] = await db.query(
+    'SELECT * FROM products WHERE id = ? AND is_active = 1', [id]
+  );
+  return rows[0] || null;
 };
 
-const create = (productData) => {
-  const product = { id: nextId++, ...productData };
-  products.push(product);
-  return product;
+const create = async (data) => {
+  const [result] = await db.query(
+    'INSERT INTO products (name, category, price, cost, stock, unit)'
+    + ' VALUES (?,?,?,?,?,?)',
+    [data.name, data.category, data.price, data.cost, data.stock, data.unit]
+  );
+  return getById(result.insertId);
 };
 
-const update = (id, data) => {
-  const index = products.findIndex(p => p.id === id);
-  if (index === -1) return null;
-
-  products[index] = { ...products[index], ...data, id };
-  return products[index];
+const update = async (id, data) => {
+  const [result] = await db.query(
+    'UPDATE products SET name=?, category=?, price=?, cost=?, stock=?, unit=?'
+    + ' WHERE id=?',
+    [data.name, data.category, data.price, data.cost, data.stock, data.unit, id]
+  );
+  if (result.affectedRows === 0) return null;
+  return getById(id);
 };
 
-const remove = (id) => {
-  const index = products.findIndex(p => p.id === id);
-  if (index === -1) return false;
-
-  products.splice(index, 1);
-  return true;
+const remove = async (id) => {
+  const [result] = await db.query(
+    'UPDATE products SET is_active = 0 WHERE id = ? AND is_active = 1', [id]
+  );
+  return result.affectedRows > 0;
 };
 
-const getLowStock = (threshold = 50) => {
-  return products.filter(p => p.stock > 0 && p.stock < threshold);
+const getLowStock = async (threshold = 50) => {
+  const [rows] = await db.query(
+    'SELECT * FROM products'
+    + ' WHERE is_active = 1 AND stock > 0 AND stock < ?'
+    + ' ORDER BY stock ASC',
+    [threshold]
+  );
+  return rows;
 };
 
-const getOutOfStock = () => {
-  return products.filter(p => p.stock === 0);
+const getOutOfStock = async () => {
+  const [rows] = await db.query(
+    'SELECT * FROM products WHERE is_active = 1 AND stock = 0'
+  );
+  return rows;
 };
 
-const adjustStock = (id, qty, type) => {
-  const index = products.findIndex(p => p.id === id);
-  if (index === -1) return null;
-
-  const before = products[index].stock;
-  products[index].stock = Math.max(0, before + qty);
-
-  adjustmentLog.push({
-    id: Date.now(),
-    productId: id,
-    type,
-    qty,
-    before,
-    after: products[index].stock,
-    timestamp: new Date().toISOString(),
-  });
-
-  return products[index];
+const getStockLevels = async (threshold = 50) => {
+  const [rows] = await db.query(
+    'SELECT id, name, stock, unit FROM products'
+    + ' WHERE is_active = 1 ORDER BY name ASC'
+  );
+  return rows.map(p => ({
+    ...p,
+    status: p.stock === 0 ? 'out-of-stock'
+           : p.stock < threshold ? 'low'
+           : 'in-stock',
+  }));
 };
 
-const getStockLevels = () => {
-  return products.map(({ id, name, stock, unit }) => {
-    let status;
-    if (stock === 0)        status = 'out-of-stock';
-    else if (stock < 50)   status = 'low';
-    else                   status = 'in-stock';
-    return { id, name, stock, unit, status };
-  });
+const adjustStock = async (id, qty, type, notes = null, userId = null) => {
+  const product = await getById(id);
+  if (!product) return null;
+  const stockBefore = product.stock;
+  const stockAfter  = Math.max(0, stockBefore + qty);
+  await db.query(
+    'UPDATE products SET stock = ? WHERE id = ?', [stockAfter, id]
+  );
+  await db.query(
+    'INSERT INTO inventory_adjustments'
+    + ' (product_id, type, qty, stock_before, stock_after, notes, adjusted_by)'
+    + ' VALUES (?,?,?,?,?,?,?)',
+    [id, type, Math.abs(qty), stockBefore, stockAfter, notes, userId]
+  );
+  return getById(id);
 };
 
-const getAdjustmentLog = (productId) => {
-  if (productId !== undefined) return adjustmentLog.filter(e => e.productId === productId);
-  return adjustmentLog.slice();
+const getAdjustmentLog = async (productId) => {
+  let sql = `
+    SELECT ia.id, ia.product_id AS productId,
+           ia.type, ia.qty,
+           ia.stock_before AS \`before\`,
+           ia.stock_after  AS \`after\`,
+           ia.notes,
+           ia.created_at   AS timestamp,
+           p.name          AS productName,
+           u.full_name     AS adjustedByName
+    FROM inventory_adjustments ia
+    LEFT JOIN products p ON ia.product_id = p.id
+    LEFT JOIN users    u ON ia.adjusted_by = u.id
+  `;
+  const params = [];
+  if (productId !== undefined) {
+    sql += ' WHERE ia.product_id = ?';
+    params.push(productId);
+  }
+  sql += ' ORDER BY ia.created_at DESC';
+  const [rows] = await db.query(sql, params);
+  return rows;
 };
 
-module.exports = { getAll, getById, create, update, remove, getLowStock, getOutOfStock, adjustStock, getStockLevels, getAdjustmentLog };
+module.exports = {
+  getAll, getById, create, update, remove,
+  getLowStock, getOutOfStock, getStockLevels,
+  adjustStock, getAdjustmentLog,
+};

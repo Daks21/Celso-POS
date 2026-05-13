@@ -20,13 +20,13 @@ const register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
     }
 
-    if (findByEmail(email)) {
+    if (await findByEmail(email)) {
       return res.status(409).json({ success: false, message: 'Email is already registered' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = createUser({ fullName, email, password: hashedPassword });
+    const newUser = await createUser({ fullName, email, password: hashedPassword });
 
     return res.status(201).json({ success: true, message: 'Account created successfully' });
   } catch (err) {
@@ -42,7 +42,7 @@ const login = async (req, res) => {
       return res.status(400).json({ success: false, message: 'All fields are required' });
     }
 
-    const user = findByEmail(email);
+    const user = await findByEmail(email);
 
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });

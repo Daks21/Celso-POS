@@ -7,8 +7,8 @@ const { findById } = require('../models/user.model');
 router.post('/register', register);
 router.post('/login',    login);
 
-router.get('/me', auth, (req, res) => {
-  const user = findById(req.user.id);
+router.get('/me', auth, async (req, res) => {
+  const user = await findById(req.user.id);
   if (!user) {
     return res.status(404).json({ success: false, message: 'User not found' });
   }

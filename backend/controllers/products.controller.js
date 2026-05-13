@@ -23,20 +23,20 @@ const validate = (body) => {
   return null;
 };
 
-const getAll = (req, res) => {
+const getAll = async (req, res) => {
   const { search } = req.query;
   const category = req.query.category === 'All' ? undefined : req.query.category;
-  const data = model.getAll({ search, category });
+  const data = await model.getAll({ search, category });
   res.status(200).json({ success: true, data });
 };
 
-const getOne = (req, res) => {
+const getOne = async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
     return res.status(400).json({ success: false, message: 'Invalid product ID' });
   }
 
-  const product = model.getById(id);
+  const product = await model.getById(id);
   if (!product) {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }
@@ -44,25 +44,25 @@ const getOne = (req, res) => {
   res.status(200).json({ success: true, data: product });
 };
 
-const create = (req, res) => {
+const create = async (req, res) => {
   const error = validate(req.body);
   if (error) {
     return res.status(400).json({ success: false, message: error });
   }
 
   const { name, category, price, cost, stock, unit } = req.body;
-  const product = model.create({ name: name.trim(), category: category.trim(), price, cost, stock, unit });
+  const product = await model.create({ name: name.trim(), category: category.trim(), price, cost, stock, unit });
 
   res.status(201).json({ success: true, data: product });
 };
 
-const update = (req, res) => {
+const update = async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
     return res.status(400).json({ success: false, message: 'Invalid product ID' });
   }
 
-  if (!model.getById(id)) {
+  if (!await model.getById(id)) {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }
 
@@ -72,18 +72,18 @@ const update = (req, res) => {
   }
 
   const { name, category, price, cost, stock, unit } = req.body;
-  const product = model.update(id, { name: name.trim(), category: category.trim(), price, cost, stock, unit });
+  const product = await model.update(id, { name: name.trim(), category: category.trim(), price, cost, stock, unit });
 
   res.status(200).json({ success: true, data: product });
 };
 
-const remove = (req, res) => {
+const remove = async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
     return res.status(400).json({ success: false, message: 'Invalid product ID' });
   }
 
-  const deleted = model.remove(id);
+  const deleted = await model.remove(id);
   if (!deleted) {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }

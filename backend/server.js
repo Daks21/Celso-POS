@@ -1,5 +1,7 @@
-const express          = require('express');
 const dotenv           = require('dotenv');
+dotenv.config();
+
+const express          = require('express');
 const cors             = require('cors');
 const productsRouter   = require('./routes/products.routes');
 const authRouter       = require('./routes/auth.routes');
@@ -8,14 +10,25 @@ const analyticsRouter  = require('./routes/analytics.routes');
 const inventoryRouter  = require('./routes/inventory.routes');
 const errorMiddleware  = require('./middleware/error.middleware');
 
-dotenv.config();
+require('./config/db.config');
+
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Celso POS API is running' });
+app.get('/api/health', async (req, res) => {
+  try {
+    const db = require('./config/db.config');
+    const [rows] = await db.query('SELECT COUNT(*) AS count FROM products');
+    res.json({
+      success: true,
+      message: 'Celso POS API is running',
+      db: `Connected — ${rows[0].count} products in database`,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 app.use('/api/auth',      authRouter);

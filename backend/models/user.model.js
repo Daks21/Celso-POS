@@ -1,31 +1,27 @@
-const bcrypt = require('bcrypt');
+const db = require('../config/db.config');
 
-const users = [
-  {
-    id: 1,
-    fullName: 'Admin User',
-    email: 'admin@celsopos.com',
-    password: bcrypt.hashSync('admin123', 10),
-    role: 'admin',
-    createdAt: new Date().toISOString()
-  }
-];
-
-const findByEmail = (email) => users.find(u => u.email === email) || null;
-
-const findById = (id) => users.find(u => u.id === id) || null;
-
-const createUser = ({ fullName, email, password, role = 'cashier' }) => {
-  const user = {
-    id: users.length + 1,
-    fullName,
-    email,
-    password,
-    role,
-    createdAt: new Date().toISOString()
-  };
-  users.push(user);
-  return user;
+const findByEmail = async (email) => {
+  const [rows] = await db.query(
+    'SELECT id, full_name AS fullName, email, password, role, created_at AS createdAt FROM users WHERE email = ?',
+    [email]
+  );
+  return rows[0] || null;
 };
 
-module.exports = { findByEmail, createUser, findById };
+const findById = async (id) => {
+  const [rows] = await db.query(
+    'SELECT id, full_name AS fullName, email, role, created_at AS createdAt FROM users WHERE id = ?',
+    [id]
+  );
+  return rows[0] || null;
+};
+
+const createUser = async ({ fullName, email, password, role = 'cashier' }) => {
+  const [result] = await db.query(
+    'INSERT INTO users (full_name, email, password, role) VALUES (?, ?, ?, ?)',
+    [fullName, email, password, role]
+  );
+  return findById(result.insertId);
+};
+
+module.exports = { findByEmail, findById, createUser };
