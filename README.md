@@ -1,5 +1,5 @@
 ================================================================
-  Celso POS v2.0
+  Celso POS v3.0
   SARI-SARI STORE POS + INVENTORY + SALES MANAGEMENT SYSTEM
 ================================================================
 
@@ -58,7 +58,7 @@
   │  LAYER 3: DATABASE │  │  LAYER 4: AI (FUTURE) │
   │  Stores all data   │  │  Reads data, gives    │
   │  permanently       │  │  smart suggestions    │
-  │  Tech: SQL         │  │  Tech: Claude API     │
+  │  Tech: MySQL 8     │  │  Tech: Claude API     │
   └────────────────────┘  └───────────────────────┘
 
   HOW THEY CONNECT:
@@ -78,7 +78,7 @@
 
   COMMUNICATION FORMAT:
     - Frontend ↔ Backend : JSON over HTTP (REST API)
-    - Backend  ↔ Database: SQL queries
+    - Backend  ↔ Database: SQL queries via mysql2 (prepared statements)
     - Backend  ↔ AI      : API calls with structured data
 
 ================================================================
@@ -93,8 +93,8 @@
   Celso_POS/
   │
   ├── frontend/                ← Everything the user sees
-  ├── backend/                 ← Server, routes, logic (Phase 2)
-  ├── database/                ← SQL schema and seed data (Phase 3)
+  ├── backend/                 ← Server, routes, logic (Phase 2+3 COMPLETE)
+  ├── database/                ← SQL schema and seed data (Phase 3 COMPLETE)
   ├── ai/                      ← AI assistant (Phase 4)
   │
   ├── .gitignore               ← Files to exclude from Git
@@ -200,41 +200,58 @@
 
   ─────────────────────────────────────────────────────────────
 
-  backend/                     ← Phase 2 (COMPLETE)
+  backend/                     ← Phase 2 + 3 (COMPLETE)
   │
-  ├── server.js                ← App entry point. Starts the server.
-  ├── .env                     ← JWT secret and port config (not in git)
+  ├── server.js                ← App entry point. Env validation,
+  │                               middleware stack, graceful shutdown.
+  ├── .env                     ← DB credentials, JWT secret, port (git-ignored)
+  │
+  ├── config/
+  │   └── db.config.js         ← MySQL connection pool (mysql2/promise)
+  │
   ├── routes/                  ← URL endpoints (API paths)
-  │   ├── auth.routes.js       ← /api/auth/login, /api/auth/register
+  │   ├── auth.routes.js       ← /api/auth/login, /api/auth/register,
+  │   │                           /api/auth/me
   │   ├── products.routes.js   ← /api/products (CRUD)
-  │   ├── sales.routes.js      ← /api/sales (create, history, summary)
+  │   ├── sales.routes.js      ← /api/sales (create, history, summary,
+  │   │                           by ID)
   │   ├── inventory.routes.js  ← /api/inventory (stock, low-stock,
   │   │                           summary, adjust — admin-protected)
   │   └── analytics.routes.js  ← /api/analytics (summary, heatmap,
   │                               kpis, charts — JWT-protected)
   │
-  ├── controllers/             ← Logic for each feature
+  ├── controllers/             ← Business logic for each feature
   │   ├── auth.controller.js
   │   ├── products.controller.js
   │   ├── sales.controller.js
   │   ├── inventory.controller.js
   │   └── analytics.controller.js
   │
-  ├── models/                  ← In-memory data stores + query logic
-  │   ├── user.model.js        ← Users, bcrypt password hashing
-  │   ├── product.model.js     ← Products + stock query/mutation fns
-  │   └── sale.model.js        ← Sales records + aggregation fns
+  ├── models/                  ← MySQL query functions (no in-memory state)
+  │   ├── user.model.js        ← Users table: findByEmail, findById,
+  │   │                           create (bcrypt hashing)
+  │   ├── product.model.js     ← Products table: CRUD, soft-delete,
+  │   │                           search/filter, stock management
+  │   └── sale.model.js        ← Sales + analytics: atomic create(),
+  │                               getHistory(), getById(), summary,
+  │                               heatmap, kpis, charts aggregations
   │
-  └── middleware/
-      ├── auth.middleware.js   ← JWT verification + admin role check
-      └── error.middleware.js  ← Catches and formats errors
+  ├── middleware/
+  │   ├── auth.middleware.js   ← JWT verification + admin role check
+  │   └── error.middleware.js  ← Global error handler
+  │                               ({ success: false, message })
+  │
+  └── tests/
+      ├── test-checkpoint37.js ← Security + integration tests (37 checks)
+      └── test-integration.js  ← Full end-to-end flow tests (56+ checks)
 
   ─────────────────────────────────────────────────────────────
 
-  database/                    ← Phase 3 (not yet built)
+  database/                    ← Phase 3 (COMPLETE)
   │
-  ├── schema.sql               ← CREATE TABLE statements
-  └── seed.sql                 ← Sample data for testing
+  ├── schema.sql               ← 5-table relational schema with indexes
+  │                               and foreign keys
+  └── seed.sql                 ← Sample products, users, and sales data
 
   ─────────────────────────────────────────────────────────────
 
@@ -245,7 +262,376 @@
   ─────────────────────────────────────────────────────────────
 
 ================================================================
-[4. DEVELOPMENT ROADMAP]
+[4. DATABASE SCHEMA]
+================================================================
+
+  ENGINE: MySQL 8.0 | CHARSET: utf8mb4
+  DRIVER: mysql2/promise (connection pool, size: 5)
+
+  TABLE: users
+  ─────────────────────────────────────────────────────────────
+    id          INT           PK, AUTO_INCREMENT
+    full_name   VARCHAR       NOT NULL
+    email       VARCHAR       UNIQUE, NOT NULL
+    password    VARCHAR       bcrypt hash, NOT NULL
+    role        VARCHAR       'admin' | 'cashier' (default: cashier)
+    created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+    updated_at  TIMESTAMP     AUTO UPDATE
+
+  TABLE: products
+  ─────────────────────────────────────────────────────────────
+    id          INT           PK, AUTO_INCREMENT
+    name        VARCHAR(100)  NOT NULL
+    category    VARCHAR       NOT NULL
+    price       DECIMAL(10,2) NOT NULL, > 0
+    cost        DECIMAL(10,2) >= 0
+    stock       INT           >= 0, default 0
+    unit        VARCHAR       piece | pack | bottle | can |
+                              sachet | box | kg | liter
+    is_active   TINYINT(1)    Soft-delete flag (default: 1)
+    created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+    updated_at  TIMESTAMP     AUTO UPDATE
+
+  TABLE: sales
+  ─────────────────────────────────────────────────────────────
+    id          INT           PK, AUTO_INCREMENT
+    receipt_no  VARCHAR       UNIQUE, format: RCPT-XXXXXX
+    subtotal    DECIMAL(10,2)
+    tax         DECIMAL(10,2)
+    tax_rate    DECIMAL(5,2)
+    cart_tax_on TINYINT(1)    0 = tax per unit | 1 = tax on cart total
+    total       DECIMAL(10,2)
+    payment     DECIMAL(10,2)
+    change_given DECIMAL(10,2)
+    cashier_id  INT           FK → users.id
+    created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+
+  TABLE: sale_items
+  ─────────────────────────────────────────────────────────────
+    id           INT          PK, AUTO_INCREMENT
+    sale_id      INT          FK → sales.id, NOT NULL
+    product_id   INT          FK → products.id, NOT NULL
+    product_name VARCHAR      Snapshot of name at time of sale
+    unit_price   DECIMAL(10,2) Snapshot of price at time of sale
+    quantity     INT          > 0
+    line_total   DECIMAL(10,2) unit_price × quantity
+
+  TABLE: inventory_adjustments  (audit log)
+  ─────────────────────────────────────────────────────────────
+    id           INT          PK, AUTO_INCREMENT
+    product_id   INT          FK → products.id, NOT NULL
+    type         VARCHAR      restock | adjustment | damage |
+                              return | sale
+    qty          INT          Absolute quantity changed
+    stock_before INT          Snapshot before change
+    stock_after  INT          Snapshot after change
+    notes        TEXT         Optional description or receipt_no
+    adjusted_by  INT          FK → users.id (nullable)
+    created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+
+  INDEXES: users.email (UNIQUE), products.name, products.category,
+           sales.created_at, sales.cashier_id, sale_items.sale_id,
+           sale_items.product_id, inventory_adjustments.product_id,
+           inventory_adjustments.created_at
+
+================================================================
+[5. API REFERENCE]
+================================================================
+
+  BASE URL   : http://localhost:3000/api
+  AUTH HEADER: Authorization: Bearer <token>
+  FORMAT     : All responses → { success: boolean, data | message }
+
+  ──────────────────────────────────────────────────────────────
+  AUTHENTICATION  /api/auth
+  ──────────────────────────────────────────────────────────────
+
+    POST   /register       Public (rate-limited)
+      Body: { fullName, email, password }
+      → 201 { success, message }
+      → 400 validation error | 409 email already exists
+
+    POST   /login          Public (rate-limited)
+      Body: { email, password }
+      → 200 { success, token, user: { id, fullName, email, role } }
+      → 401 invalid credentials
+
+    GET    /me             Auth required
+      → 200 { success, user: { id, fullName, email, role } }
+
+  ──────────────────────────────────────────────────────────────
+  PRODUCTS  /api/products
+  ──────────────────────────────────────────────────────────────
+
+    GET    /               Public
+      Query: ?search=<string>&category=<string>
+      → 200 { success, data: Product[] }
+      Returns only active products, sorted A→Z
+
+    GET    /:id            Public
+      → 200 { success, data: Product }
+      → 404 not found
+
+    POST   /               Auth required
+      Body: { name, category, price, cost, stock, unit }
+      → 201 { success, data: Product }
+      → 400 validation error
+
+    PUT    /:id            Auth required
+      Body: Same as POST (full update)
+      → 200 { success, data: Product }
+
+    DELETE /:id            Auth required
+      Soft delete (sets is_active = 0, data is preserved)
+      → 204 no content
+
+  ──────────────────────────────────────────────────────────────
+  SALES  /api/sales
+  ──────────────────────────────────────────────────────────────
+
+    POST   /               Auth required
+      Body: { items: [{ productId, name, price, quantity,
+              lineTotal }], subtotal, tax, taxRate, cartTaxOn,
+              total, payment }
+      Server recalculates all prices from DB — client values
+      are verified, not trusted.
+      Atomically: inserts sale, inserts items, deducts stock,
+      logs inventory_adjustments — all in one transaction.
+      → 201 { success, data: Sale }
+      → 400 insufficient stock | price mismatch | validation
+
+    GET    /               Auth required
+      Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD
+      → 200 { success, data: Sale[] }
+
+    GET    /:id            Auth required
+      → 200 { success, data: Sale }
+
+    GET    /summary        Auth required
+      → 200 { success, data: { totalRevenue, transactionCount,
+              avgSaleValue } } (today only)
+
+  ──────────────────────────────────────────────────────────────
+  INVENTORY  /api/inventory
+  ──────────────────────────────────────────────────────────────
+
+    GET    /               Auth required
+      → 200 { success, data: [{ id, name, stock, unit,
+              status: out-of-stock | low | in-stock }] }
+
+    GET    /low-stock      Auth required
+      Query: ?threshold=<int> (default: 50)
+      → 200 { success, threshold, count, data: Product[] }
+
+    GET    /summary        Auth required
+      → 200 { success, data: { totalProducts, lowStockCount,
+              outOfStockCount, lowStockItems } }
+
+    POST   /:productId/adjust   Auth + Admin required
+      Body: { quantity, type, notes? }
+      type: restock | adjustment | damage | return
+      restock/return → adds stock | damage/adjustment → removes
+      Stock never goes below 0.
+      → 200 { success, data: { product, adjustment } }
+
+  ──────────────────────────────────────────────────────────────
+  ANALYTICS  /api/analytics
+  ──────────────────────────────────────────────────────────────
+
+    GET    /summary        Auth required
+      Query: ?date=YYYY-MM-DD (default: today)
+      → 200 { success, data: { todayRevenue, todayTransactions,
+              avgSaleValue, totalProducts, lowStockCount,
+              outOfStockCount, lowStockItems } }
+
+    GET    /heatmap        Auth required
+      → 200 { success, data: { "YYYY-MM-DD": totalRevenue, ... } }
+      All dates with sales activity, mapped to their revenue.
+
+    GET    /kpis           Auth required
+      Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (default: last 30 days)
+      → 200 { success, data: { totalRevenue, transactionCount,
+              avgOrderValue, totalUnits } }
+
+    GET    /charts         Auth required
+      Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (default: last 30 days)
+      → 200 { success, data: { revenueByDay, topByRevenue,
+              topByQty, byDayOfWeek } }
+      revenueByDay: all dates in range, 0-filled for missing days
+      topByRevenue / topByQty: top 5 products each
+      byDayOfWeek: array[7] (Sun=0 … Sat=6)
+
+  ──────────────────────────────────────────────────────────────
+  HEALTH CHECK  /api/health
+  ──────────────────────────────────────────────────────────────
+
+    GET    /api/health     Public
+      → 200 { success, message, db: "Connected — N products" }
+
+================================================================
+[6. MIDDLEWARE STACK]
+================================================================
+
+  Applied in order on every request:
+
+    1. helmet()                  OWASP security headers
+                                 (X-Frame-Options, X-Content-Type-Options,
+                                  X-XSS-Protection, CSP, etc.)
+
+    2. cors({ origin })          Restricts to FRONTEND_URL env var
+                                 (default: http://localhost:5173)
+                                 Allowed methods: GET POST PUT DELETE PATCH
+                                 Allowed headers: Content-Type Authorization
+
+    3. morgan('dev')             HTTP request logging to stdout
+                                 (method, path, status, response time)
+
+    4. express.json({ limit })   JSON body parser, capped at 10 KB
+                                 (protects against oversized payload DoS)
+
+    5. authLimiter               Rate limit on /api/auth/login and
+                                 /api/auth/register: 20 req / 15 min
+
+    6. adjustLimiter             Rate limit on /api/inventory:
+                                 60 req / 15 min
+
+    7. authMiddleware            Validates Bearer token from Authorization
+                                 header; attaches req.user (id, role, etc.)
+
+    8. adminMiddleware           Checks req.user.role === 'admin';
+                                 returns 403 if not (admin-only routes only)
+
+    9. errorMiddleware           Global error handler (last in chain)
+                                 → { success: false, message }
+
+================================================================
+[7. ENVIRONMENT VARIABLES]
+================================================================
+
+  Required — server exits immediately if any are missing:
+
+    JWT_SECRET         Secret key for signing JWTs
+                       Must be cryptographically random, ≥ 64 chars
+    DB_HOST            MySQL server hostname (e.g. localhost)
+    DB_USER            MySQL user (e.g. celsopos_app)
+    DB_PASS            MySQL user password
+    DB_NAME            Target database name (e.g. celsopos_db)
+
+  Optional — fallback defaults shown:
+
+    PORT               3000     HTTP server port
+    DB_PORT            3306     MySQL port
+    DB_POOL_SIZE       5        Connection pool size
+    FRONTEND_URL       http://localhost:5173   CORS origin
+
+  Example .env file:
+
+    JWT_SECRET=<128-char random string>
+    DB_HOST=localhost
+    DB_PORT=3306
+    DB_USER=celsopos_app
+    DB_PASS=your_db_password
+    DB_NAME=celsopos_db
+    PORT=3000
+    FRONTEND_URL=http://localhost:5173
+
+================================================================
+[8. SECURITY]
+================================================================
+
+  PASSWORD HASHING
+    bcrypt with 10 salt rounds. Plaintext passwords are never stored.
+
+  JWT AUTHENTICATION
+    Signed with a 128-character cryptographically random JWT_SECRET.
+    Token expiry: 7 days. Role (admin/cashier) embedded in payload.
+
+  SQL INJECTION PREVENTION
+    All database queries use parameterized prepared statements via
+    mysql2. No raw string interpolation in SQL.
+
+  RATE LIMITING
+    Auth endpoints: 20 requests per 15-minute window.
+    Inventory endpoints: 60 requests per 15-minute window.
+
+  INPUT VALIDATION
+    All write operations validated server-side: type checks, length
+    limits, enum whitelists, numeric range checks.
+    Float tolerance (±0.01) for sale price arithmetic verification.
+
+  SERVER-SIDE PRICE ENFORCEMENT
+    Sale line totals are recalculated using database product prices,
+    not client-supplied values. Clients cannot manipulate prices.
+
+  SOFT DELETES
+    Products are never hard-deleted. Deleted records get is_active=0,
+    preserving sale history and audit trails.
+
+  AUDIT LOG
+    Every stock change (sale, restock, adjustment, damage, return)
+    is written to inventory_adjustments with before/after snapshots
+    and the user ID that performed the action.
+
+  ATOMIC TRANSACTIONS
+    Sale creation is fully atomic (ACID). All-or-nothing: sale header,
+    line items, stock deductions, and audit entries either all succeed
+    or all roll back.
+
+  HTTP SECURITY HEADERS
+    helmet.js sets OWASP-recommended headers on every response:
+    X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, CSP.
+
+  CORS RESTRICTION
+    Only the configured FRONTEND_URL origin is allowed. All other
+    origins are rejected.
+
+  REQUEST BODY SIZE LIMIT
+    JSON body capped at 10 KB. Oversized requests are rejected before
+    reaching application logic.
+
+  GRACEFUL SHUTDOWN
+    SIGINT and SIGTERM signals close the HTTP server and drain the
+    database connection pool cleanly before the process exits.
+
+================================================================
+[9. RUNNING THE PROJECT]
+================================================================
+
+  REQUIREMENTS
+    - Node.js >= 18.0.0
+    - MySQL 8.0 running locally
+
+  SETUP
+
+    1. Install dependencies
+         cd backend
+         npm install
+
+    2. Create the database and tables
+         mysql -u root -p < database/schema.sql
+
+    3. Seed sample data (optional)
+         mysql -u root -p celsopos_db < database/seed.sql
+
+    4. Create backend/.env (see Section 7 for all variables)
+
+    5. Start the server
+         Development (auto-reload):   npm run dev
+         Production:                  npm start
+
+    6. Verify the server is up
+         GET http://localhost:3000/api/health
+
+  RUNNING TESTS
+
+    Server must be running. Tests use a live MySQL database.
+    Test user: admin@celsopos.com / admin123
+
+      node backend/test-checkpoint37.js   (37 security + integration checks)
+      node backend/test-integration.js    (56+ end-to-end flow checks)
+
+================================================================
+[10. DEVELOPMENT ROADMAP]
 ================================================================
 
     Frontend → Backend → Database → AI → Deployment
@@ -375,7 +761,7 @@
     Module 2.4 — Sales API (Create + History)
       - POST /api/sales: atomic two-phase commit — validates stock
         and price server-side before recording sale and deducting stock
-      - GET /api/sales: paginated history with date-range filtering
+      - GET /api/sales: history with date-range filtering
       - GET /api/sales/summary: today's revenue, orders, top products
       - All endpoints JWT-protected
 
@@ -404,18 +790,62 @@
         mismatches, broken date filters, charts sourcing wrong data)
 
   ──────────────────────────────────────────────────────────────
-  PHASE 3: DATABASE (SQL)                           [NEXT]
+  PHASE 3: DATABASE (MySQL)                         [COMPLETE]
   ──────────────────────────────────────────────────────────────
 
-  MODULES:
-    Module 3.1 — Design Database Schema (entity breakdown)
-    Module 3.2 — Create Tables (users, products, sales)
-    Module 3.3 — Connect Backend to Database
-    Module 3.4 — Run SQL through the API
-    Module 3.5 — Seed sample data for testing
+  MODULES BUILT:
+
+    Module 3.1 — Database Schema Design
+      - 5-table relational model: users, products, sales,
+        sale_items, inventory_adjustments
+      - Foreign keys, indexes, utf8mb4 charset, soft deletes
+
+    Module 3.2 — Create Tables + Seed Data
+      - schema.sql: all CREATE TABLE statements with constraints
+      - seed.sql: sample users (admin + cashier), 20 products,
+        and sales history for testing
+
+    Module 3.3 — Connect Backend to MySQL
+      - mysql2/promise connection pool (connectionLimit: 5)
+      - Pool initialized on server start; connection tested on boot
+
+    Module 3.4 — Migrate Models to SQL
+      - user.model.js: all in-memory arrays replaced with SQL
+        (findByEmail, findById, create with duplicate check)
+      - product.model.js: full CRUD in SQL — soft delete,
+        dynamic search/filter queries with prepared statements
+
+    Module 3.5–3.6 — Sales + Analytics Pipeline Migration
+      - sale.model.js: transactional create() atomically inserts
+        sale header, line items, deducts stock, and logs adjustments
+      - 5 SQL aggregation functions: summary, heatmap, kpis,
+        charts (top products, day-of-week, daily revenue trend)
+      - GROUP BY fix applied for MySQL 8 strict mode
+      - All analytics endpoints wired with async/await and
+        date-range defaults
+
+    Module 3.7 — Security Hardening + Integration Testing
+      - JWT_SECRET rotated to 128-character cryptographic value
+      - Database restricted to least-privilege MySQL user
+        (celsopos_app with SELECT/INSERT/UPDATE on celsopos_db only)
+      - Rate limiting added to auth endpoints (20 req / 15 min)
+      - 32 automated integration checks against live MySQL database
+        — all passing
+
+    Module 3.8 — Pre-Phase 4 QA Hardening
+      - helmet.js: OWASP security headers on all responses
+      - morgan: HTTP request logging (dev format)
+      - CORS locked to FRONTEND_URL environment variable
+      - JSON body size capped at 10 KB (DoS protection)
+      - Env var fail-fast: server exits on missing required vars
+      - Graceful shutdown: SIGINT/SIGTERM drains pool cleanly
+      - Rate limiting extended to /api/inventory (60 req / 15 min)
+      - Error response format normalized to
+        { success: false, message } across all routes
+      - Node.js engine requirement set to >=18.0.0
 
   ──────────────────────────────────────────────────────────────
-  PHASE 4: AI INTEGRATION
+  PHASE 4: AI INTEGRATION                           [NEXT]
   ──────────────────────────────────────────────────────────────
 
   MODULES:
@@ -436,5 +866,25 @@
     Module 5.5 — Final testing and go-live
 
 ================================================================
-  END OF DOCUMENT — Version 2.0 (Phase 2 Complete)
+[11. DEPENDENCIES]
+================================================================
+
+  PRODUCTION
+    express              ^5.2.1    Web framework
+    mysql2               ^3.22.3   MySQL driver (promise-based)
+    bcrypt               ^6.0.0    Password hashing
+    jsonwebtoken         ^9.0.3    JWT generation and verification
+    cors                 ^2.8.6    Cross-origin resource sharing
+    dotenv               ^17.4.2   Environment variable loader
+    express-rate-limit   ^8.5.2    Request rate limiting
+    helmet               ^8.1.0    OWASP HTTP security headers
+    morgan               ^1.10.1   HTTP request logger
+
+  DEVELOPMENT
+    nodemon              ^3.1.14   Auto-restart server on file changes
+
+  NODE REQUIREMENT: >= 18.0.0
+
+================================================================
+  END OF DOCUMENT — Version 3.0 (Phase 3 Complete, Phase 4 Next)
 ================================================================
