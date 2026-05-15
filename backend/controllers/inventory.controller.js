@@ -35,10 +35,11 @@ const getSummary = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        totalProducts:   all.length,
-        lowStockCount:   lowStockItems.length,
-        outOfStockCount: outOfStock.length,
+        totalProducts:    all.length,
+        lowStockCount:    lowStockItems.length,
+        outOfStockCount:  outOfStock.length,
         lowStockItems,
+        outOfStockItems:  outOfStock,
       }
     });
   } catch (err) {

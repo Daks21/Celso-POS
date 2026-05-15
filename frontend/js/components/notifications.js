@@ -1,94 +1,77 @@
 // notifications.js
-// Generates stock-based notifications from localStorage and renders a dropdown panel.
+// Fetches live stock alerts from the backend API and renders a dropdown panel.
 
 (function () {
 
-  // ── Storage helpers ──
+  // ── Dismissed IDs (lightweight — only IDs stored, not full objects) ──
 
-  function loadNotifs() {
-    var saved = localStorage.getItem('notifications');
-    return saved ? JSON.parse(saved) : [];
+  function loadDismissedIds() {
+    try {
+      var raw = localStorage.getItem('notif_dismissed');
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch (e) {
+      return new Set();
+    }
   }
 
-  function saveNotifs(notifs) {
-    localStorage.setItem('notifications', JSON.stringify(notifs));
+  function saveDismissedIds(ids) {
+    localStorage.setItem('notif_dismissed', JSON.stringify(Array.from(ids)));
   }
 
-  // ── Sync notifications from current product stock ──
-  // Rules:
-  //   stock > 5      → remove all notifs for this product (reset so future drops generate fresh ones)
-  //   stock 1–5      → ensure a 'low' notif exists; upgrade from 'out' if needed
-  //   stock === 0    → ensure an 'out' notif exists; upgrade from 'low' if needed
+  // In-memory list — rebuilt on every sync, never persisted in full
+  var _notifs = [];
 
-  function syncStockNotifs() {
-    var products = JSON.parse(localStorage.getItem('products') || '[]');
-    var notifs   = loadNotifs();
+  // ── Sync from backend API ──
 
-    products.forEach(function (p) {
-      var hasOut = notifs.find(function (n) { return n.productId === p.id && n.type === 'out'; });
-      var hasLow = notifs.find(function (n) { return n.productId === p.id && n.type === 'low'; });
+  async function syncStockNotifs() {
+    var dismissedIds = loadDismissedIds();
 
-      var thr = (typeof getLowStockThreshold === 'function') ? getLowStockThreshold() : 50;
+    try {
+      var result = await getInventorySummary();
+      if (!result || !result.success) return;
 
-      if (p.stock > thr) {
-        // Product is fine — clear all its notifs so fresh ones appear next time it drops
-        notifs = notifs.filter(function (n) { return n.productId !== p.id; });
+      var fresh = [];
 
-      } else if (p.stock === 0) {
-        if (hasOut) {
-          // Already have an 'out' notif (dismissed or not) — update stock value only
-          hasOut.stock = p.stock;
-        } else {
-          // Remove stale 'low' notif and add a fresh 'out' notif
-          notifs = notifs.filter(function (n) { return n.productId !== p.id; });
-          notifs.unshift({
-            id: 'notif_out_' + p.id,
-            type: 'out',
-            productId: p.id,
-            productName: p.name,
-            stock: p.stock,
-            unit: p.unit || 'pc',
-            createdAt: Date.now(),
-            dismissed: false
-          });
-        }
+      // Out-of-stock first (highest priority)
+      (result.data.outOfStockItems || []).forEach(function (p) {
+        var id = 'notif_out_' + p.id;
+        fresh.push({
+          id:          id,
+          type:        'out',
+          productId:   p.id,
+          productName: p.name,
+          stock:       p.stock,
+          unit:        p.unit || 'pc',
+          dismissed:   dismissedIds.has(id)
+        });
+      });
 
-      } else {
-        // stock 1–5
-        if (hasOut) {
-          // Was out, now has some stock — downgrade to 'low'
-          notifs = notifs.filter(function (n) { return n.productId !== p.id; });
-          notifs.unshift({
-            id: 'notif_low_' + p.id,
-            type: 'low',
-            productId: p.id,
-            productName: p.name,
-            stock: p.stock,
-            unit: p.unit || 'pc',
-            createdAt: Date.now(),
-            dismissed: false
-          });
-        } else if (hasLow) {
-          // Already have a 'low' notif — update stock value only
-          hasLow.stock = p.stock;
-        } else {
-          // Fresh low stock notif
-          notifs.unshift({
-            id: 'notif_low_' + p.id,
-            type: 'low',
-            productId: p.id,
-            productName: p.name,
-            stock: p.stock,
-            unit: p.unit || 'pc',
-            createdAt: Date.now(),
-            dismissed: false
-          });
-        }
-      }
-    });
+      // Low-stock items
+      (result.data.lowStockItems || []).forEach(function (p) {
+        var id = 'notif_low_' + p.id;
+        fresh.push({
+          id:          id,
+          type:        'low',
+          productId:   p.id,
+          productName: p.name,
+          stock:       p.stock,
+          unit:        p.unit || 'pc',
+          dismissed:   dismissedIds.has(id)
+        });
+      });
 
-    saveNotifs(notifs);
-    return notifs;
+      // Prune dismissed IDs for products no longer in alert state
+      var currentIds = new Set(fresh.map(function (n) { return n.id; }));
+      var pruned = new Set();
+      dismissedIds.forEach(function (id) { if (currentIds.has(id)) pruned.add(id); });
+      saveDismissedIds(pruned);
+
+      _notifs = fresh;
+    } catch (e) {
+      // Silently fail — UI stays functional even if notifications can't load
+    }
+
+    updateBadge();
   }
 
   // ── Badge ──
@@ -96,7 +79,7 @@
   function updateBadge() {
     var badge = document.getElementById('notif-badge');
     if (!badge) return;
-    var count = loadNotifs().filter(function (n) { return !n.dismissed; }).length;
+    var count = _notifs.filter(function (n) { return !n.dismissed; }).length;
     if (count > 0) {
       badge.textContent = count > 9 ? '9+' : String(count);
       badge.style.display = 'flex';
@@ -108,8 +91,7 @@
   // ── Panel rendering ──
 
   function renderPanel(panel) {
-    var notifs = loadNotifs();
-    var active = notifs.filter(function (n) { return !n.dismissed; });
+    var active = _notifs.filter(function (n) { return !n.dismissed; });
 
     var html = '<div class="notif-panel-header">' +
       '<span class="notif-panel-title">Notifications</span>';
@@ -117,9 +99,7 @@
     if (active.length > 0) {
       html += '<button class="notif-clear-btn" id="notif-clear-all">Clear all</button>';
     }
-    html += '</div>';
-
-    html += '<div class="notif-list" id="notif-list">';
+    html += '</div><div class="notif-list" id="notif-list">';
 
     if (active.length === 0) {
       html += '<div class="notif-empty">' +
@@ -131,9 +111,9 @@
         var icon  = n.type === 'out' ? 'x-circle' : 'alert-triangle';
         var cls   = n.type === 'out' ? 'notif-item--out' : 'notif-item--low';
         var title = n.type === 'out' ? 'Out of Stock' : 'Low Stock';
-        var stock = n.stock;
-        var unit  = n.unit || 'pc';
-        var desc  = n.productName + ' \u2014 ' + stock + ' ' + unit + (stock !== 1 ? 's' : '') + ' left';
+        var desc  = n.type === 'out'
+          ? n.productName + ' — None left'
+          : n.productName + ' — ' + n.stock + ' ' + (n.unit || 'pc') + (n.stock !== 1 ? 's' : '') + ' left';
 
         html += '<div class="notif-item ' + cls + '" data-id="' + n.id + '">' +
           '<div class="notif-item-icon"><i data-lucide="' + icon + '"></i></div>' +
@@ -163,43 +143,44 @@
     var wrapper = btn.closest('.notif-wrapper');
     if (!wrapper) return;
 
-    // Inject panel element
     var panel = document.createElement('div');
     panel.className = 'notif-panel';
     panel.id = 'notif-panel';
     wrapper.appendChild(panel);
 
-    // Sync and update badge on load
+    // Initial sync + poll every 60 s
     syncStockNotifs();
-    updateBadge();
+    setInterval(syncStockNotifs, 60000);
 
-    // Toggle panel on bell click
+    // Toggle: re-sync for freshest data before opening
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
-      var isOpen = panel.classList.contains('is-open');
-      if (!isOpen) {
-        renderPanel(panel);
-        panel.classList.add('is-open');
-      } else {
+      if (panel.classList.contains('is-open')) {
         panel.classList.remove('is-open');
+      } else {
+        syncStockNotifs().then(function () {
+          renderPanel(panel);
+          panel.classList.add('is-open');
+        });
       }
     });
 
-    // Dismiss / clear-all inside panel
+    // Dismiss / clear-all
     panel.addEventListener('click', function (e) {
       var dismissBtn = e.target.closest('.notif-dismiss-btn');
       var clearBtn   = e.target.closest('#notif-clear-all');
 
       if (dismissBtn) {
         var id = dismissBtn.dataset.id;
-        var notifs = loadNotifs();
-        notifs.forEach(function (n) { if (n.id === id) n.dismissed = true; });
-        saveNotifs(notifs);
+        var dismissed = loadDismissedIds();
+        dismissed.add(id);
+        saveDismissedIds(dismissed);
+        _notifs.forEach(function (n) { if (n.id === id) n.dismissed = true; });
         renderPanel(panel);
       } else if (clearBtn) {
-        var notifs = loadNotifs();
-        notifs.forEach(function (n) { n.dismissed = true; });
-        saveNotifs(notifs);
+        var dismissed = loadDismissedIds();
+        _notifs.forEach(function (n) { n.dismissed = true; dismissed.add(n.id); });
+        saveDismissedIds(dismissed);
         renderPanel(panel);
       }
     });

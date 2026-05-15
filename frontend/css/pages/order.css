@@ -106,6 +106,10 @@
   font-weight: 700;
 }
 
+.pos-product-card .stock-dot--ok {
+  display: none;
+}
+
 .pos-product-card.is-disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -559,7 +563,8 @@
 
   .pos-product-grid {
     flex: unset;
-    overflow-y: visible;
+    overflow-y: auto;
+    max-height: clamp(220px, 48vh, 440px);
     min-height: unset;
   }
 
@@ -597,7 +602,45 @@
     padding: 16px;
   }
 
+  /* ── 2-column compact grid on mobile ── */
   .pos-product-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    max-height: clamp(220px, 44vh, 380px);
+  }
+
+  /* Compact tile: centered text, uniform height */
+  .pos-product-card {
+    text-align: center;
+    padding: 10px 8px;
+    min-height: 76px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* Stock dot becomes a corner badge — frees the name row for centering */
+  .pos-card-name-row {
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+
+  .pos-card-name-row .stock-dot {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 8px;
+    height: 8px;
+  }
+
+  .pos-card-name-row h3 {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .pos-product-price {
+    font-size: 15px;
+    margin-top: 2px;
   }
 }
