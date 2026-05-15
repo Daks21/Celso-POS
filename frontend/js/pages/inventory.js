@@ -23,7 +23,7 @@ let activeCategory = 'All';
 let restockingId   = null;
 
 function isAdmin() {
-  return currentUser && (currentUser.role === 'admin' || currentUser.email === 'admin@celsopos.com');
+  return currentUser && currentUser.role === 'admin';
 }
 
 function getStockStatus(stock) {

@@ -34,7 +34,8 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\" -Force)",
       "Bash(Select-Object Name, Mode)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\\\\backend\" -Recurse -File)",
-      "Bash(ConvertTo-Json)"
+      "Bash(ConvertTo-Json)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\\\\frontend\" -Recurse -File)"
     ]
   }
 }

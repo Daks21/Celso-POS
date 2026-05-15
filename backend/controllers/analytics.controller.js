@@ -3,8 +3,7 @@ const productModel = require('../models/product.model');
 
 const LOW_STOCK_THRESHOLD = 50;
 
-// GET /api/analytics/summary?date=YYYY-MM-DD
-const getSummary = async (req, res) => {
+const getSummary = async (req, res, next) => {
   try {
     const dateStr = req.query.date || new Date().toISOString().slice(0, 10);
 
@@ -31,22 +30,20 @@ const getSummary = async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    next(err);
   }
 };
 
-// GET /api/analytics/heatmap
-const getHeatmap = async (req, res) => {
+const getHeatmap = async (req, res, next) => {
   try {
     const data = await saleModel.getDailyMap();
     res.status(200).json({ success: true, data });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    next(err);
   }
 };
 
-// GET /api/analytics/kpis?from=YYYY-MM-DD&to=YYYY-MM-DD
-const getKPIs = async (req, res) => {
+const getKPIs = async (req, res, next) => {
   try {
     const { from, to } = req.query;
     const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 86400000);
@@ -54,12 +51,11 @@ const getKPIs = async (req, res) => {
     const kpis = await saleModel.getKPIs(fromDate, toDate);
     res.json({ success: true, data: kpis });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    next(err);
   }
 };
 
-// GET /api/analytics/charts?from=YYYY-MM-DD&to=YYYY-MM-DD
-const getCharts = async (req, res) => {
+const getCharts = async (req, res, next) => {
   try {
     const { from, to } = req.query;
     const fromDate = from ? new Date(from + 'T00:00:00.000') : new Date(Date.now() - 30 * 86400000);
@@ -90,7 +86,7 @@ const getCharts = async (req, res) => {
       data: { revenueByDay, topByRevenue, topByQty, byDayOfWeek },
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    next(err);
   }
 };
 

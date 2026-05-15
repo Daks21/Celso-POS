@@ -4,7 +4,7 @@ const { findByEmail, createUser } = require('../models/user.model');
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const register = async (req, res) => {
+const register = async (req, res, next) => {
   try {
     const { fullName, email, password } = req.body;
 
@@ -25,16 +25,15 @@ const register = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newUser = await createUser({ fullName, email, password: hashedPassword });
+    await createUser({ fullName, email, password: hashedPassword });
 
     return res.status(201).json({ success: true, message: 'Account created successfully' });
   } catch (err) {
-    return res.status(500).json({ success: false, message: 'Server error' });
+    next(err);
   }
 };
 
-const login = async (req, res) => {
+const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
@@ -66,7 +65,7 @@ const login = async (req, res) => {
       user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role }
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: 'Server error' });
+    next(err);
   }
 };
 
