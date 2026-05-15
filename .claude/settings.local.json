@@ -27,7 +27,8 @@
       "Bash(Sort-Object FullName)",
       "Bash(Format-Table -AutoSize)",
       "Bash(git *)",
-      "Bash(Out-String)"
+      "Bash(Out-String)",
+      "Bash(kill %1)"
     ]
   }
 }

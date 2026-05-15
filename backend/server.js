@@ -8,6 +8,7 @@ const authRouter       = require('./routes/auth.routes');
 const salesRouter      = require('./routes/sales.routes');
 const analyticsRouter  = require('./routes/analytics.routes');
 const inventoryRouter  = require('./routes/inventory.routes');
+const rateLimit        = require('express-rate-limit');
 const errorMiddleware  = require('./middleware/error.middleware');
 
 require('./config/db.config');
@@ -16,6 +17,10 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
+app.use('/api/auth/login',    authLimiter);
+app.use('/api/auth/register', authLimiter);
 
 app.get('/api/health', async (req, res) => {
   try {

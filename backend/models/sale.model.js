@@ -223,7 +223,7 @@ const getByDayOfWeek = async (from, to) => {
   const [rows] = await db.query(
     `SELECT (DAYOFWEEK(created_at) - 1) AS dayIndex, SUM(total) AS total
      FROM sales WHERE created_at BETWEEN ? AND ?
-     GROUP BY dayIndex ORDER BY dayIndex ASC`, [from, to]
+     GROUP BY (DAYOFWEEK(created_at) - 1) ORDER BY dayIndex ASC`, [from, to]
   );
   const totals = [0, 0, 0, 0, 0, 0, 0];
   rows.forEach(r => { totals[r.dayIndex] = parseFloat(r.total); });
