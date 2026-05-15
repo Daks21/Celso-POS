@@ -28,7 +28,9 @@
       "Bash(Format-Table -AutoSize)",
       "Bash(git *)",
       "Bash(Out-String)",
-      "Bash(kill %1)"
+      "Bash(kill %1)",
+      "Bash(Start-Sleep -Seconds 3)",
+      "Bash(Get-Content \"C:\\\\Users\\\\Sonsuman\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Sonsuman-OneDrive-Desktop-Celso-pos\\\\2a6e31b1-d588-459b-8f4d-a6c2dbb5e368\\\\tasks\\\\bui1bi13n.output\" -ErrorAction SilentlyContinue)"
     ]
   }
 }
