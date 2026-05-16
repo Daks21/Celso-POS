@@ -314,6 +314,15 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     );
 
+    initRadioGroup(
+      'alert-count-group',
+      localStorage.getItem('dashboardAlertCount') || '5',
+      function(value) {
+        localStorage.setItem('dashboardAlertCount', value);
+        syncToDb();
+      }
+    );
+
     initPrefToggle(
       'items-popover-toggle',
       localStorage.getItem('dashboardItemsPopover') !== 'false',

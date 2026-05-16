@@ -55,7 +55,9 @@
       "PowerShell(& \"C:\\\\Program Files\\\\MySQL\\\\MySQL Server 8.0\\\\bin\\\\mysql.exe\" -h localhost -P 3306 -u root -p\"Admin@1234123!@#\" celsopos_db -e \"ALTER TABLE users ADD COLUMN preferences JSON DEFAULT NULL; DESCRIBE users;\")",
       "PowerShell(Invoke-RestMethod -Uri \"http://localhost:3000/api/health\" -Method GET | ConvertTo-Json)",
       "PowerShell(Start-Process -FilePath \"node\" -ArgumentList \"server.js\" -WorkingDirectory \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\\\\backend\" -WindowStyle Hidden)",
-      "PowerShell(Invoke-RestMethod -Uri \"http://localhost:3000/api/health\" -Method GET)"
+      "PowerShell(Invoke-RestMethod -Uri \"http://localhost:3000/api/health\" -Method GET)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   }
 }

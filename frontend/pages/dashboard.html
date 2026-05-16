@@ -157,13 +157,13 @@
 
           <div class="summary-card">
             <div class="summary-card-header">
-              <span class="summary-label">Low Stock Items</span>
+              <span class="summary-label">Stock Alerts</span>
               <div class="summary-icon">
                 <i data-lucide="alert-triangle"></i>
               </div>
             </div>
             <p class="summary-value" id="low-stock-items">0</p>
-            <p class="summary-trend">Need restocking</p>
+            <p class="summary-trend">Low &amp; out of stock</p>
           </div>
 
           <div class="summary-card">
@@ -205,14 +205,35 @@
         </section>
 
         <section class="dashboard-section">
-          <div class="section-header">
-            <h2>Low Stock Alerts</h2>
-            <p>Products that need attention soon</p>
+          <div class="dashboard-section-row">
+            <div class="section-header" style="margin-bottom:0">
+              <h2>Low Stock Alerts</h2>
+              <p>Products that need attention soon</p>
+            </div>
+            <a href="inventory.html" class="customize-dashboard-link">
+              <i data-lucide="archive"></i>
+              View Inventory
+            </a>
           </div>
 
-          <div class="stock-alert-list" id="stock-alert-list">
-            <div class="api-loading-cell"><span class="api-spinner"></span>Loading...</div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Stock</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="stock-alert-list">
+                <tr class="api-loading-row">
+                  <td colspan="3"><span class="api-spinner"></span>Loading...</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
+
+          <div class="dash-pager" id="stock-alert-pagination" style="display:none"></div>
         </section>
 
         <section class="dashboard-section" id="dashboard-analytics-section">

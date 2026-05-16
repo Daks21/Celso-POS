@@ -1,11 +1,10 @@
 const saleModel    = require('../models/sale.model');
 const productModel = require('../models/product.model');
 
-const LOW_STOCK_THRESHOLD = 50;
-
 const getSummary = async (req, res, next) => {
   try {
-    const dateStr = req.query.date || new Date().toISOString().slice(0, 10);
+    const dateStr   = req.query.date || new Date().toISOString().slice(0, 10);
+    const threshold = parseInt(req.query.threshold, 10) || 50;
 
     const [saleSummary, products] = await Promise.all([
       saleModel.getSummary(dateStr),
@@ -14,7 +13,7 @@ const getSummary = async (req, res, next) => {
 
     const { totalRevenue, transactionCount, avgSaleValue } = saleSummary;
     const totalProducts   = products.length;
-    const lowStockItems   = products.filter(p => p.stock > 0 && p.stock <= LOW_STOCK_THRESHOLD);
+    const lowStockItems   = products.filter(p => p.stock > 0 && p.stock <= threshold);
     const outOfStockItems = products.filter(p => p.stock === 0);
 
     res.status(200).json({
@@ -26,7 +25,7 @@ const getSummary = async (req, res, next) => {
         totalProducts,
         lowStockCount:     lowStockItems.length,
         outOfStockCount:   outOfStockItems.length,
-        lowStockItems:     [...lowStockItems, ...outOfStockItems],
+        lowStockItems:     [...outOfStockItems, ...lowStockItems],
       }
     });
   } catch (err) {

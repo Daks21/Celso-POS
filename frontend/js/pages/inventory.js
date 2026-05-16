@@ -26,12 +26,6 @@ function isAdmin() {
   return currentUser && currentUser.role === 'admin';
 }
 
-function getStockStatus(stock) {
-  var threshold = getLowStockThreshold();
-  if (stock === 0)        return { label: 'Out of Stock', cls: 'stock-out', dotCls: 'stock-dot--out', key: 'out' };
-  if (stock <= threshold) return { label: 'Low Stock',    cls: 'stock-low', dotCls: 'stock-dot--low', key: 'low' };
-  return                         { label: 'In Stock',     cls: 'stock-ok',  dotCls: 'stock-dot--ok',  key: 'ok'  };
-}
 
 async function renderSummary() {
   let data = {};

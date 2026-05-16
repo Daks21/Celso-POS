@@ -140,9 +140,12 @@ async function savePreferences(prefs) {
 
 // --- Analytics ---
 
-async function getAnalyticsSummary(date) {
-  const query = date ? `?date=${date}` : '';
-  return apiCall('/analytics/summary' + query);
+async function getAnalyticsSummary(date, threshold) {
+  const params = new URLSearchParams();
+  if (date      != null) params.set('date',      date);
+  if (threshold != null) params.set('threshold', threshold);
+  const query = params.toString();
+  return apiCall('/analytics/summary' + (query ? '?' + query : ''));
 }
 
 async function getHeatmap() {

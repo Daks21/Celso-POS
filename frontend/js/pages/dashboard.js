@@ -1,4 +1,4 @@
-checkAuth();
+﻿checkAuth();
 
 // ── Analytics widget rendering for Dashboard ──
 
@@ -374,6 +374,74 @@ var _themeObserverDash = new MutationObserver(function () {
 });
 _themeObserverDash.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
+// ── Stock Alert pagination ──
+
+var _alertProducts = [];
+var _alertPage     = 1;
+
+function _renderStockAlerts(products, page) {
+  _alertProducts = products;
+  var pageSize   = parseInt(localStorage.getItem('dashboardAlertCount') || '5', 10) || 5;
+  var total      = products.length;
+  var totalPages = Math.max(1, Math.ceil(total / pageSize));
+  _alertPage     = Math.min(Math.max(1, page), totalPages);
+
+  var tbody = document.getElementById('stock-alert-list');
+  var pager = document.getElementById('stock-alert-pagination');
+  if (!tbody) return;
+
+  if (total === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--color-text-muted);">No stock alerts. All products are well stocked.</td></tr>';
+    if (pager) pager.style.display = 'none';
+    return;
+  }
+
+  var start = (_alertPage - 1) * pageSize;
+  var slice = products.slice(start, start + pageSize);
+  var html  = '';
+  slice.forEach(function (p) {
+    var status   = getStockStatus(p.stock);
+    var stockStr = p.stock + ' ' + (p.unit || 'pc') + (p.stock !== 1 ? 's' : '');
+    html +=
+      '<tr>' +
+        '<td><strong>' + p.name + '</strong></td>' +
+        '<td class="low-stock-qty">' + stockStr + '</td>' +
+        '<td>' +
+          '<span class="stock-status-inline">' +
+            '<span class="stock-dot ' + status.dotCls + '"></span>' +
+            '<span style="color:var(--stock-color-' + status.key + ')">' + status.label + '</span>' +
+          '</span>' +
+        '</td>' +
+      '</tr>';
+  });
+  tbody.innerHTML = html;
+
+  if (pager) {
+    if (totalPages <= 1) {
+      pager.style.display = 'none';
+    } else {
+      pager.style.display = 'flex';
+      var prevDisabled = _alertPage <= 1          ? ' disabled' : '';
+      var nextDisabled = _alertPage >= totalPages ? ' disabled' : '';
+      pager.innerHTML =
+        '<button class="pager-btn" id="alert-prev"' + prevDisabled + '>' +
+          '<i data-lucide="chevron-left"></i>' +
+        '</button>' +
+        '<span class="pager-info">' + _alertPage + ' / ' + totalPages + '</span>' +
+        '<button class="pager-btn" id="alert-next"' + nextDisabled + '>' +
+          '<i data-lucide="chevron-right"></i>' +
+        '</button>';
+
+      var prevBtn = document.getElementById('alert-prev');
+      var nextBtn = document.getElementById('alert-next');
+      if (prevBtn) prevBtn.addEventListener('click', function () { _renderStockAlerts(_alertProducts, _alertPage - 1); });
+      if (nextBtn) nextBtn.addEventListener('click', function () { _renderStockAlerts(_alertProducts, _alertPage + 1); });
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
 // ── DOM references ──
 
 const currentUser         = JSON.parse(localStorage.getItem("currentUser"));
@@ -382,7 +450,6 @@ const totalProductsEl     = document.getElementById("total-products");
 const lowStockItemsEl     = document.getElementById("low-stock-items");
 const transactionsTodayEl = document.getElementById("transactions-today");
 const userName            = document.getElementById("user-name");
-const stockAlertList      = document.getElementById("stock-alert-list");
 
 if (currentUser && userName) {
   userName.textContent = currentUser.fullName;
@@ -394,7 +461,7 @@ async function initDashboard() {
   // Summary cards + stock alerts
   let summary = {};
   try {
-    const summaryResult = await getAnalyticsSummary();
+    const summaryResult = await getAnalyticsSummary(null, getLowStockThreshold());
     if (summaryResult && summaryResult.success) {
       summary = summaryResult.data;
     } else {
@@ -405,41 +472,13 @@ async function initDashboard() {
   }
 
   if (totalProductsEl)     totalProductsEl.textContent     = summary.totalProducts    || 0;
-  if (lowStockItemsEl)     lowStockItemsEl.textContent     = summary.lowStockCount    || 0;
+  if (lowStockItemsEl)     lowStockItemsEl.textContent     = (summary.lowStockCount || 0) + (summary.outOfStockCount || 0);
   if (totalSalesTodayEl)   totalSalesTodayEl.textContent   = _formatPeso(summary.todayRevenue    || 0);
   if (transactionsTodayEl) transactionsTodayEl.textContent = summary.todayTransactions || 0;
 
-  // Stock alert list
-  if (stockAlertList) {
-    var alertProducts = summary.lowStockItems || [];
-
-    if (alertProducts.length === 0) {
-      stockAlertList.innerHTML =
-        '<p style="text-align:center;padding:24px;color:var(--color-text-muted);font-size:14px;">No stock alerts. All products are well stocked.</p>';
-    } else {
-      var html = '';
-      alertProducts.forEach(function (p) {
-        var isOut   = p.stock === 0;
-        var dotCls  = isOut ? 'status-critical' : 'status-low';
-        var lblCls  = isOut ? 'critical-label'  : 'low-label';
-        var lblText = isOut ? 'Out of Stock'     : 'Low Stock';
-        var stock   = p.stock + ' ' + (p.unit || 'pc') + (p.stock !== 1 ? 's' : '');
-
-        html +=
-          '<div class="stock-alert-item">' +
-            '<div class="stock-info">' +
-              '<span class="status-dot ' + dotCls + '"></span>' +
-              '<div>' +
-                '<h3>' + p.name + '</h3>' +
-                '<p>Current stock: ' + stock + '</p>' +
-              '</div>' +
-            '</div>' +
-            '<span class="stock-label ' + lblCls + '">' + lblText + '</span>' +
-          '</div>';
-      });
-      stockAlertList.innerHTML = html;
-    }
-  }
+  // Stock alert list — filter to only low/out items using the frontend threshold as authority
+  var alertItems = (summary.lowStockItems || []).filter(function (p) { return getStockStatus(p.stock).key !== 'ok'; });
+  _renderStockAlerts(alertItems, 1);
 
   // Recent transactions — most recent N sales across all dates
   var recentTxBody = document.getElementById('recent-transactions-body');
@@ -451,7 +490,7 @@ async function initDashboard() {
       showApiError('Network error. Is the server running?');
       salesResult = { data: [] };
     }
-    var recentCount = parseInt(localStorage.getItem('dashboardRecentCount') || '5', 10);
+    var recentCount = parseInt(localStorage.getItem('dashboardRecentCount') || '5', 10) || 5;
     const recentSales = (salesResult && salesResult.data ? salesResult.data : [])
       .sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); })
       .slice(0, recentCount);

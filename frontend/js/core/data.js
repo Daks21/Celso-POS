@@ -34,6 +34,13 @@ function getLowStockThreshold() {
   return isNaN(saved) ? LOW_STOCK_THRESHOLD_DEFAULT : saved;
 }
 
+function getStockStatus(stock) {
+  var threshold = getLowStockThreshold();
+  if (stock === 0)        return { label: 'Out of Stock', cls: 'stock-out', dotCls: 'stock-dot--out', key: 'out' };
+  if (stock <= threshold) return { label: 'Low Stock',    cls: 'stock-low', dotCls: 'stock-dot--low', key: 'low' };
+  return                         { label: 'In Stock',     cls: 'stock-ok',  dotCls: 'stock-dot--ok',  key: 'ok'  };
+}
+
 // ── Preferences sync (DB ↔ localStorage) ──
 
 var PREF_DEFAULTS = {
@@ -44,6 +51,7 @@ var PREF_DEFAULTS = {
   lowStockThreshold:    50,
   stockColors:          { ok: '#5a9e6f', low: '#eab308', out: '#dc2626' },
   dashboardRecentCount:  5,
+  dashboardAlertCount:   5,
   dashboardItemsPopover: true,
   dashboardWidgets:      [],
   navLabel:             'app',
@@ -70,7 +78,8 @@ function collectCurrentPreferences(userId) {
     taxDefaultOn:         localStorage.getItem('taxDefaultOn') === 'true',
     lowStockThreshold:    parseInt(localStorage.getItem('lowStockThreshold') || String(PREF_DEFAULTS.lowStockThreshold), 10),
     stockColors:          colors,
-    dashboardRecentCount:  parseInt(localStorage.getItem('dashboardRecentCount') || String(PREF_DEFAULTS.dashboardRecentCount), 10),
+    dashboardRecentCount:  parseInt(localStorage.getItem('dashboardRecentCount')  || String(PREF_DEFAULTS.dashboardRecentCount),  10),
+    dashboardAlertCount:   parseInt(localStorage.getItem('dashboardAlertCount')   || String(PREF_DEFAULTS.dashboardAlertCount),   10),
     dashboardItemsPopover: localStorage.getItem('dashboardItemsPopover') !== 'false',
     dashboardWidgets:      widgets,
     navLabel:             nav.navLabel             || PREF_DEFAULTS.navLabel,
