@@ -340,7 +340,7 @@
   transition: opacity 0.15s;
 }
 
-.heatmap-cell[data-level]:not([data-level="empty"]):not([data-level="0"]):hover {
+.heatmap-cell[data-level]:not([data-level="empty"]):not([data-level="0"]):not(.heatmap-legend-cell):hover {
   opacity: 0.75;
   cursor: pointer;
 }
@@ -364,11 +364,14 @@ html[data-theme="dark"] .heatmap-cell[data-level="4"] { background-color: #6bb38
   gap: 4px;
   margin-top: 10px;
   justify-content: center;
+  flex-wrap: nowrap;
 }
 
 .heatmap-legend-label {
   font-size: 11px;
   color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .heatmap-legend-cell {
@@ -376,6 +379,10 @@ html[data-theme="dark"] .heatmap-cell[data-level="4"] { background-color: #6bb38
   height: 13px;
   border-radius: 3px;
   display: inline-block;
+  flex-shrink: 0;
+  cursor: default;
+  transition: none;
+  pointer-events: none;
 }
 
 /* .heatmap-tooltip lives in components.css */
