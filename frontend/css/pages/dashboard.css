@@ -86,6 +86,14 @@
   white-space: nowrap;
 }
 
+/* ── Pagination placeholder rows ── */
+
+.pager-placeholder td {
+  border-color: transparent !important;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* ── Pagination ── */
 
 .dash-pager {

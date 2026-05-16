@@ -415,6 +415,9 @@ function _renderStockAlerts(products, page) {
         '</td>' +
       '</tr>';
   });
+  for (var i = slice.length; i < pageSize; i++) {
+    html += '<tr class="pager-placeholder"><td>&nbsp;</td><td></td><td></td></tr>';
+  }
   tbody.innerHTML = html;
 
   if (pager) {
@@ -488,6 +491,9 @@ function _renderTransactions(sales, page) {
         '<td>' + totalFmt + '</td>' +
       '</tr>';
   });
+  for (var i = slice.length; i < pageSize; i++) {
+    html += '<tr class="pager-placeholder"><td>&nbsp;</td><td></td><td></td><td></td></tr>';
+  }
   tbody.innerHTML = html;
 
   if (pager) {
