@@ -441,23 +441,25 @@ async function initDashboard() {
     }
   }
 
-  // Recent transactions
+  // Recent transactions — today only
   var recentTxBody = document.getElementById('recent-transactions-body');
   if (recentTxBody) {
+    var todayStr = new Date().toISOString().slice(0, 10);
     let salesResult;
     try {
-      salesResult = await getSales();
+      salesResult = await getSales({ from: todayStr, to: todayStr });
     } catch (err) {
       showApiError('Network error. Is the server running?');
       salesResult = { data: [] };
     }
+    var recentCount = parseInt(localStorage.getItem('dashboardRecentCount') || '5', 10);
     const recentSales = (salesResult && salesResult.data ? salesResult.data : [])
       .sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); })
-      .slice(0, 10);
+      .slice(0, recentCount);
 
     if (recentSales.length === 0) {
       recentTxBody.innerHTML =
-        '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--color-text-muted);">No transactions recorded yet.</td></tr>';
+        '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--color-text-muted);">No transactions recorded today.</td></tr>';
     } else {
       var txHtml = '';
       recentSales.forEach(function (sale) {
@@ -466,14 +468,14 @@ async function initDashboard() {
         var timeStr   = d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
         var itemCount = sale.items.reduce(function (s, i) { return s + i.quantity; }, 0);
         var totalFmt  = _formatPeso(sale.total);
+        var receiptDisplay = sale.receiptNo ? sale.receiptNo.replace(/^RCPT-/, '') : String(sale.id).padStart(6, '0');
 
         txHtml +=
           '<tr>' +
-            '<td>RCPT-' + sale.id + '</td>' +
+            '<td>' + receiptDisplay + '</td>' +
             '<td>' + dateStr + ' - ' + timeStr + '</td>' +
             '<td>' + itemCount + ' item' + (itemCount !== 1 ? 's' : '') + '</td>' +
             '<td>' + totalFmt + '</td>' +
-            '<td><span class="status-badge status-completed">Completed</span></td>' +
           '</tr>';
       });
       recentTxBody.innerHTML = txHtml;

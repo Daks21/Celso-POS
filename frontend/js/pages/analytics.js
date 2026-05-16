@@ -11,6 +11,10 @@ function getPinnedWidgets() {
 
 function setPinnedWidgets(arr) {
   localStorage.setItem('dashboardWidgets', JSON.stringify(arr));
+  try {
+    var user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    if (user && user.id) syncPreferencesToDb(user.id);
+  } catch (e) {}
 }
 
 function togglePinnedWidget(id, shouldPin) {

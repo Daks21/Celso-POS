@@ -34,6 +34,55 @@ function getLowStockThreshold() {
   return isNaN(saved) ? LOW_STOCK_THRESHOLD_DEFAULT : saved;
 }
 
+// ── Preferences sync (DB ↔ localStorage) ──
+
+var PREF_DEFAULTS = {
+  theme:                'light',
+  taxEnabled:           false,
+  taxRate:              '0.03',
+  taxDefaultOn:         false,
+  lowStockThreshold:    50,
+  stockColors:          { ok: '#5a9e6f', low: '#eab308', out: '#dc2626' },
+  dashboardRecentCount: 5,
+  dashboardWidgets:     [],
+  navLabel:             'app',
+  logoTarget:           'order.html',
+  showNotifications:    true,
+  showThemeToggle:      false,
+};
+
+function collectCurrentPreferences(userId) {
+  var navKey = 'celso_navprefs_' + String(userId);
+  var nav = {};
+  try { nav = JSON.parse(localStorage.getItem(navKey) || '{}'); } catch (e) {}
+
+  var colors = Object.assign({}, PREF_DEFAULTS.stockColors);
+  try { Object.assign(colors, JSON.parse(localStorage.getItem('stockColors') || '{}')); } catch (e) {}
+
+  var widgets = [];
+  try { widgets = JSON.parse(localStorage.getItem('dashboardWidgets') || '[]'); } catch (e) {}
+
+  return {
+    theme:                localStorage.getItem('theme') || PREF_DEFAULTS.theme,
+    taxEnabled:           localStorage.getItem('taxEnabled') === 'true',
+    taxRate:              localStorage.getItem('taxRate') || PREF_DEFAULTS.taxRate,
+    taxDefaultOn:         localStorage.getItem('taxDefaultOn') === 'true',
+    lowStockThreshold:    parseInt(localStorage.getItem('lowStockThreshold') || String(PREF_DEFAULTS.lowStockThreshold), 10),
+    stockColors:          colors,
+    dashboardRecentCount: parseInt(localStorage.getItem('dashboardRecentCount') || String(PREF_DEFAULTS.dashboardRecentCount), 10),
+    dashboardWidgets:     widgets,
+    navLabel:             nav.navLabel             || PREF_DEFAULTS.navLabel,
+    logoTarget:           nav.logoTarget            || PREF_DEFAULTS.logoTarget,
+    showNotifications:    nav.showNotifications     !== false,
+    showThemeToggle:      nav.showThemeToggle       === true,
+  };
+}
+
+function syncPreferencesToDb(userId) {
+  var prefs = collectCurrentPreferences(userId);
+  savePreferences(prefs).catch(function () {});
+}
+
 // ── Seed default data into localStorage on first load ──
 
 if (localStorage.getItem("products") === null || localStorage.getItem("products") === "[]") {

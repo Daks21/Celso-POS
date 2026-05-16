@@ -193,37 +193,11 @@
                   <th>Date &amp; Time</th>
                   <th>Items</th>
                   <th>Total</th>
-                  <th>Status</th>
                 </tr>
               </thead>
               <tbody id="recent-transactions-body">
-                <tr>
-                  <td>RCPT-001</td>
-                  <td>May 10, 2026 - 9:15 AM</td>
-                  <td>3 items</td>
-                  <td>₱185.00</td>
-                  <td><span class="status-badge status-completed">Completed</span></td>
-                </tr>
-                <tr>
-                  <td>RCPT-002</td>
-                  <td>May 10, 2026 - 10:02 AM</td>
-                  <td>5 items</td>
-                  <td>₱420.00</td>
-                  <td><span class="status-badge status-completed">Completed</span></td>
-                </tr>
-                <tr>
-                  <td>RCPT-003</td>
-                  <td>May 10, 2026 - 11:30 AM</td>
-                  <td>2 items</td>
-                  <td>₱95.00</td>
-                  <td><span class="status-badge status-completed">Completed</span></td>
-                </tr>
-                <tr>
-                  <td>RCPT-004</td>
-                  <td>May 10, 2026 - 1:10 PM</td>
-                  <td>4 items</td>
-                  <td>₱260.00</td>
-                  <td><span class="status-badge status-pending">Pending</span></td>
+                <tr class="api-loading-row">
+                  <td colspan="5"><span class="api-spinner"></span>Loading...</td>
                 </tr>
               </tbody>
             </table>
@@ -237,38 +211,7 @@
           </div>
 
           <div class="stock-alert-list" id="stock-alert-list">
-            <div class="stock-alert-item">
-              <div class="stock-info">
-                <span class="status-dot status-critical"></span>
-                <div>
-                  <h3>Instant Coffee Sachet</h3>
-                  <p>Current stock: 2 pcs</p>
-                </div>
-              </div>
-              <span class="stock-label critical-label">Critical</span>
-            </div>
-
-            <div class="stock-alert-item">
-              <div class="stock-info">
-                <span class="status-dot status-low"></span>
-                <div>
-                  <h3>Canned Sardines</h3>
-                  <p>Current stock: 4 pcs</p>
-                </div>
-              </div>
-              <span class="stock-label low-label">Low</span>
-            </div>
-
-            <div class="stock-alert-item">
-              <div class="stock-info">
-                <span class="status-dot status-fine"></span>
-                <div>
-                  <h3>Bottled Water 500ml</h3>
-                  <p>Current stock: 8 pcs</p>
-                </div>
-              </div>
-              <span class="stock-label fine-label">Fine</span>
-            </div>
+            <div class="api-loading-cell"><span class="api-spinner"></span>Loading...</div>
           </div>
         </section>
 

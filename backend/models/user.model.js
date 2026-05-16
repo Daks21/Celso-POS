@@ -24,4 +24,25 @@ const createUser = async ({ fullName, email, password, role = 'cashier' }) => {
   return findById(result.insertId);
 };
 
-module.exports = { findByEmail, findById, createUser };
+const getPreferences = async (userId) => {
+  const [rows] = await db.query(
+    'SELECT preferences FROM users WHERE id = ?',
+    [userId]
+  );
+  if (!rows[0] || !rows[0].preferences) return {};
+  const raw = rows[0].preferences;
+  try {
+    return typeof raw === 'object' ? raw : JSON.parse(raw);
+  } catch {
+    return {};
+  }
+};
+
+const savePreferences = async (userId, prefs) => {
+  await db.query(
+    'UPDATE users SET preferences = ? WHERE id = ?',
+    [JSON.stringify(prefs), userId]
+  );
+};
+
+module.exports = { findByEmail, findById, createUser, getPreferences, savePreferences };

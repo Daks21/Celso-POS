@@ -10,13 +10,17 @@ USE celsopos_db;
 
 -- 1. Users
 CREATE TABLE IF NOT EXISTS users (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  full_name  VARCHAR(100) NOT NULL,
-  email      VARCHAR(150) NOT NULL UNIQUE,
-  password   VARCHAR(255) NOT NULL,
-  role       ENUM('admin','cashier') DEFAULT 'cashier',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  full_name   VARCHAR(100) NOT NULL,
+  email       VARCHAR(150) NOT NULL UNIQUE,
+  password    VARCHAR(255) NOT NULL,
+  role        ENUM('admin','cashier') DEFAULT 'cashier',
+  preferences JSON DEFAULT NULL,
+  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Migration: run once on existing databases
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSON DEFAULT NULL;
 
 -- 2. Products
 CREATE TABLE IF NOT EXISTS products (

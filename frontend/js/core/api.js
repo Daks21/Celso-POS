@@ -125,6 +125,19 @@ async function adjustStock(productId, data) {
   });
 }
 
+// --- Preferences ---
+
+async function getPreferences() {
+  return apiCall('/auth/preferences');
+}
+
+async function savePreferences(prefs) {
+  return apiCall('/auth/preferences', {
+    method: 'PUT',
+    body: JSON.stringify(prefs),
+  });
+}
+
 // --- Analytics ---
 
 async function getAnalyticsSummary(date) {

@@ -40,6 +40,16 @@ if (loginForm) {
     if (result && result.success) {
       localStorage.setItem('token', result.token);
       localStorage.setItem('currentUser', JSON.stringify(result.user));
+
+      // Pull saved preferences from DB and cache them in localStorage
+      // so every app page reads from cache without an extra API call.
+      try {
+        const prefsResult = await getPreferences();
+        if (prefsResult && prefsResult.success) {
+          _cachePreferences(prefsResult.data || {}, result.user.id);
+        }
+      } catch (e) { /* non-fatal — localStorage defaults will be used */ }
+
       window.location.href = "pages/dashboard.html";
     } else {
       loginError.textContent = result ? result.message : "Login failed. Please try again.";
@@ -145,4 +155,33 @@ function checkAuth() {
   if (token === null) {
     window.location.href = "../index.html";
   }
+}
+
+// Writes DB preferences into individual localStorage keys (no external deps).
+// Called once on login before redirecting so every page reads from cache.
+function _cachePreferences(prefs, userId) {
+  var DEFAULTS = {
+    theme: 'light', taxEnabled: false, taxRate: '0.03', taxDefaultOn: false,
+    lowStockThreshold: 50, stockColors: { ok: '#5a9e6f', low: '#eab308', out: '#dc2626' },
+    dashboardRecentCount: 5, dashboardWidgets: [],
+    navLabel: 'app', logoTarget: 'order.html', showNotifications: true, showThemeToggle: false,
+  };
+  var p = Object.assign({}, DEFAULTS, prefs);
+
+  localStorage.setItem('theme',                p.theme);
+  localStorage.setItem('taxEnabled',           String(p.taxEnabled));
+  localStorage.setItem('taxRate',              String(p.taxRate));
+  localStorage.setItem('taxDefaultOn',         String(p.taxDefaultOn));
+  localStorage.setItem('lowStockThreshold',    String(p.lowStockThreshold));
+  localStorage.setItem('stockColors',          JSON.stringify(p.stockColors));
+  localStorage.setItem('dashboardRecentCount', String(p.dashboardRecentCount));
+  localStorage.setItem('dashboardWidgets',     JSON.stringify(p.dashboardWidgets));
+
+  var navKey = 'celso_navprefs_' + String(userId);
+  localStorage.setItem(navKey, JSON.stringify({
+    navLabel:          p.navLabel,
+    logoTarget:        p.logoTarget,
+    showNotifications: p.showNotifications,
+    showThemeToggle:   p.showThemeToggle,
+  }));
 }

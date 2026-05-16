@@ -1,6 +1,6 @@
 const express    = require('express');
 const router     = express.Router();
-const { login, register } = require('../controllers/auth.controller');
+const { login, register, getPreferencesHandler, savePreferencesHandler } = require('../controllers/auth.controller');
 const { authMiddleware: auth } = require('../middleware/auth.middleware');
 const { findById } = require('../models/user.model');
 
@@ -21,5 +21,8 @@ router.get('/me', auth, async (req, res, next) => {
     next(err);
   }
 });
+
+router.get('/preferences', auth, getPreferencesHandler);
+router.put('/preferences', auth, savePreferencesHandler);
 
 module.exports = router;

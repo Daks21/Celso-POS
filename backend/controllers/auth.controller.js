@@ -1,6 +1,6 @@
 const bcrypt  = require('bcrypt');
 const jwt     = require('jsonwebtoken');
-const { findByEmail, createUser } = require('../models/user.model');
+const { findByEmail, createUser, getPreferences, savePreferences } = require('../models/user.model');
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -69,4 +69,22 @@ const login = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login };
+const getPreferencesHandler = async (req, res, next) => {
+  try {
+    const prefs = await getPreferences(req.user.id);
+    res.json({ success: true, data: prefs });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const savePreferencesHandler = async (req, res, next) => {
+  try {
+    await savePreferences(req.user.id, req.body);
+    res.json({ success: true, data: req.body });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { register, login, getPreferencesHandler, savePreferencesHandler };

@@ -52,6 +52,11 @@ document.addEventListener('DOMContentLoaded', function() {
       memberSinceEl.textContent = formattedDate;
     }
 
+    // ── Preferences DB sync ──
+    function syncToDb() {
+      syncPreferencesToDb(currentUser.id);
+    }
+
     // ── Shared: flash "Saved!" on a save button ──
     function flashSaved(btn) {
       btn.textContent = 'Saved!';
@@ -132,6 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
             localStorage.setItem('lowStockThreshold', String(val));
           }
 
+          syncToDb();
           flashSaved(saveStockBtn);
         });
       }
@@ -199,6 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedRate) {
           localStorage.setItem('taxRate', selectedRate.dataset.rate);
         }
+        syncToDb();
         flashSaved(savePrefsBtn);
       });
     }
@@ -257,7 +264,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var updated = getNavPrefs();
       updated.navLabel = value;
       saveNavPrefs(updated);
-      // Live-update the injected mobile logo label
+      syncToDb();
       var logoLabel = document.querySelector('.mobile-topbar-logo .sidebar-app-name');
       if (logoLabel) {
         if (value === 'page') {
@@ -274,7 +281,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var updated = getNavPrefs();
       updated.logoTarget = value;
       saveNavPrefs(updated);
-      // Live-update the mobile logo icon link href
+      syncToDb();
       var logoLink = document.querySelector('.mobile-logo-link');
       if (logoLink) logoLink.href = value;
     });
@@ -284,6 +291,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var updated = getNavPrefs();
       updated.showNotifications = isOn;
       saveNavPrefs(updated);
+      syncToDb();
       applyNavPrefs();
     });
 
@@ -292,8 +300,19 @@ document.addEventListener('DOMContentLoaded', function() {
       var updated = getNavPrefs();
       updated.showThemeToggle = isOn;
       saveNavPrefs(updated);
+      syncToDb();
       applyNavPrefs();
     });
+
+    // ── Dashboard Preferences ──
+    initRadioGroup(
+      'recent-tx-count-group',
+      localStorage.getItem('dashboardRecentCount') || '5',
+      function(value) {
+        localStorage.setItem('dashboardRecentCount', value);
+        syncToDb();
+      }
+    );
 
   } catch (e) {
     console.error('Error parsing user data:', e);
