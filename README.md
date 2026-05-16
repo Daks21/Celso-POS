@@ -1,5 +1,5 @@
 ================================================================
-  Celso POS v3.0
+  Celso POS v3.1
   SARI-SARI STORE POS + INVENTORY + SALES MANAGEMENT SYSTEM
 ================================================================
 
@@ -657,7 +657,15 @@
 
     Module 1.3 — Dashboard Page
       - Summary cards: revenue, orders, products, low stock count
-      - Recent sales table
+      - Low Stock Alerts: compact paginated table, priority-ordered
+        (critical → high → medium), user-configurable row count
+      - Recent Transactions: paginated table with "View History"
+        link and user-configurable row count
+      - Items popover on Recent Transactions: hover or tap a row
+        to see the full itemized sale breakdown (toggle-controlled
+        from Account Settings)
+      - Invisible placeholder rows keep table height stable while
+        paginating — no layout shift between pages
       - Sidebar navigation with active state
       - Topbar with notification bell + theme toggle
 
@@ -695,7 +703,12 @@
       - Sidebar user card with popup dropdown
       - Account settings page: profile info, theme toggle,
         tax rate selector, customizable stock status colors
-      - Settings persist to localStorage
+      - Dashboard row count controls: separate selectors for
+        Low Stock Alerts rows and Recent Transactions rows
+      - Items popover toggle: show or hide the transaction detail
+        popover on the dashboard Recent Transactions table
+      - Settings sync to the backend database — persist across
+        devices and sessions (localStorage is a cache only)
 
     Module 1.10 — Sales Reports Page (Scaffolded)
       - sales.html placeholder page with full app shell
@@ -727,6 +740,23 @@
       - Mini charts pinned from Analytics page
       - Compact heatmap
       - Link to full Analytics page
+
+    Mobile Design
+      - Responsive at five breakpoints: 1000px (POS stacks),
+        800px (product grid compacts), 768px (primary mobile
+        breakpoint), 600px (reduced padding)
+      - At ≤768px: sidebar hidden; hamburger menu appears in
+        topbar and opens a slide-down nav panel with all six
+        main pages; panel closes on navigation or outside tap
+      - Mobile topbar shows the store logo; tapping it navigates
+        to the POS (order) page
+      - Floating Action Button (FAB) on all non-POS pages for
+        one-tap access to New Order
+      - POS product grid: 4–6 columns on desktop → 2 columns on
+        mobile; category pills collapse to a select dropdown
+      - Items popover uses tap-to-toggle on touch devices instead
+        of hover
+      - Touch targets sized to ≥28px minimum throughout
 
     Shared Utilities (data.js)
       - formatPeso() — centralized PHP currency formatting
@@ -845,6 +875,36 @@
       - Node.js engine requirement set to >=18.0.0
 
   ──────────────────────────────────────────────────────────────
+  PHASE 3 ENHANCEMENTS (Post-Phase 3 QA)            [COMPLETE]
+  ──────────────────────────────────────────────────────────────
+
+    Module 3.9 — Dashboard UX Overhaul
+      - Low Stock Alerts redesigned: compact paginated table with
+        priority ordering (critical → high → medium)
+      - Recent Transactions redesigned: paginated table with a
+        "View History" link and user-configurable row count
+      - Items popover: hover or tap a transaction row to see the
+        full itemized sale breakdown; controlled from Account
+        Settings
+      - Invisible placeholder rows lock table height during
+        pagination to prevent layout shift
+
+    Module 3.10 — User Preferences Sync
+      - All user preferences (theme, row counts, popover toggle,
+        nav labels, notification settings) now persist to the
+        backend database in a JSON column on the users table
+      - localStorage used as a write-through cache only
+      - Settings survive across devices and browser clears
+
+    Module 3.11 — Mobile UI Refinements
+      - Hamburger menu navigation for screens ≤768px
+      - Mobile topbar logo with tap-to-navigate to POS page
+      - Floating Action Button (FAB) on all non-POS pages
+      - Touch-optimized popover behavior (tap-to-toggle)
+      - POS product grid compresses to 2 columns on mobile
+      - Category pill filters collapse to a dropdown on mobile
+
+  ──────────────────────────────────────────────────────────────
   PHASE 4: AI INTEGRATION                           [NEXT]
   ──────────────────────────────────────────────────────────────
 
@@ -886,5 +946,5 @@
   NODE REQUIREMENT: >= 18.0.0
 
 ================================================================
-  END OF DOCUMENT — Version 3.0 (Phase 3 Complete, Phase 4 Next)
+  END OF DOCUMENT — Version 3.1 (Phase 3 + Enhancements Complete, Phase 4 Next)
 ================================================================

@@ -90,11 +90,12 @@ function updateKPIs(kpis) {
 
 function updateInventoryKPIs(products) {
   var totalAssets = products.reduce(function (sum, p) { return sum + (p.cost || 0) * (p.stock || 0); }, 0);
-  var totalProfit = products.reduce(function (sum, p) { return sum + ((p.price || 0) - (p.cost || 0)) * (p.stock || 0); }, 0);
+  // Potential margin if all current inventory were sold at current price
+  var inventoryMargin = products.reduce(function (sum, p) { return sum + ((p.price || 0) - (p.cost || 0)) * (p.stock || 0); }, 0);
   var elAssets = document.getElementById('kpi-total-assets');
   var elProfit = document.getElementById('kpi-calc-profit');
   if (elAssets) elAssets.textContent = formatPeso(totalAssets);
-  if (elProfit) elProfit.textContent = formatPeso(totalProfit);
+  if (elProfit) elProfit.textContent = formatPeso(inventoryMargin);
 }
 
 // ── Chart rendering ──
@@ -338,7 +339,7 @@ function renderHeatmap(dayRevenue) {
         cur.setDate(cur.getDate() + 1);
         continue;
       }
-      var key = cur.toISOString().slice(0, 10);
+      var key = toManilaDate(cur);
       var m   = cur.getMonth();
       if (d === 0 && m !== lastMonth) {
         monthLabels.push({ label: HEATMAP_MONTHS[m], weekIndex: weeks.length });
@@ -455,13 +456,18 @@ function _toDayOfWeek(arr) {
   return { labels: _DOW_LABELS, data: arr };
 }
 
+// ── Helpers ──
+
+var _manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
+function toManilaDate(d) { return _manilaFmt.format(d); }
+
 // ── Main render ──
 
 async function renderAll() {
   var range   = getDateRange(currentRange);
-  // Backend _parseFrom/_parseTo expect YYYY-MM-DD, not full ISO strings
-  var fromStr = range.from ? range.from.toISOString().slice(0, 10) : null;
-  var toStr   = range.to   ? range.to.toISOString().slice(0, 10)   : null;
+  // Convert to Manila local date strings (YYYY-MM-DD) — never toISOString() which is UTC
+  var fromStr = range.from ? toManilaDate(range.from) : null;
+  var toStr   = range.to   ? toManilaDate(range.to)   : null;
 
   try {
     var results = await Promise.all([

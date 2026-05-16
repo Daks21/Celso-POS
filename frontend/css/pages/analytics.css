@@ -83,7 +83,7 @@
 
 .analytics-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -140,9 +140,8 @@
   font-size: 22px;
   font-weight: 700;
   color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.2;
+  word-break: break-word;
 }
 
 /* ── Chart Cards ── */
@@ -387,6 +386,12 @@ html[data-theme="dark"] .heatmap-cell[data-level="4"] { background-color: #6bb38
   .chart-canvas-wrapper { height: 240px; }
 }
 
+@media (max-width: 640px) {
+  .analytics-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 600px) {
   .chart-card-header {
     flex-direction: column;
@@ -413,5 +418,9 @@ html[data-theme="dark"] .heatmap-cell[data-level="4"] { background-color: #6bb38
 }
 
 @media (max-width: 420px) {
+  .analytics-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
   .kpi-value { font-size: 16px; }
 }

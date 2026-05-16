@@ -9,6 +9,7 @@ const pool = mysql.createPool({
   connectionLimit:    process.env.DB_POOL_SIZE || 5,
   waitForConnections: true,
   queueLimit:         0,
+  timezone:           '+08:00',   // Pin all connections to Manila time (PH Standard Time)
 });
 
 pool.getConnection((err, connection) => {

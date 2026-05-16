@@ -57,7 +57,12 @@
       "PowerShell(Start-Process -FilePath \"node\" -ArgumentList \"server.js\" -WorkingDirectory \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\\\\backend\" -WindowStyle Hidden)",
       "PowerShell(Invoke-RestMethod -Uri \"http://localhost:3000/api/health\" -Method GET)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\" -Recurse -Directory)",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Select-Object Name, FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\\\\frontend\" -Recurse | Where-Object { $_.Name -match \"mobile|responsive\" } | Select-Object FullName)",
+      "Bash(npm run *)",
+      "Bash(python -m json.tool)",
+      "Bash(tasklist *)"
     ]
   }
 }

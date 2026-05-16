@@ -3,7 +3,7 @@ const productModel = require('../models/product.model');
 
 const getSummary = async (req, res, next) => {
   try {
-    const dateStr   = req.query.date || new Date().toISOString().slice(0, 10);
+    const dateStr   = req.query.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
     const threshold = parseInt(req.query.threshold, 10) || 50;
 
     const [saleSummary, products] = await Promise.all([
@@ -44,10 +44,10 @@ const getHeatmap = async (req, res, next) => {
 
 const getKPIs = async (req, res, next) => {
   try {
-    const { from, to } = req.query;
-    const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 86400000);
-    const toDate   = to   ? new Date(to)   : new Date();
-    const kpis = await saleModel.getKPIs(fromDate, toDate);
+    const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
+    const from = req.query.from || manilaFmt.format(new Date(Date.now() - 30 * 86400000));
+    const to   = req.query.to   || manilaFmt.format(new Date());
+    const kpis = await saleModel.getKPIs(from, to);
     res.json({ success: true, data: kpis });
   } catch (err) {
     next(err);
@@ -56,24 +56,27 @@ const getKPIs = async (req, res, next) => {
 
 const getCharts = async (req, res, next) => {
   try {
-    const { from, to } = req.query;
-    const fromDate = from ? new Date(from + 'T00:00:00.000') : new Date(Date.now() - 30 * 86400000);
-    const toDate   = to   ? new Date(to   + 'T23:59:59.999') : new Date();
+    const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
+    const from = req.query.from || manilaFmt.format(new Date(Date.now() - 30 * 86400000));
+    const to   = req.query.to   || manilaFmt.format(new Date());
 
-    // Seed zero for every date in range so the chart has no gaps
+    // Seed zero for every date in range so the chart has no gaps.
+    // Iterate as date strings to stay in local (Manila) time — avoids UTC key mismatch.
     const revenueByDay = {};
-    const cur = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
-    const end = new Date(toDate.getFullYear(),   toDate.getMonth(),   toDate.getDate());
-    while (cur <= end) {
-      revenueByDay[cur.toISOString().slice(0, 10)] = 0;
-      cur.setDate(cur.getDate() + 1);
+    let curStr = from;
+    while (curStr <= to) {
+      revenueByDay[curStr] = 0;
+      // advance by one day using noon-UTC trick to dodge DST
+      const next = new Date(curStr + 'T12:00:00Z');
+      next.setUTCDate(next.getUTCDate() + 1);
+      curStr = next.toISOString().slice(0, 10);
     }
 
     const [dailyMap, topByRevenue, topByQty, byDayOfWeek] = await Promise.all([
       saleModel.getDailyMap(),
-      saleModel.getTopByRevenue(fromDate, toDate),
-      saleModel.getTopByQty(fromDate, toDate),
-      saleModel.getByDayOfWeek(fromDate, toDate),
+      saleModel.getTopByRevenue(from, to),
+      saleModel.getTopByQty(from, to),
+      saleModel.getByDayOfWeek(from, to),
     ]);
 
     Object.entries(dailyMap).forEach(([date, rev]) => {

@@ -197,7 +197,7 @@ function renderDashboardWidgets() {
               cur.setDate(cur.getDate() + 1);
               continue;
             }
-            var key = cur.toISOString().slice(0, 10);
+            var key = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(cur);
             var m   = cur.getMonth();
             if (d === 0 && m !== lastMonth) {
               monthLabels.push({ label: DASH_MONTHS[m], weekIndex: weeks.length });
@@ -575,7 +575,8 @@ async function initDashboard() {
   try {
     var _now = new Date();
     var _from30 = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() - 29);
-    var _chartsRes  = await getCharts(_from30.toISOString().slice(0, 10), _now.toISOString().slice(0, 10));
+    var _mFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
+    var _chartsRes  = await getCharts(_mFmt.format(_from30), _mFmt.format(_now));
     var _heatmapRes = await getHeatmap();
     if (_chartsRes  && _chartsRes.success)  _dashApiCharts  = _chartsRes.data;
     if (_heatmapRes && _heatmapRes.success)  _dashApiHeatmap = _heatmapRes.data;
@@ -590,6 +591,23 @@ async function initDashboard() {
 }
 
 initDashboard();
+
+// ── Auto-refresh summary cards every 60 seconds ──
+
+async function refreshCards() {
+  try {
+    var result = await getAnalyticsSummary(null, getLowStockThreshold());
+    if (result && result.success) {
+      var s = result.data;
+      if (totalProductsEl)     totalProductsEl.textContent     = s.totalProducts    || 0;
+      if (lowStockItemsEl)     lowStockItemsEl.textContent     = (s.lowStockCount || 0) + (s.outOfStockCount || 0);
+      if (totalSalesTodayEl)   totalSalesTodayEl.textContent   = _formatPeso(s.todayRevenue    || 0);
+      if (transactionsTodayEl) transactionsTodayEl.textContent = s.todayTransactions || 0;
+    }
+  } catch (e) { /* silent — cards retain their last known value */ }
+}
+
+setInterval(refreshCards, 60000);
 
 // ── Items popover ──
 

@@ -181,18 +181,23 @@ const getDailyMap = async () => {
 
 const getKPIs = async (from, to) => {
   const [rows] = await db.query(
-    `SELECT COALESCE(SUM(s.total), 0) AS totalRevenue,
-            COUNT(DISTINCT s.id) AS transactionCount,
-            COALESCE(AVG(s.total), 0) AS avgOrderValue,
-            COALESCE(SUM(si.quantity), 0) AS totalUnits
-     FROM sales s LEFT JOIN sale_items si ON s.id = si.sale_id
-     WHERE s.created_at BETWEEN ? AND ?`, [from, to]
+    `SELECT COALESCE(SUM(sub.total), 0)   AS totalRevenue,
+            COUNT(*)                       AS transactionCount,
+            COALESCE(AVG(sub.total), 0)    AS avgOrderValue,
+            COALESCE(SUM(sub.qty), 0)      AS totalUnits
+     FROM (
+       SELECT s.id, s.total, COALESCE(SUM(si.quantity), 0) AS qty
+       FROM sales s
+       LEFT JOIN sale_items si ON s.id = si.sale_id
+       WHERE DATE(s.created_at) BETWEEN ? AND ?
+       GROUP BY s.id, s.total
+     ) sub`, [from, to]
   );
   return {
     totalRevenue:     parseFloat(rows[0].totalRevenue),
     transactionCount: rows[0].transactionCount,
     avgOrderValue:    parseFloat(rows[0].avgOrderValue),
-    totalUnits:       rows[0].totalUnits,
+    totalUnits:       parseInt(rows[0].totalUnits, 10),
   };
 };
 
@@ -200,7 +205,7 @@ const getTopByRevenue = async (from, to, limit = 5) => {
   const [rows] = await db.query(
     `SELECT si.product_name AS name, SUM(si.line_total) AS revenue
      FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id
-     WHERE s.created_at BETWEEN ? AND ?
+     WHERE DATE(s.created_at) BETWEEN ? AND ?
      GROUP BY si.product_name ORDER BY revenue DESC LIMIT ?`, [from, to, limit]
   );
   return rows.map(r => ({ name: r.name, revenue: parseFloat(r.revenue) }));
@@ -211,18 +216,18 @@ const getTopByQty = async (from, to, limit = 5) => {
     `SELECT si.product_name AS name, SUM(si.quantity) AS qty
      FROM sale_items si
      INNER JOIN sales s ON si.sale_id = s.id
-     WHERE s.created_at BETWEEN ? AND ?
+     WHERE DATE(s.created_at) BETWEEN ? AND ?
      GROUP BY si.product_name
      ORDER BY qty DESC
      LIMIT ?`, [from, to, limit]
   );
-  return rows.map(r => ({ name: r.name, qty: r.qty }));
+  return rows.map(r => ({ name: r.name, qty: parseInt(r.qty, 10) }));
 };
 
 const getByDayOfWeek = async (from, to) => {
   const [rows] = await db.query(
     `SELECT (DAYOFWEEK(created_at) - 1) AS dayIndex, SUM(total) AS total
-     FROM sales WHERE created_at BETWEEN ? AND ?
+     FROM sales WHERE DATE(created_at) BETWEEN ? AND ?
      GROUP BY (DAYOFWEEK(created_at) - 1) ORDER BY dayIndex ASC`, [from, to]
   );
   const totals = [0, 0, 0, 0, 0, 0, 0];
