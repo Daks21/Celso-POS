@@ -37,7 +37,10 @@
       "Bash(ConvertTo-Json)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\\\\frontend\" -Recurse -File)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\" -Directory)",
-      "Bash(Select-Object Name)"
+      "Bash(Select-Object Name)",
+      "PowerShell(netstat *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Get-CimInstance *)"
     ]
   }
 }

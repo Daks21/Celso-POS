@@ -28,9 +28,16 @@ const app = express();
 // --- Security headers (OWASP baseline) ---
 app.use(helmet());
 
-// --- CORS: restrict to known frontend origin ---
+// --- CORS: restrict to known frontend origins ---
+const ALLOWED_ORIGINS = (process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map(o => o.trim());
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, cb) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS: origin '${origin}' not allowed`));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));

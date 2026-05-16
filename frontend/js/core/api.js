@@ -113,8 +113,9 @@ async function getLowStock(threshold) {
   return apiCall('/inventory/low-stock' + query);
 }
 
-async function getInventorySummary() {
-  return apiCall('/inventory/summary');
+async function getInventorySummary(threshold) {
+  const query = threshold != null ? '?threshold=' + threshold : '';
+  return apiCall('/inventory/summary' + query);
 }
 
 async function adjustStock(productId, data) {

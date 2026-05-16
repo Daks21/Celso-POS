@@ -36,7 +36,8 @@ function getStockStatus(stock) {
 async function renderSummary() {
   let data = {};
   try {
-    const result = await getInventorySummary();
+    const threshold = getLowStockThreshold();
+    const result = await getInventorySummary(threshold);
     if (result && result.success) {
       data = result.data;
     } else {
@@ -46,19 +47,19 @@ async function renderSummary() {
     showApiError('Network error. Is the server running?');
   }
 
-  const total      = data.totalProducts  || 0;
-  const totalItems = data.totalItems     || 0;
-  const low        = data.lowStockCount  || 0;
-  const out        = data.outOfStockCount || 0;
+  const totalStocks   = data.totalItems      || 0;
+  const totalProducts = data.totalProducts   || 0;
+  const low           = data.lowStockCount   || 0;
+  const out           = data.outOfStockCount || 0;
 
   inventorySummary.innerHTML =
     '<div class="inventory-stat">' +
-      '<p class="inventory-stat-value">' + total + '</p>' +
-      '<p class="inventory-stat-label">Total Products</p>' +
+      '<p class="inventory-stat-value">' + totalStocks + '</p>' +
+      '<p class="inventory-stat-label">Total Stocks</p>' +
     '</div>' +
     '<div class="inventory-stat">' +
-      '<p class="inventory-stat-value">' + totalItems + '</p>' +
-      '<p class="inventory-stat-label">Total Items</p>' +
+      '<p class="inventory-stat-value">' + totalProducts + '</p>' +
+      '<p class="inventory-stat-label">Total Products</p>' +
     '</div>' +
     '<div class="inventory-stat">' +
       '<p class="inventory-stat-value" style="color:var(--stock-color-low);">' + low + '</p>' +

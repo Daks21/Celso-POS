@@ -35,7 +35,7 @@ const create = async (data) => {
 const update = async (id, data) => {
   const [result] = await db.query(
     'UPDATE products SET name=?, category=?, price=?, cost=?, stock=?, unit=?'
-    + ' WHERE id=?',
+    + ' WHERE id=? AND is_active = 1',
     [data.name, data.category, data.price, data.cost, data.stock, data.unit, id]
   );
   if (result.affectedRows === 0) return null;
@@ -96,6 +96,25 @@ const adjustStock = async (id, qty, type, notes = null, userId = null) => {
   return getById(id);
 };
 
+const getInventoryCounts = async (threshold = 50) => {
+  const [[row]] = await db.query(
+    `SELECT
+       COUNT(*)                                                   AS totalProducts,
+       COALESCE(SUM(stock), 0)                                    AS totalItems,
+       SUM(CASE WHEN stock = 0              THEN 1 ELSE 0 END)    AS outOfStockCount,
+       SUM(CASE WHEN stock > 0 AND stock < ? THEN 1 ELSE 0 END)  AS lowStockCount
+     FROM products
+     WHERE is_active = 1`,
+    [threshold]
+  );
+  return {
+    totalProducts:   Number(row.totalProducts),
+    totalItems:      Number(row.totalItems),
+    outOfStockCount: Number(row.outOfStockCount),
+    lowStockCount:   Number(row.lowStockCount),
+  };
+};
+
 const getAdjustmentLog = async (productId) => {
   let sql = `
     SELECT ia.id, ia.product_id AS productId,
@@ -123,5 +142,5 @@ const getAdjustmentLog = async (productId) => {
 module.exports = {
   getAll, getById, create, update, remove,
   getLowStock, getOutOfStock, getStockLevels,
-  adjustStock, getAdjustmentLog,
+  getInventoryCounts, adjustStock, getAdjustmentLog,
 };

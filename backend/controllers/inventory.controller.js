@@ -27,21 +27,10 @@ const getLowStock = async (req, res, next) => {
 
 const getSummary = async (req, res, next) => {
   try {
-    const threshold     = parseInt(req.query.threshold, 10) || 50;
-    const all           = await Product.getAll();
-    const lowStockItems = await Product.getLowStock(threshold);
-    const outOfStock    = await Product.getOutOfStock();
-
-    res.json({
-      success: true,
-      data: {
-        totalProducts:    all.length,
-        lowStockCount:    lowStockItems.length,
-        outOfStockCount:  outOfStock.length,
-        lowStockItems,
-        outOfStockItems:  outOfStock,
-      }
-    });
+    const parsed    = parseInt(req.query.threshold, 10);
+    const threshold = (!isNaN(parsed) && parsed > 0) ? parsed : 50;
+    const counts    = await Product.getInventoryCounts(threshold);
+    res.json({ success: true, data: counts });
   } catch (err) {
     next(err);
   }
