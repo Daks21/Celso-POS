@@ -56,7 +56,6 @@ var PREF_DEFAULTS = {
   dashboardWidgets:      [],
   navLabel:             'app',
   logoTarget:           'order.html',
-  showNotifications:    true,
   showThemeToggle:      false,
 };
 
@@ -84,7 +83,6 @@ function collectCurrentPreferences(userId) {
     dashboardWidgets:      widgets,
     navLabel:             nav.navLabel             || PREF_DEFAULTS.navLabel,
     logoTarget:           nav.logoTarget            || PREF_DEFAULTS.logoTarget,
-    showNotifications:    nav.showNotifications     !== false,
     showThemeToggle:      nav.showThemeToggle       === true,
   };
 }

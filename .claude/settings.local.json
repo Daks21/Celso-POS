@@ -62,7 +62,9 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\\\\frontend\" -Recurse | Where-Object { $_.Name -match \"mobile|responsive\" } | Select-Object FullName)",
       "Bash(npm run *)",
       "Bash(python -m json.tool)",
-      "Bash(tasklist *)"
+      "Bash(tasklist *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\" -Force | Select-Object Name, @{Name=\"Type\"; Expression={if\\($_.PSIsContainer\\){\"DIR\"}else{\"FILE\"}}} | Format-Table -AutoSize)",
+      "Bash(Get-ChildItem C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos *)"
     ]
   }
 }

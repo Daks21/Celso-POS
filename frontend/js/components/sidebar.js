@@ -1,10 +1,9 @@
 // ── Nav Preferences ──
 
 var NAV_PREFS_DEFAULTS = {
-  navLabel:          'app',
-  logoTarget:        'order.html',
-  showNotifications: true,
-  showThemeToggle:   false
+  navLabel:        'app',
+  logoTarget:      'order.html',
+  showThemeToggle: false
 };
 
 function getNavPrefsKey() {
@@ -38,9 +37,6 @@ function applyNavPrefs() {
 
   var themeToggle = document.getElementById('theme-toggle');
   if (themeToggle) themeToggle.style.display = prefs.showThemeToggle ? '' : 'none';
-
-  var notifWrapper = document.querySelector('.notif-wrapper');
-  if (notifWrapper) notifWrapper.style.display = prefs.showNotifications ? '' : 'none';
 }
 
 // ── Sidebar helpers ──
@@ -122,7 +118,7 @@ function initMobileNav() {
     '<span class="sidebar-app-name">' + labelText + '</span>';
   topbar.insertBefore(logo, topbar.firstChild);
 
-  // Inject hamburger into topbar-actions (right side, after bell/theme)
+  // Inject hamburger into topbar-actions (right side, after theme toggle)
   var hamburger = document.createElement('button');
   hamburger.type = 'button';
   hamburger.id = 'mobile-menu-btn';

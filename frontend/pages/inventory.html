@@ -111,17 +111,6 @@
             <i data-lucide="moon" id="theme-icon"></i>
           </button>
 
-          <div class="notif-wrapper">
-            <button
-              type="button"
-              class="topbar-icon-button"
-              id="notif-btn"
-              title="Notifications"
-            >
-              <i data-lucide="bell"></i>
-              <span class="notif-badge" id="notif-badge" style="display:none">0</span>
-            </button>
-          </div>
 
         </div>
       </header>
@@ -167,12 +156,11 @@
 
           <!-- Table -->
           <div class="table-wrapper">
-            <table class="data-table">
+            <table class="data-table" id="inventory-table">
               <thead>
                 <tr>
                   <th>Product Name</th>
                   <th>Category</th>
-                  <th>Unit</th>
                   <th>Current Stock</th>
                   <th>Status</th>
                   <th id="restock-col-header"></th>
@@ -227,7 +215,6 @@
   <script src="../js/core/utils.js"></script>
   <script src="../js/core/auth.js"></script>
   <script src="../js/core/data.js"></script>
-  <script src="../js/components/notifications.js"></script>
   <script src="../js/pages/inventory.js"></script>
   <script>lucide.createIcons();</script>
 </body>

@@ -80,10 +80,67 @@
   color: var(--color-text-muted);
 }
 
+/* ── Row sub-text: category shown under product name on mobile ── */
+
+.row-sub {
+  display: none;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* ── Inventory table: fixed layout with explicit column widths ── */
+
+#inventory-table {
+  table-layout: fixed;
+  min-width: 0;
+}
+
+/* Category */
+#inventory-table th:nth-child(2),
+#inventory-table td:nth-child(2) { width: 130px; }
+
+/* Current Stock */
+#inventory-table th:nth-child(3),
+#inventory-table td:nth-child(3) { width: 120px; }
+
+/* Status */
+#inventory-table th:nth-child(4),
+#inventory-table td:nth-child(4) { width: 60px; text-align: center; }
+
+/* Action */
+#inventory-table th:nth-child(5),
+#inventory-table td:nth-child(5) { width: 50px; text-align: center; }
+
 /* ── Responsive ── */
 
 @media (max-width: 600px) {
   .inventory-summary {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  /* Show category as sub-text inside the name cell */
+  .row-sub { display: block; }
+
+  /* Hide the standalone Category column */
+  #inventory-table th:nth-child(2),
+  #inventory-table td:nth-child(2) { display: none; }
+
+  /* Tighten remaining columns */
+  #inventory-table th:nth-child(3),
+  #inventory-table td:nth-child(3) { width: 80px; }
+
+  #inventory-table th:nth-child(4),
+  #inventory-table td:nth-child(4) { width: 44px; }
+
+  #inventory-table th:nth-child(5),
+  #inventory-table td:nth-child(5) { width: 44px; }
+
+  #inventory-table th,
+  #inventory-table td {
+    padding-left: 8px;
+    padding-right: 8px;
   }
 }

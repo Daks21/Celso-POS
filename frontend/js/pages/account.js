@@ -286,15 +286,6 @@ document.addEventListener('DOMContentLoaded', function() {
       if (logoLink) logoLink.href = value;
     });
 
-    // Show notifications bell
-    initPrefToggle('show-notif-toggle', navPrefs.showNotifications, function(isOn) {
-      var updated = getNavPrefs();
-      updated.showNotifications = isOn;
-      saveNavPrefs(updated);
-      syncToDb();
-      applyNavPrefs();
-    });
-
     // Show theme toggle button
     initPrefToggle('show-theme-btn-toggle', navPrefs.showThemeToggle, function(isOn) {
       var updated = getNavPrefs();

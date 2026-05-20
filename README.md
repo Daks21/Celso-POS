@@ -127,8 +127,7 @@
   ├── css/
   │   ├── main.css             ← Variables, reset, typography,
   │   │                           animations, login/register styles
-  │   ├── layout.css           ← App shell: sidebar, topbar,
-  │   │                           notification panel, page body
+  │   ├── layout.css           ← App shell: sidebar, topbar, page body
   │   ├── components.css       ← Shared components: tables, badges,
   │   │                           buttons, inputs, modals, receipt
   │   └── pages/               ← Page-specific styles (one per page)
@@ -154,7 +153,6 @@
   │   │
   │   ├── components/          ← Reusable UI pieces (not page-specific)
   │   │   ├── sidebar.js       ← Active nav link, user initials
-  │   │   ├── notifications.js ← Stock-based notification panel
   │   │   └── receipt.js       ← Shared receipt modal logic
   │   │
   │   └── pages/               ← One script per page
@@ -191,8 +189,7 @@
   ─────────────────────────────────────────────────────────────
 
     components/sidebar.js → core/theme.js → core/auth.js →
-    core/data.js → components/notifications.js →
-    [components/receipt.js if needed] → pages/[page].js
+    core/data.js → [components/receipt.js if needed] → pages/[page].js
 
   Core and component scripts always load before page scripts so
   that functions like formatPeso and checkAuth are available
@@ -667,7 +664,7 @@
       - Invisible placeholder rows keep table height stable while
         paginating — no layout shift between pages
       - Sidebar navigation with active state
-      - Topbar with notification bell + theme toggle
+      - Topbar with theme toggle
 
     Module 1.4 — Product Management Page
       - Full CRUD: add, edit, delete products
@@ -721,12 +718,6 @@
       - Instant toggle via topbar button or account settings
       - Persists across sessions (localStorage)
       - Applied before page paint to prevent flash
-
-    Notifications System
-      - Bell icon in topbar with unread badge count
-      - Auto-generates alerts from live stock levels
-      - Low stock and out-of-stock notifications
-      - Dismissable individually or all at once
 
     Analytics Page
       - Date range presets: Today, This Week, This Month, etc.
@@ -891,7 +882,7 @@
 
     Module 3.10 — User Preferences Sync
       - All user preferences (theme, row counts, popover toggle,
-        nav labels, notification settings) now persist to the
+        nav labels) now persist to the
         backend database in a JSON column on the users table
       - localStorage used as a write-through cache only
       - Settings survive across devices and browser clears

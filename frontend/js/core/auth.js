@@ -164,7 +164,7 @@ function _cachePreferences(prefs, userId) {
     theme: 'light', taxEnabled: false, taxRate: '0.03', taxDefaultOn: false,
     lowStockThreshold: 50, stockColors: { ok: '#5a9e6f', low: '#eab308', out: '#dc2626' },
     dashboardRecentCount: 5, dashboardWidgets: [],
-    navLabel: 'app', logoTarget: 'order.html', showNotifications: true, showThemeToggle: false,
+    navLabel: 'app', logoTarget: 'order.html', showThemeToggle: false,
   };
   var p = Object.assign({}, DEFAULTS, prefs);
 
@@ -180,9 +180,8 @@ function _cachePreferences(prefs, userId) {
 
   var navKey = 'celso_navprefs_' + String(userId);
   localStorage.setItem(navKey, JSON.stringify({
-    navLabel:          p.navLabel,
-    logoTarget:        p.logoTarget,
-    showNotifications: p.showNotifications,
-    showThemeToggle:   p.showThemeToggle,
+    navLabel:        p.navLabel,
+    logoTarget:      p.logoTarget,
+    showThemeToggle: p.showThemeToggle,
   }));
 }

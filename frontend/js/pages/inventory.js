@@ -87,7 +87,7 @@ function renderInventory(list) {
 
   if (list.length === 0) {
     inventoryTableBody.innerHTML =
-      '<tr><td colspan="6" style="text-align:center;padding:40px;' +
+      '<tr><td colspan="5" style="text-align:center;padding:40px;' +
       'color:var(--color-text-muted);">No products found.</td></tr>';
     return;
   }
@@ -105,10 +105,9 @@ function renderInventory(list) {
       : '<td></td>';
 
     row.innerHTML =
-      '<td><strong>' + product.name + '</strong></td>' +
+      '<td><strong>' + product.name + '</strong><span class="row-sub">' + product.category + '</span></td>' +
       '<td>' + product.category + '</td>' +
-      '<td>' + product.unit + '</td>' +
-      '<td>' + product.stock + '</td>' +
+      '<td>' + product.stock + ' ' + product.unit + '</td>' +
       '<td style="text-align:center;"><span class="stock-dot ' + status.dotCls + '" title="' + status.label + '"></span></td>' +
       restockCell;
 
