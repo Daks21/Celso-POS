@@ -41,25 +41,23 @@ function renderCategorySelect() {
   });
 }
 
-async function applyFilters() {
-  const query = productSearchInput.value.trim();
-  const params = {};
-  if (query) params.search = query;
-  if (activeCategory !== 'All') params.category = activeCategory;
+function applyFilters() {
+  const search = productSearchInput.value.trim().toLowerCase();
 
-  showLoading('#products-table-body');
-  try {
-    const result = await getProducts(params);
-    if (result && result.success) {
-      renderProducts(result.data || []);
-    } else {
-      showApiError(result ? result.message : 'Failed to filter products.');
-    }
-  } catch (err) {
-    showApiError('Network error. Is the server running?');
-  } finally {
-    hideLoading('#products-table-body');
+  let filtered = products.slice();
+
+  if (activeCategory !== 'All') {
+    filtered = filtered.filter(function (p) { return p.category === activeCategory; });
   }
+
+  if (search !== '') {
+    filtered = filtered.filter(function (p) {
+      return (p.name     || '').toLowerCase().includes(search) ||
+             (p.category || '').toLowerCase().includes(search);
+    });
+  }
+
+  renderProducts(filtered);
 }
 
 async function refreshProducts() {
@@ -77,10 +75,10 @@ async function refreshProducts() {
     hideLoading('#products-table-body');
   }
   renderCategorySelect();
-  await applyFilters();
+  applyFilters();
 }
 
-productSearchInput.addEventListener("keyup", applyFilters);
+productSearchInput.addEventListener("input", applyFilters);
 
 if (productCategorySelect) {
   productCategorySelect.addEventListener('change', function () {

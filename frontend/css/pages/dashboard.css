@@ -368,6 +368,7 @@ html[data-theme="dark"] .dash-heatmap-cell[data-level="4"] { background-color: #
 
 #stock-alert-table {
   table-layout: fixed;
+  min-width: 0;
 }
 
 #stock-alert-table th:nth-child(2),

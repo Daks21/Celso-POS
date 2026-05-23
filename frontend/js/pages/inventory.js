@@ -208,8 +208,8 @@ function applyFilters() {
 
   if (search !== '') {
     filtered = filtered.filter(function (p) {
-      return p.name.toLowerCase().includes(search) ||
-             p.category.toLowerCase().includes(search);
+      return (p.name     || '').toLowerCase().includes(search) ||
+             (p.category || '').toLowerCase().includes(search);
     });
   }
 
@@ -266,7 +266,7 @@ if (currentUser && userName) {
   userName.textContent = currentUser.fullName;
 }
 
-inventorySearch.addEventListener('keyup', function () {
+inventorySearch.addEventListener('input', function () {
   currentPage = 1;
   applyFilters();
 });
