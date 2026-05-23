@@ -69,7 +69,12 @@
       "Bash(where mysql *)",
       "Read(//c/xampp/mysql/bin/**)",
       "Bash(C:/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe *)",
-      "Bash('C:/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe' -h localhost -P 3306 -u root '-pAdmin@1234123!@#' celsopos_db -e ' *)"
+      "Bash('C:/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe' -h localhost -P 3306 -u root '-pAdmin@1234123!@#' celsopos_db -e ' *)",
+      "Bash(npm start *)",
+      "Bash(python -m http.server 5500)",
+      "Bash(npm list *)",
+      "Bash(cd /tmp)",
+      "Bash(npm init *)"
     ]
   }
 }
