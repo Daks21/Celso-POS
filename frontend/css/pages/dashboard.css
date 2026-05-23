@@ -364,6 +364,30 @@ html[data-theme="dark"] .dash-heatmap-cell[data-level="4"] { background-color: #
   min-width: 360px;
 }
 
+/* ── Low Stock Alerts table: fixed layout + 1-line product name truncation ── */
+
+#stock-alert-table {
+  table-layout: fixed;
+}
+
+#stock-alert-table th:nth-child(2),
+#stock-alert-table td:nth-child(2) { width: 90px; }
+
+#stock-alert-table th:nth-child(3),
+#stock-alert-table td:nth-child(3) { width: 110px; }
+
+#stock-alert-table td:nth-child(1) {
+  max-width: 0;
+  overflow: hidden;
+}
+
+#stock-alert-table td:nth-child(1) strong {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /* ── Responsive ── */
 
 @media (max-width: 900px) {

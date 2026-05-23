@@ -58,7 +58,12 @@
   color: var(--color-text-muted);
 }
 
-/* ── Product name: truncate long names with ellipsis ── */
+/* ── Product name: constrain cell, then truncate to 1 line with ellipsis ── */
+
+#inventory-table td:nth-child(1) {
+  max-width: 0;
+  overflow: hidden;
+}
 
 #inventory-table td:nth-child(1) strong {
   display: block;
