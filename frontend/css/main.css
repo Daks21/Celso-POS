@@ -73,6 +73,7 @@ html[data-theme="dark"] {
 html {
   height: 100%;
   scrollbar-width: none;
+  overscroll-behavior: none;
 }
 
 html::-webkit-scrollbar {

@@ -95,14 +95,24 @@ function initLogout() {
 
 // ── Mobile Nav ──
 
+var SVG_MENU = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>';
+var SVG_X    = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+
+function closeMobileNav() {
+  var panel = document.getElementById('mobile-nav');
+  var btn   = document.getElementById('mobile-menu-btn');
+  if (panel) panel.classList.remove('is-open');
+  if (btn) {
+    btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML = SVG_MENU;
+  }
+}
+
 function initMobileNav() {
   var topbar = document.querySelector('.topbar');
   if (!topbar) return;
 
   var prefs = getNavPrefs();
-
-  var SVG_MENU = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>';
-  var SVG_X    = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
 
   // Inject logo at left of topbar — only the icon box is tappable (logoTarget pref)
   var logo = document.createElement('div');
@@ -179,12 +189,6 @@ function initMobileNav() {
   topbar.insertAdjacentElement('afterend', panel);
   if (typeof lucide !== 'undefined') lucide.createIcons();
 
-  function closeNav() {
-    panel.classList.remove('is-open');
-    hamburger.setAttribute('aria-expanded', 'false');
-    hamburger.innerHTML = SVG_MENU;
-  }
-
   function openNav() {
     panel.classList.add('is-open');
     hamburger.setAttribute('aria-expanded', 'true');
@@ -193,11 +197,11 @@ function initMobileNav() {
 
   hamburger.addEventListener('click', function(e) {
     e.stopPropagation();
-    panel.classList.contains('is-open') ? closeNav() : openNav();
+    panel.classList.contains('is-open') ? closeMobileNav() : openNav();
   });
 
   document.addEventListener('click', function() {
-    if (panel.classList.contains('is-open')) closeNav();
+    if (panel.classList.contains('is-open')) closeMobileNav();
   });
 
   panel.addEventListener('click', function(e) {
@@ -230,6 +234,36 @@ function initFab() {
   document.body.appendChild(fab);
 }
 
+// ── Mobile: hide topbar on scroll down, reveal on scroll up ──
+
+function initScrollHideTopbar() {
+  if (!window.matchMedia('(max-width: 768px)').matches) return;
+
+  var topbar   = document.querySelector('.topbar');
+  var pageBody = document.querySelector('.page-body');
+  if (!topbar || !pageBody) return;
+
+  var lastY     = 0;
+  var DEAD_ZONE = 80; // px — never hide within this distance from the top
+
+  pageBody.addEventListener('scroll', function() {
+    var y = pageBody.scrollTop;
+
+    if (y < DEAD_ZONE) {
+      topbar.classList.remove('topbar--hidden');
+    } else if (y > lastY) {
+      // scrolling down
+      topbar.classList.add('topbar--hidden');
+      closeMobileNav();
+    } else {
+      // scrolling up
+      topbar.classList.remove('topbar--hidden');
+    }
+
+    lastY = y;
+  }, { passive: true });
+}
+
 // ── Global: close modals on Escape ──
 
 document.addEventListener('keydown', function(e) {
@@ -249,4 +283,5 @@ document.addEventListener('DOMContentLoaded', function() {
   initUserPopup();
   initLogout();
   initFab();
+  initScrollHideTopbar();
 });
