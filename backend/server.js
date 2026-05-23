@@ -2,7 +2,10 @@ const dotenv           = require('dotenv');
 dotenv.config();
 
 // --- Fail-fast: validate required environment variables ---
-const REQUIRED_ENV = ['JWT_SECRET', 'DB_HOST', 'DB_USER', 'DB_PASS', 'DB_NAME'];
+const REQUIRED_ENV = [
+  'JWT_SECRET', 'DB_HOST', 'DB_USER', 'DB_PASS',
+  'DB_NAME', 'GROQ_API_KEY'
+];
 REQUIRED_ENV.forEach(key => {
   if (!process.env[key]) {
     console.error(`[Startup] Missing required environment variable: ${key}`);
@@ -21,6 +24,7 @@ const salesRouter      = require('./routes/sales.routes');
 const analyticsRouter  = require('./routes/analytics.routes');
 const inventoryRouter  = require('./routes/inventory.routes');
 const financeRouter    = require('./routes/finance.routes');
+const aiRouter         = require('./routes/ai.routes');
 const errorMiddleware  = require('./middleware/error.middleware');
 const pool             = require('./config/db.config');
 
@@ -79,6 +83,7 @@ app.use('/api/sales',     salesRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/inventory', inventoryRouter);
 app.use('/api/finance',   financeRouter);
+app.use('/api/ai',        aiRouter);
 
 // --- Global error handler ---
 app.use(errorMiddleware);
