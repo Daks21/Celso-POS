@@ -1,4 +1,4 @@
-checkAuth();
+﻿checkAuth();
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser'));
 const userName    = document.getElementById('user-name');
@@ -16,11 +16,6 @@ const confirmRestock       = document.getElementById('confirm-restock');
 const restockQuantityInput = document.getElementById('restock-quantity');
 const restockProductInfo   = document.getElementById('restock-product-info');
 const restockError         = document.getElementById('restock-error');
-const restockIsPurchase    = document.getElementById('restock-is-purchase');
-const restockExpenseFields = document.getElementById('restock-expense-fields');
-const restockTotalPaid     = document.getElementById('restock-total-paid');
-const restockPaymentMethod = document.getElementById('restock-payment-method');
-const restockSupplier      = document.getElementById('restock-supplier');
 
 let products       = [];
 let activeStatus   = 'all';
@@ -52,22 +47,36 @@ async function renderSummary() {
   const out           = data.outOfStockCount || 0;
 
   inventorySummary.innerHTML =
-    '<div class="inventory-stat">' +
-      '<p class="inventory-stat-value">' + totalStocks + '</p>' +
-      '<p class="inventory-stat-label">Total Stocks</p>' +
+    '<div class="summary-card">' +
+      '<div class="summary-card-header">' +
+        '<span class="summary-label">Total Stocks</span>' +
+        '<div class="summary-icon"><i data-lucide="layers"></i></div>' +
+      '</div>' +
+      '<p class="summary-value">' + totalStocks + '</p>' +
     '</div>' +
-    '<div class="inventory-stat">' +
-      '<p class="inventory-stat-value">' + totalProducts + '</p>' +
-      '<p class="inventory-stat-label">Total Products</p>' +
+    '<div class="summary-card">' +
+      '<div class="summary-card-header">' +
+        '<span class="summary-label">Total Products</span>' +
+        '<div class="summary-icon"><i data-lucide="package"></i></div>' +
+      '</div>' +
+      '<p class="summary-value">' + totalProducts + '</p>' +
     '</div>' +
-    '<div class="inventory-stat">' +
-      '<p class="inventory-stat-value" style="color:var(--stock-color-low);">' + low + '</p>' +
-      '<p class="inventory-stat-label">Low Stock</p>' +
+    '<div class="summary-card">' +
+      '<div class="summary-card-header">' +
+        '<span class="summary-label">Low Stock</span>' +
+        '<div class="summary-icon"><i data-lucide="alert-triangle"></i></div>' +
+      '</div>' +
+      '<p class="summary-value" style="color:var(--stock-color-low);">' + low + '</p>' +
     '</div>' +
-    '<div class="inventory-stat">' +
-      '<p class="inventory-stat-value" style="color:var(--stock-color-out);">' + out + '</p>' +
-      '<p class="inventory-stat-label">Out of Stock</p>' +
+    '<div class="summary-card">' +
+      '<div class="summary-card-header">' +
+        '<span class="summary-label">Out of Stock</span>' +
+        '<div class="summary-icon"><i data-lucide="x-circle"></i></div>' +
+      '</div>' +
+      '<p class="summary-value" style="color:var(--stock-color-out);">' + out + '</p>' +
     '</div>';
+
+  if (window.lucide) lucide.createIcons();
 }
 
 function renderCategorySelect() {
@@ -102,18 +111,16 @@ function renderInventory(list) {
     const row    = document.createElement('tr');
 
     const restockCell = isAdmin()
-      ? '<td style="text-align:center;">' +
-          '<button type="button" class="restock-button" data-id="' + product.id + '" title="Restock">' +
-            '<i data-lucide="plus-circle"></i>' +
-          '</button>' +
-        '</td>'
+      ? '<td><button type="button" class="action-btn" data-id="' + product.id + '" title="Restock">' +
+          '<i data-lucide="plus"></i>' +
+        '</button></td>'
       : '<td></td>';
 
     row.innerHTML =
       '<td><strong>' + product.name + '</strong><span class="row-sub">' + product.category + '</span></td>' +
       '<td>' + product.category + '</td>' +
       '<td>' + product.stock + ' ' + product.unit + '</td>' +
-      '<td style="text-align:center;"><span class="stock-dot ' + status.dotCls + '" title="' + status.label + '"></span></td>' +
+      '<td><span class="stock-dot ' + status.dotCls + '"></span></td>' +
       restockCell;
 
     inventoryTableBody.appendChild(row);
@@ -126,7 +133,7 @@ function renderInventory(list) {
 function attachRestockEvents() {
   if (!isAdmin()) return;
 
-  document.querySelectorAll('.restock-button').forEach(function (btn) {
+  document.querySelectorAll('.action-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
       restockingId = btn.dataset.id;
       openRestockModal(restockingId);
@@ -144,12 +151,7 @@ function openRestockModal(productId) {
 
   restockQuantityInput.value = '';
   restockError.textContent   = '';
-  if (restockIsPurchase)    restockIsPurchase.checked             = false;
-  if (restockExpenseFields) restockExpenseFields.style.display    = 'none';
-  if (restockTotalPaid)     restockTotalPaid.value                = '';
-  if (restockPaymentMethod) restockPaymentMethod.value            = 'cash';
-  if (restockSupplier)      restockSupplier.value                 = '';
-  restockModal.style.display = 'flex';
+restockModal.style.display = 'flex';
 }
 
 function closeModal() {
@@ -172,15 +174,6 @@ async function handleRestock() {
   }
 
   const payload = { quantity: quantity, type: 'restock' };
-  if (restockIsPurchase && restockIsPurchase.checked) {
-    const totalPaid = Number(restockTotalPaid && restockTotalPaid.value);
-    if (totalPaid > 0) {
-      payload.recordExpense  = true;
-      payload.totalPaid      = totalPaid;
-      payload.paymentMethod  = restockPaymentMethod ? restockPaymentMethod.value : 'cash';
-      payload.supplierName   = restockSupplier && restockSupplier.value.trim() ? restockSupplier.value.trim() : null;
-    }
-  }
 
   confirmRestock.disabled = true;
   try {
@@ -259,21 +252,11 @@ if (inventoryStatusSelect) {
   });
 }
 
-if (restockIsPurchase) {
-  restockIsPurchase.addEventListener('change', function () {
-    if (restockExpenseFields) restockExpenseFields.style.display = this.checked ? '' : 'none';
-  });
-}
-
 closeRestockModal.addEventListener('click', closeModal);
 confirmRestock.addEventListener('click', handleRestock);
 
 restockModal.addEventListener('click', function (e) {
   if (e.target === restockModal) closeModal();
 });
-
-if (isAdmin() && restockColHeader) {
-  restockColHeader.textContent = 'Action';
-}
 
 refreshInventory();

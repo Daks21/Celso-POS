@@ -134,7 +134,7 @@
           </div>
 
           <!-- Summary Row -->
-          <div class="inventory-summary" id="inventory-summary">
+          <div class="summary-cards" id="inventory-summary">
             <!-- Rendered by JS -->
           </div>
 
@@ -166,7 +166,7 @@
                   <th>Product Name</th>
                   <th>Category</th>
                   <th>Current Stock</th>
-                  <th>Status</th>
+                  <th></th>
                   <th id="restock-col-header"></th>
                 </tr>
               </thead>
@@ -211,47 +211,6 @@
         <p id="restock-error" class="form-error"></p>
       </div>
 
-      <!-- Expense capture -->
-      <div class="form-group" style="margin-top: 0.75rem;">
-        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:500;">
-          <input type="checkbox" id="restock-is-purchase" style="width:auto;cursor:pointer;" />
-          Binili ko ito (may gastos)
-        </label>
-      </div>
-
-      <div id="restock-expense-fields" style="display:none;margin-top:0.5rem;">
-        <div class="form-row" style="margin-bottom:0.5rem;">
-          <div class="form-group">
-            <label for="restock-total-paid">Total Amount Paid (&#8369;)</label>
-            <input
-              type="number"
-              id="restock-total-paid"
-              class="search-input no-spinner"
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-            />
-          </div>
-          <div class="form-group">
-            <label for="restock-payment-method">Payment Method</label>
-            <select id="restock-payment-method" class="filter-select" style="width:100%;">
-              <option value="cash">Cash</option>
-              <option value="bank">Bank</option>
-              <option value="credit">Credit</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="restock-supplier">Supplier / Source (optional)</label>
-          <input
-            type="text"
-            id="restock-supplier"
-            class="search-input"
-            placeholder="e.g. SM, Puregold, suki supplier"
-            style="margin-bottom:0.5rem;"
-          />
-        </div>
-      </div>
     </div>
   </div>
 

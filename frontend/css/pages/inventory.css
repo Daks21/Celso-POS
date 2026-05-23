@@ -1,32 +1,5 @@
 /* ── Inventory Page ── */
 
-.inventory-summary {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.inventory-stat {
-  background-color: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  text-align: center;
-}
-
-.inventory-stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--color-text);
-  margin-bottom: 4px;
-}
-
-.inventory-stat-label {
-  font-size: 13px;
-  color: var(--color-text-muted);
-}
-
 .inventory-header-actions {
   display: flex;
   gap: 12px;
@@ -38,28 +11,33 @@
   gap: 8px;
 }
 
-.restock-button {
-  padding: 5px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-primary);
-  background-color: rgba(90, 158, 111, 0.08);
-  color: var(--color-primary);
-  font-family: var(--font-main);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
+/* ── Action button (restock) ── */
+
+.action-btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.restock-button:hover {
-  background-color: var(--color-primary);
-  color: #ffffff;
+.action-btn:hover,
+.action-btn:focus-visible {
+  background: var(--color-border);
+  color: var(--color-text);
 }
+
+.action-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ── Restock modal product info ── */
 
 .restock-product-info {
   background-color: var(--color-background);
@@ -80,6 +58,15 @@
   color: var(--color-text-muted);
 }
 
+/* ── Product name: truncate long names with ellipsis ── */
+
+#inventory-table td:nth-child(1) strong {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /* ── Row sub-text: category shown under product name on mobile ── */
 
 .row-sub {
@@ -98,27 +85,21 @@
 
 /* Category */
 #inventory-table th:nth-child(2),
-#inventory-table td:nth-child(2) { width: 130px; }
+#inventory-table td:nth-child(2) { width: 115px; }
 
 /* Current Stock */
 #inventory-table th:nth-child(3),
-#inventory-table td:nth-child(3) { width: 120px; }
+#inventory-table td:nth-child(3) { width: 105px; }
 
 /* Status */
 #inventory-table th:nth-child(4),
-#inventory-table td:nth-child(4) { width: 60px; text-align: center; }
+#inventory-table td:nth-child(4) { width: 52px; text-align: center; }
 
 /* Action */
 #inventory-table th:nth-child(5),
-#inventory-table td:nth-child(5) { width: 50px; text-align: center; }
+#inventory-table td:nth-child(5) { width: 44px; text-align: center; }
 
 /* ── Responsive ── */
-
-@media (max-width: 600px) {
-  .inventory-summary {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
 
 @media (max-width: 768px) {
   /* Show category as sub-text inside the name cell */
@@ -130,10 +111,10 @@
 
   /* Tighten remaining columns */
   #inventory-table th:nth-child(3),
-  #inventory-table td:nth-child(3) { width: 80px; }
+  #inventory-table td:nth-child(3) { width: 90px; }
 
   #inventory-table th:nth-child(4),
-  #inventory-table td:nth-child(4) { width: 44px; }
+  #inventory-table td:nth-child(4) { width: 50px; }
 
   #inventory-table th:nth-child(5),
   #inventory-table td:nth-child(5) { width: 44px; }
