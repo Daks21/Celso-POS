@@ -1,11 +1,51 @@
 /* ── Finance Summary ── */
 
 .finance-summary {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
-.finance-summary .summary-card {
-  max-width: 280px;
+.summary-card--balance {
+  flex: 0 0 260px;
+}
+
+.summary-card--chart {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.chart-period-badge {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  background: var(--color-border-subtle);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.chart-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.chart-body svg {
+  display: block;
+  width: 100%;
+  height: 72px;
 }
 
 /* ── Type labels ── */
@@ -197,6 +237,15 @@ html[data-theme="dark"] #finance-date {
 }
 
 @media (max-width: 600px) {
+  .finance-summary {
+    flex-direction: column;
+  }
+
+  .summary-card--balance {
+    flex: none;
+    width: 100%;
+  }
+
   /* Keep header as a row — title + button never stack */
   .products-header {
     flex-wrap: nowrap;

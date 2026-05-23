@@ -23,6 +23,9 @@ var editingId   = null;
 var currentPage = 1;
 var PAGE_SIZE   = 20;
 
+var _chartResizeObserver = null;
+var _chartDrawSeq        = 0;
+
 var TYPE_LABELS = {
   sales_revenue: 'Sales',
   capital_in:    'Capital In',
@@ -58,15 +61,149 @@ function formatPeso(amount) {
 function renderSummary(data) {
   var net = Number(data.net);
   financeSummaryEl.innerHTML =
-    '<div class="summary-card">' +
+    '<div class="summary-card summary-card--balance">' +
       '<div class="summary-card-header">' +
-        '<span class="summary-label">Net</span>' +
+        '<span class="summary-label">Net Balance</span>' +
         '<div class="summary-icon"><i data-lucide="wallet"></i></div>' +
       '</div>' +
       '<p class="summary-value">' + formatPeso(net) + '</p>' +
       '<p class="summary-trend">All-time cash flow</p>' +
+    '</div>' +
+    '<div class="summary-card summary-card--chart" id="cashflow-chart-card">' +
+      '<div class="chart-card-header">' +
+        '<span class="summary-label">Cash Flow</span>' +
+        '<span class="chart-period-badge" id="chart-period-badge"></span>' +
+      '</div>' +
+      '<div class="chart-body" id="cashflow-chart-body"></div>' +
     '</div>';
   if (window.lucide) lucide.createIcons();
+}
+
+// ── Cash Flow Sparkline ──
+
+var GRANULARITY_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', annually: 'Annually' };
+
+function getGranularity(width) {
+  if (width > 600) return 'daily';
+  if (width > 350) return 'weekly';
+  if (width > 200) return 'monthly';
+  return 'annually';
+}
+
+function aggregateByGranularity(sortedEntries, granularity) {
+  var buckets = {};
+  sortedEntries.forEach(function (entry) {
+    var date = entry.occurred_at ? String(entry.occurred_at).slice(0, 10) : null;
+    if (!date) return;
+    var key;
+    if (granularity === 'daily') {
+      key = date;
+    } else if (granularity === 'weekly') {
+      var d = new Date(date + 'T00:00:00');
+      var dow = d.getDay();
+      d.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow));
+      key = d.toISOString().slice(0, 10);
+    } else if (granularity === 'monthly') {
+      key = date.slice(0, 7);
+    } else {
+      key = date.slice(0, 4);
+    }
+    if (!buckets[key]) buckets[key] = 0;
+    var isOut = entry.type === 'owner_draw' || entry.type === 'opex' || entry.type === 'capex';
+    buckets[key] += isOut ? -Number(entry.amount) : Number(entry.amount);
+  });
+  var keys = Object.keys(buckets).sort();
+  var running = 0;
+  return keys.map(function (k) { running += buckets[k]; return running; });
+}
+
+function buildSparklineSVG(points, color) {
+  var VW = 1000, VH = 100, pad = 8;
+  var gradId = 'cf-grad-' + (++_chartDrawSeq);
+
+  if (points.length === 0) {
+    return (
+      '<svg viewBox="0 0 ' + VW + ' ' + VH + '" preserveAspectRatio="none" width="100%">' +
+        '<line x1="0" y1="' + VH / 2 + '" x2="' + VW + '" y2="' + VH / 2 + '"' +
+          ' stroke="' + color + '" stroke-opacity="0.35" stroke-width="2.5" stroke-dasharray="12 8"/>' +
+      '</svg>'
+    );
+  }
+
+  var pts = points.length === 1 ? [points[0], points[0]] : points;
+  var min = Math.min.apply(null, pts);
+  var max = Math.max.apply(null, pts);
+  var range = max === min ? 1 : max - min;
+
+  var coords = pts.map(function (v, i) {
+    return {
+      x: (i / (pts.length - 1)) * VW,
+      y: pad + (1 - (v - min) / range) * (VH - 2 * pad),
+    };
+  });
+
+  var d = 'M' + coords[0].x.toFixed(1) + ' ' + coords[0].y.toFixed(1);
+  for (var i = 1; i < coords.length; i++) {
+    var p = coords[i - 1], c = coords[i];
+    var cpx = ((p.x + c.x) / 2).toFixed(1);
+    d += ' C' + cpx + ' ' + p.y.toFixed(1) +
+         ' ' + cpx + ' ' + c.y.toFixed(1) +
+         ' ' + c.x.toFixed(1) + ' ' + c.y.toFixed(1);
+  }
+  var area = d + ' L' + VW + ' ' + VH + ' L0 ' + VH + ' Z';
+
+  return (
+    '<svg viewBox="0 0 ' + VW + ' ' + VH + '" preserveAspectRatio="none" width="100%">' +
+      '<defs>' +
+        '<linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1">' +
+          '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.22"/>' +
+          '<stop offset="100%" stop-color="' + color + '" stop-opacity="0"/>' +
+        '</linearGradient>' +
+      '</defs>' +
+      '<path d="' + area + '" fill="url(#' + gradId + ')" stroke="none"/>' +
+      '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2.5"' +
+        ' stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>'
+  );
+}
+
+function drawChart(entries, cardContentWidth) {
+  var body  = document.getElementById('cashflow-chart-body');
+  var badge = document.getElementById('chart-period-badge');
+  if (!body || cardContentWidth < 40) return;
+
+  var granularity = getGranularity(cardContentWidth);
+  if (badge) badge.textContent = GRANULARITY_LABELS[granularity];
+
+  var sorted = entries.slice().sort(function (a, b) {
+    var da = String(a.occurred_at || ''), db = String(b.occurred_at || '');
+    return da < db ? -1 : da > db ? 1 : 0;
+  });
+
+  var points       = aggregateByGranularity(sorted, granularity);
+  var finalBalance = points.length > 0 ? points[points.length - 1] : 0;
+
+  var cs    = getComputedStyle(document.documentElement);
+  var color = finalBalance >= 0
+    ? (cs.getPropertyValue('--color-primary').trim() || '#5a9e6f')
+    : (cs.getPropertyValue('--color-danger').trim()  || '#dc2626');
+
+  body.innerHTML = buildSparklineSVG(points, color);
+}
+
+function renderCashFlowChart(allEntries) {
+  var card = document.getElementById('cashflow-chart-card');
+  if (!card) return;
+
+  if (_chartResizeObserver) {
+    _chartResizeObserver.disconnect();
+    _chartResizeObserver = null;
+  }
+
+  _chartResizeObserver = new ResizeObserver(function (observed) {
+    drawChart(allEntries, Math.floor(observed[0].contentRect.width));
+  });
+  _chartResizeObserver.observe(card);
 }
 
 var SVG_DOTS = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1" fill="currentColor"></circle><circle cx="12" cy="12" r="1" fill="currentColor"></circle><circle cx="12" cy="19" r="1" fill="currentColor"></circle></svg>';
@@ -303,13 +440,21 @@ function getFilters() {
 async function loadData() {
   showLoading('#finance-table-body');
   try {
-    var filters = getFilters();
-    var results = await Promise.all([
+    var filters   = getFilters();
+    var hasFilter = Object.keys(filters).length > 0;
+
+    var fetches = [
       getFinanceMovements(filters),
       getFinanceSummary(filters),
-    ]);
+    ];
+    if (hasFilter) fetches.push(getFinanceMovements({}));
+
+    var results   = await Promise.all(fetches);
     var movResult = results[0];
     var sumResult = results[1];
+    var allData   = hasFilter
+      ? ((results[2] && results[2].data) || [])
+      : ((results[0] && results[0].data) || []);
 
     if (sumResult && sumResult.success) {
       renderSummary(sumResult.data);
@@ -323,6 +468,8 @@ async function loadData() {
         '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--color-danger,#dc2626);">' +
         (movResult ? movResult.message : 'Failed to load entries.') + '</td></tr>';
     }
+
+    renderCashFlowChart(allData);
   } catch (err) {
     showApiError('Network error. Is the server running?');
   } finally {
