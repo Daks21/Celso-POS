@@ -25,38 +25,24 @@ var PAGE_SIZE   = 20;
 
 var TYPE_LABELS = {
   sales_revenue: 'Sales',
-  capital_in:    'Puhunan In',
-  owner_draw:    'Kuha',
-  opex:          'OpEx',
-  capex:         'CapEx',
+  capital_in:    'Capital In',
+  capex:         'Capital In',
+  owner_draw:    'Withdrawal',
+  opex:          'Operating Expense',
 };
 
 // Matches README category conventions exactly.
 // null → free-form (opex/capex: user types any category)
 var CATEGORIES = {
   capital_in: [
-    { value: 'own',      label: 'Own (Sariling pera)'  },
-    { value: 'borrowed', label: 'Borrowed / Hiniram'   },
+    { value: 'own',      label: 'Own'      },
+    { value: 'borrowed', label: 'Borrowed' },
   ],
   owner_draw: [
-    { value: 'personal',      label: 'Personal / Household'       },
-    { value: 'loan_payment',  label: 'Loan Payment (Bayad utang)' },
-    { value: 'reinvest',      label: 'Reinvestment'               },
-    { value: 'other',         label: 'Other / Iba pa'             },
-  ],
-  opex: [
-    { value: 'rent',       label: 'Rent'              },
-    { value: 'utilities',  label: 'Utilities'         },
-    { value: 'transport',  label: 'Transport'         },
-    { value: 'supplies',   label: 'Supplies'          },
-    { value: 'restock',    label: 'Restock'           },
-    { value: 'other',      label: 'Other / Iba pa'    },
-  ],
-  capex: [
-    { value: 'equipment',  label: 'Equipment'         },
-    { value: 'furniture',  label: 'Furniture'         },
-    { value: 'renovation', label: 'Renovation'        },
-    { value: 'other',      label: 'Other / Iba pa'    },
+    { value: 'personal', label: 'Personal'          },
+    { value: 'restock',  label: 'Restock'           },
+    { value: 'opex',     label: 'Operating Expense' },
+    { value: 'other',    label: 'Other / Iba pa'    },
   ],
 };
 
@@ -145,14 +131,14 @@ function renderFinancePagination(totalPages) {
 function renderMovements(list) {
   if (!list || list.length === 0) {
     financeTableBody.innerHTML =
-      '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--color-text-muted);">No entries found.</td></tr>';
+      '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--color-text-muted);">No entries found.</td></tr>';
     var pager = document.getElementById('finance-pagination');
     if (pager) pager.innerHTML = '';
     return;
   }
 
   var display = financeTypeSelect.value === 'sales_revenue'
-    ? list.filter(function (e) { return e.type === 'sales_revenue'; })
+    ? groupSalesRevenue(list).filter(function (e) { return e.type === 'sales_revenue'; })
     : groupSalesRevenue(list);
 
   window._financeDisplay = display;
@@ -163,19 +149,22 @@ function renderMovements(list) {
   var pageSlice = display.slice(start, start + PAGE_SIZE);
 
   financeTableBody.innerHTML = pageSlice.map(function (entry) {
-    var isOut     = ['owner_draw', 'opex', 'capex'].includes(entry.type);
-    var amountCls = isOut ? 'finance-amount is-out' : 'finance-amount is-in';
+    var isOut     = ['owner_draw', 'opex'].includes(entry.type);
+    var amountCls = 'finance-amount';
     var sign      = isOut ? '−' : '+';
     var dateStr   = entry.occurred_at ? String(entry.occurred_at).substring(0, 10) : '—';
 
-    var catLabel, notesHtml, actionsHtml;
+    var typeLabel = TYPE_LABELS[entry.type] || entry.type;
+    var notesHtml, actionsHtml, descHtml;
 
     if (entry._grouped) {
-      catLabel   = '—';
-      notesHtml  = '<span style="color:var(--color-text-muted);font-size:0.82em;">' + entry.count + ' transaction' + (entry.count !== 1 ? 's' : '') + '</span>';
+      descHtml    = '<span class="type-label">' + typeLabel + '</span>';
+      notesHtml   = '<span style="color:var(--color-text-muted);font-size:0.82em;">' + entry.count + ' transaction' + (entry.count !== 1 ? 's' : '') + '</span>';
       actionsHtml = '<td class="actions-cell"></td>';
     } else {
-      catLabel    = entry.category ? entry.category.replace(/_/g, ' ') : '—';
+      var catLabel = entry.category ? entry.category.replace(/_/g, ' ') : '';
+      descHtml = '<span class="type-label">' + typeLabel + '</span>' +
+        (catLabel ? '<span class="cat-label"> · ' + catLabel + '</span>' : '');
       notesHtml   = (entry.description || '—');
       actionsHtml = '<td class="actions-cell"></td>';
       if (isAdmin()) {
@@ -202,10 +191,9 @@ function renderMovements(list) {
 
     return '<tr>' +
       '<td>' + dateStr + '</td>' +
-      '<td><span class="type-badge type-badge--' + entry.type + '">' + (TYPE_LABELS[entry.type] || entry.type) + '</span></td>' +
-      '<td>' + catLabel + '</td>' +
+      '<td class="desc-cell">' + descHtml + '</td>' +
       '<td class="' + amountCls + '">' + sign + ' ' + formatPeso(entry.amount) + '</td>' +
-      '<td>' + notesHtml + '</td>' +
+      '<td class="notes-cell">' + notesHtml + '</td>' +
       actionsHtml +
     '</tr>';
   }).join('');

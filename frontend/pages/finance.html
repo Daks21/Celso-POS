@@ -137,10 +137,9 @@
           <div class="products-toolbar">
             <select id="finance-type-select" class="filter-select">
               <option value="">All Types</option>
+              <option value="sales_revenue">Daily Sales</option>
               <option value="capital_in">Capital In</option>
               <option value="owner_draw">Withdrawal</option>
-              <option value="opex">Operating Expense</option>
-              <option value="capex">Investment</option>
             </select>
           </div>
 
@@ -150,8 +149,7 @@
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Type</th>
-                  <th>Category</th>
+                  <th>Description</th>
                   <th>Amount</th>
                   <th>Notes</th>
                   <th class="actions-col" id="finance-actions-col"></th>
@@ -187,8 +185,6 @@
               <option value="">Select type</option>
               <option value="capital_in">Capital In</option>
               <option value="owner_draw">Withdrawal</option>
-              <option value="opex">Operating Expense</option>
-              <option value="capex">Investment</option>
             </select>
             <p id="finance-type-error" class="form-error"></p>
           </div>

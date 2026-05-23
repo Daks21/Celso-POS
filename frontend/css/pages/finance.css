@@ -8,36 +8,21 @@
   max-width: 280px;
 }
 
-/* ── Type badges ── */
+/* ── Type labels ── */
 
 .type-badge {
-  display: inline-block;
-  font-size: 0.68rem;
-  font-weight: 700;
-  padding: 0.2em 0.55em;
-  border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
   white-space: nowrap;
 }
 
-.type-badge--sales_revenue { background: #f0fdf4; color: #15803d; }
-.type-badge--capital_in    { background: #dcfce7; color: #15803d; }
-.type-badge--owner_draw    { background: #fee2e2; color: #b91c1c; }
-.type-badge--opex          { background: #fef3c7; color: #92400e; }
-.type-badge--capex         { background: #dbeafe; color: #1d4ed8; }
+/* ── Amount in table ── */
 
-[data-theme="dark"] .type-badge--sales_revenue { background: #052e16; color: #86efac; }
-[data-theme="dark"] .type-badge--capital_in    { background: #14532d; color: #86efac; }
-[data-theme="dark"] .type-badge--owner_draw    { background: #450a0a; color: #fca5a5; }
-[data-theme="dark"] .type-badge--opex          { background: #451a03; color: #fcd34d; }
-[data-theme="dark"] .type-badge--capex         { background: #1e3a5f; color: #93c5fd; }
-
-/* ── Amount colors in table ── */
-
-.finance-amount          { font-weight: 600; }
-.finance-amount.is-out   { color: var(--color-danger,  #dc2626); }
-.finance-amount.is-in    { color: var(--color-success, #16a34a); }
+.finance-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 
 html[data-theme="dark"] #finance-date {
   color-scheme: dark;
@@ -50,33 +35,50 @@ html[data-theme="dark"] #finance-date {
   min-width: 0;
 }
 
+/* Date */
 #finance-table th:nth-child(1),
-#finance-table td:nth-child(1) { width: 105px; }  /* Date */
+#finance-table td:nth-child(1) { width: 130px; white-space: nowrap; }
 
+/* Description */
 #finance-table th:nth-child(2),
-#finance-table td:nth-child(2) { width: 110px; text-align: center; }  /* Type */
+#finance-table td:nth-child(2) { width: 185px; white-space: nowrap; }
 
+/* Amount */
 #finance-table th:nth-child(3),
-#finance-table td:nth-child(3) { width: 130px; text-transform: capitalize; }  /* Category */
+#finance-table td:nth-child(3) { width: 130px; text-align: right; }
 
-#finance-table th:nth-child(4),
-#finance-table td:nth-child(4) { width: 130px; text-align: center; }  /* Amount */
-
-/* Actions: just wide enough for the kebab button */
-#finance-table th:nth-child(6),
-#finance-table td:nth-child(6) {
-  width: 40px;
-  text-align: center;
-}
-
-/* Notes: fills remaining space with ellipsis */
-#finance-table th:nth-child(5) { text-align: center; }
-#finance-table td:nth-child(5) {
+/* Notes — fills remaining space */
+#finance-table th:nth-child(4) { text-align: center; }
+#finance-table td:nth-child(4) {
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--color-text-muted);
   font-size: 0.85em;
+}
+
+/* Amount header mirrors right-aligned values */
+#finance-table th:nth-child(3) { text-align: right; }
+
+/* Actions */
+#finance-table th:nth-child(5),
+#finance-table td:nth-child(5) { width: 44px; text-align: center; }
+
+/* Row spacing */
+#finance-table td { padding-top: 14px; padding-bottom: 14px; }
+
+/* Description cell internals */
+.desc-cell { text-transform: capitalize; }
+
+.type-label {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.cat-label {
+  color: var(--color-text-muted);
+  font-size: 0.88em;
 }
 
 /* ── Kebab menu ── */
@@ -159,17 +161,36 @@ html[data-theme="dark"] #finance-date {
 
 
 @media (max-width: 768px) {
-  /* Hide Category and Notes on small screens */
-  #finance-table th:nth-child(3),
-  #finance-table td:nth-child(3),
-  #finance-table th:nth-child(5),
-  #finance-table td:nth-child(5) { display: none; }
-
-  #finance-table th:nth-child(1),
-  #finance-table td:nth-child(1) { width: 88px; }
-
+  /* Hide Notes on small screens */
   #finance-table th:nth-child(4),
-  #finance-table td:nth-child(4) { width: 105px; }
+  #finance-table td:nth-child(4) { display: none; }
+
+  /* Hide the category part — show type label only */
+  .cat-label { display: none; }
+
+  /* Date: wide enough for YYYY-MM-DD on one line */
+  #finance-table th:nth-child(1),
+  #finance-table td:nth-child(1) {
+    width: 100px;
+    white-space: nowrap;
+  }
+
+  /* Description: fixed, one line with ellipsis */
+  #finance-table th:nth-child(2),
+  #finance-table td:nth-child(2) {
+    width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Amount */
+  #finance-table th:nth-child(3),
+  #finance-table td:nth-child(3) { width: 105px; }
+
+  /* Actions */
+  #finance-table th:nth-child(5),
+  #finance-table td:nth-child(5) { width: 36px; }
 
   #finance-table th,
   #finance-table td { padding-left: 8px; padding-right: 8px; }
