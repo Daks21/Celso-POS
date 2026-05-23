@@ -21,6 +21,9 @@ let products       = [];
 let activeStatus   = 'all';
 let activeCategory = 'All';
 let restockingId   = null;
+let currentPage    = 1;
+
+const PAGE_SIZE = 20;
 
 function isAdmin() {
   return currentUser && currentUser.role === 'admin';
@@ -210,7 +213,34 @@ function applyFilters() {
     });
   }
 
-  renderInventory(filtered);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+
+  const start = (currentPage - 1) * PAGE_SIZE;
+  renderInventory(filtered.slice(start, start + PAGE_SIZE));
+  renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+  const el = document.getElementById('inventory-pagination');
+  if (!el) return;
+
+  if (totalPages <= 1) {
+    el.innerHTML = '';
+    return;
+  }
+
+  el.innerHTML =
+    '<button class="page-btn" id="prev-page"' + (currentPage === 1 ? ' disabled' : '') + '>&#8592;</button>' +
+    '<span class="page-info">Page ' + currentPage + ' of ' + totalPages + '</span>' +
+    '<button class="page-btn" id="next-page"' + (currentPage === totalPages ? ' disabled' : '') + '>&#8594;</button>';
+
+  document.getElementById('prev-page').addEventListener('click', function () {
+    if (currentPage > 1) { currentPage--; applyFilters(); }
+  });
+  document.getElementById('next-page').addEventListener('click', function () {
+    if (currentPage < totalPages) { currentPage++; applyFilters(); }
+  });
 }
 
 async function refreshInventory() {
@@ -236,11 +266,15 @@ if (currentUser && userName) {
   userName.textContent = currentUser.fullName;
 }
 
-inventorySearch.addEventListener('keyup', applyFilters);
+inventorySearch.addEventListener('keyup', function () {
+  currentPage = 1;
+  applyFilters();
+});
 
 if (inventoryCategorySelect) {
   inventoryCategorySelect.addEventListener('change', function () {
     activeCategory = inventoryCategorySelect.value;
+    currentPage = 1;
     applyFilters();
   });
 }
@@ -248,6 +282,7 @@ if (inventoryCategorySelect) {
 if (inventoryStatusSelect) {
   inventoryStatusSelect.addEventListener('change', function () {
     activeStatus = inventoryStatusSelect.value;
+    currentPage = 1;
     applyFilters();
   });
 }
