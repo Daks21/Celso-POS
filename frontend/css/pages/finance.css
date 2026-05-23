@@ -3,6 +3,7 @@
 .finance-summary {
   display: flex;
   align-items: stretch;
+  flex-wrap: wrap;
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -11,9 +12,21 @@
   flex: 0 0 260px;
 }
 
+.summary-card--debt {
+  flex: 0 0 220px;
+}
+
+.summary-card--debt-active .summary-value {
+  color: var(--color-danger, #dc2626);
+}
+
+.summary-card--debt-active .summary-icon {
+  color: var(--color-danger, #dc2626);
+}
+
 .summary-card--chart {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 280px;
+  min-width: 280px;
   display: flex;
   flex-direction: column;
 }
@@ -238,12 +251,37 @@ html[data-theme="dark"] #finance-date {
 
 @media (max-width: 600px) {
   .finance-summary {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
   }
 
+  .finance-summary--debt-hidden {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-summary--debt-hidden .summary-card--balance {
+    text-align: center;
+    width: 100%;
+  }
+
+  .finance-summary--debt-hidden .summary-card--balance .summary-card-header {
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .finance-summary--debt-hidden .summary-card--balance .summary-value {
+    font-size: clamp(28px, 8vw, 38px);
+  }
+
+  .summary-card--chart {
+    grid-column: 1 / -1;
+  }
+
+  /* Net Balance — centered, fluid */
   .summary-card--balance {
     flex: none;
-    width: 100%;
+    width: auto;
     text-align: center;
   }
 
@@ -253,7 +291,24 @@ html[data-theme="dark"] #finance-date {
   }
 
   .summary-card--balance .summary-value {
-    font-size: clamp(28px, 8vw, 38px);
+    font-size: clamp(20px, 5.5vw, 28px);
+    letter-spacing: -0.02em;
+  }
+
+  /* Debt Balance — mirrors Net Balance */
+  .summary-card--debt {
+    flex: none;
+    width: auto;
+    text-align: center;
+  }
+
+  .summary-card--debt .summary-card-header {
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .summary-card--debt .summary-value {
+    font-size: clamp(20px, 5.5vw, 28px);
     letter-spacing: -0.02em;
   }
 

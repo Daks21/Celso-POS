@@ -42,10 +42,11 @@ var CATEGORIES = {
     { value: 'borrowed', label: 'Borrowed' },
   ],
   owner_draw: [
-    { value: 'personal', label: 'Personal'          },
-    { value: 'restock',  label: 'Restock'           },
-    { value: 'opex',     label: 'Operating Expense' },
-    { value: 'other',    label: 'Other / Iba pa'    },
+    { value: 'personal',     label: 'Personal'          },
+    { value: 'debt_payment', label: 'Debt Payment'      },
+    { value: 'restock',      label: 'Restock'           },
+    { value: 'opex',         label: 'Operating Expense' },
+    { value: 'other',        label: 'Other / Iba pa'    },
   ],
 };
 
@@ -59,7 +60,18 @@ function formatPeso(amount) {
 
 
 function renderSummary(data) {
-  var net = Number(data.net);
+  var net         = Number(data.net);
+  var debtBalance = Number(data.debtBalance || 0);
+  var showDebt    = localStorage.getItem('financeDebtBalanceVisible') !== 'false';
+  var debtClass   = debtBalance > 0 ? 'summary-card--debt summary-card--debt-active' : 'summary-card--debt';
+  var debtTrend   = debtBalance > 0 ? 'Outstanding borrowed principal' : 'No outstanding debt';
+
+  if (showDebt) {
+    financeSummaryEl.classList.remove('finance-summary--debt-hidden');
+  } else {
+    financeSummaryEl.classList.add('finance-summary--debt-hidden');
+  }
+
   financeSummaryEl.innerHTML =
     '<div class="summary-card summary-card--balance">' +
       '<div class="summary-card-header">' +
@@ -69,6 +81,16 @@ function renderSummary(data) {
       '<p class="summary-value">' + formatPeso(net) + '</p>' +
       '<p class="summary-trend">All-time cash flow</p>' +
     '</div>' +
+    (showDebt
+      ? '<div class="summary-card ' + debtClass + '">' +
+          '<div class="summary-card-header">' +
+            '<span class="summary-label">Debt Balance</span>' +
+            '<div class="summary-icon"><i data-lucide="landmark"></i></div>' +
+          '</div>' +
+          '<p class="summary-value">' + formatPeso(debtBalance) + '</p>' +
+          '<p class="summary-trend">' + debtTrend + '</p>' +
+        '</div>'
+      : '') +
     '<div class="summary-card summary-card--chart" id="cashflow-chart-card">' +
       '<div class="chart-card-header">' +
         '<span class="summary-label">Cash Flow</span>' +

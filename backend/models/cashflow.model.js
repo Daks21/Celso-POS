@@ -5,7 +5,7 @@ const VALID_TYPES = ['capital_in', 'owner_draw', 'opex', 'capex', 'sales_revenue
 // null means free-form (any non-empty string accepted)
 const CATEGORY_BY_TYPE = {
   capital_in:    ['own', 'borrowed'],
-  owner_draw:    ['personal', 'loan_payment', 'reinvest', 'other'],
+  owner_draw:    ['personal', 'debt_payment', 'restock', 'opex', 'other'],
   opex:          null,
   capex:         null,
   sales_revenue: null,
@@ -120,11 +120,11 @@ const getSummary = async (filters = {}) => {
     params
   );
 
-  // Utang is period-independent: all-time borrowed minus all loan payments
+  // Debt balance is period-independent: all-time borrowed minus all debt payments
   const [[utangRow]] = await db.query(
     `SELECT
-       COALESCE(SUM(CASE WHEN type='capital_in' AND category='borrowed'     THEN amount ELSE 0 END), 0) AS totalBorrowed,
-       COALESCE(SUM(CASE WHEN type='owner_draw' AND category='loan_payment' THEN amount ELSE 0 END), 0) AS totalRepaid
+       COALESCE(SUM(CASE WHEN type='capital_in' AND category='borrowed'      THEN amount ELSE 0 END), 0) AS totalBorrowed,
+       COALESCE(SUM(CASE WHEN type='owner_draw' AND category='debt_payment'  THEN amount ELSE 0 END), 0) AS totalRepaid
      FROM cash_movements WHERE is_active=1`
   );
 
@@ -153,8 +153,8 @@ const getSummary = async (filters = {}) => {
   return {
     moneyIn,
     moneyOut,
-    net:   moneyIn - moneyOut,
-    utang: Math.max(0, Number(utangRow.totalBorrowed) - Number(utangRow.totalRepaid)),
+    net:          moneyIn - moneyOut,
+    debtBalance:  Math.max(0, Number(utangRow.totalBorrowed) - Number(utangRow.totalRepaid)),
     byType,
     byCategory,
   };

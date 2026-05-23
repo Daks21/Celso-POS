@@ -165,6 +165,7 @@ function _cachePreferences(prefs, userId) {
     lowStockThreshold: 50, stockColors: { ok: '#5a9e6f', low: '#eab308', out: '#dc2626' },
     dashboardRecentCount: 5, dashboardWidgets: [],
     navLabel: 'app', logoTarget: 'order.html', showThemeToggle: false,
+    financeDebtBalanceVisible: true,
   };
   var p = Object.assign({}, DEFAULTS, prefs);
 
@@ -175,8 +176,9 @@ function _cachePreferences(prefs, userId) {
   localStorage.setItem('lowStockThreshold',    String(p.lowStockThreshold));
   localStorage.setItem('stockColors',          JSON.stringify(p.stockColors));
   localStorage.setItem('dashboardRecentCount',  String(p.dashboardRecentCount));
-  localStorage.setItem('dashboardItemsPopover', String(p.dashboardItemsPopover !== false));
-  localStorage.setItem('dashboardWidgets',      JSON.stringify(p.dashboardWidgets));
+  localStorage.setItem('dashboardItemsPopover',     String(p.dashboardItemsPopover !== false));
+  localStorage.setItem('dashboardWidgets',           JSON.stringify(p.dashboardWidgets));
+  localStorage.setItem('financeDebtBalanceVisible',  String(p.financeDebtBalanceVisible !== false));
 
   var navKey = 'celso_navprefs_' + String(userId);
   localStorage.setItem(navKey, JSON.stringify({

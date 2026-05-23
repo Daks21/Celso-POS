@@ -44,19 +44,20 @@ function getStockStatus(stock) {
 // ── Preferences sync (DB ↔ localStorage) ──
 
 var PREF_DEFAULTS = {
-  theme:                'light',
-  taxEnabled:           false,
-  taxRate:              '0.03',
-  taxDefaultOn:         false,
-  lowStockThreshold:    50,
-  stockColors:          { ok: '#5a9e6f', low: '#eab308', out: '#dc2626' },
-  dashboardRecentCount:  5,
-  dashboardAlertCount:   5,
-  dashboardItemsPopover: true,
-  dashboardWidgets:      [],
-  navLabel:             'app',
-  logoTarget:           'order.html',
-  showThemeToggle:      false,
+  theme:                    'light',
+  taxEnabled:               false,
+  taxRate:                  '0.03',
+  taxDefaultOn:             false,
+  lowStockThreshold:        50,
+  stockColors:              { ok: '#5a9e6f', low: '#eab308', out: '#dc2626' },
+  dashboardRecentCount:      5,
+  dashboardAlertCount:       5,
+  dashboardItemsPopover:     true,
+  dashboardWidgets:          [],
+  navLabel:                 'app',
+  logoTarget:               'order.html',
+  showThemeToggle:          false,
+  financeDebtBalanceVisible: true,
 };
 
 function collectCurrentPreferences(userId) {
@@ -79,11 +80,12 @@ function collectCurrentPreferences(userId) {
     stockColors:          colors,
     dashboardRecentCount:  parseInt(localStorage.getItem('dashboardRecentCount')  || String(PREF_DEFAULTS.dashboardRecentCount),  10),
     dashboardAlertCount:   parseInt(localStorage.getItem('dashboardAlertCount')   || String(PREF_DEFAULTS.dashboardAlertCount),   10),
-    dashboardItemsPopover: localStorage.getItem('dashboardItemsPopover') !== 'false',
-    dashboardWidgets:      widgets,
-    navLabel:             nav.navLabel             || PREF_DEFAULTS.navLabel,
-    logoTarget:           nav.logoTarget            || PREF_DEFAULTS.logoTarget,
-    showThemeToggle:      nav.showThemeToggle       === true,
+    dashboardItemsPopover:     localStorage.getItem('dashboardItemsPopover') !== 'false',
+    dashboardWidgets:          widgets,
+    navLabel:                 nav.navLabel        || PREF_DEFAULTS.navLabel,
+    logoTarget:               nav.logoTarget       || PREF_DEFAULTS.logoTarget,
+    showThemeToggle:          nav.showThemeToggle  === true,
+    financeDebtBalanceVisible: localStorage.getItem('financeDebtBalanceVisible') !== 'false',
   };
 }
 

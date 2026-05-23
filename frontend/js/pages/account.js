@@ -295,6 +295,16 @@ document.addEventListener('DOMContentLoaded', function() {
       applyNavPrefs();
     });
 
+    // ── Finance Preferences ──
+    initPrefToggle(
+      'debt-balance-toggle',
+      localStorage.getItem('financeDebtBalanceVisible') !== 'false',
+      function(isOn) {
+        localStorage.setItem('financeDebtBalanceVisible', String(isOn));
+        syncToDb();
+      }
+    );
+
     // ── Dashboard Preferences ──
     initRadioGroup(
       'recent-tx-count-group',
