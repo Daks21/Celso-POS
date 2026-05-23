@@ -126,6 +126,16 @@ const create = async (saleRecord, userId) => {
       );
     }
 
+    // Step 3: Record sale revenue in cash_movements (atomic with the sale).
+    // Use DATE(created_at) from the sale row itself so occurred_at always
+    // matches what the History page shows — avoids any session-timezone drift.
+    await connection.query(
+      `INSERT INTO cash_movements
+         (type, category, amount, description, occurred_at, source, source_id, recorded_by)
+       VALUES ('sales_revenue', NULL, ?, ?, (SELECT DATE(created_at) FROM sales WHERE id = ?), 'sale', ?, ?)`,
+      [saleRecord.total, `Sale ${receiptNo}`, saleId, saleId, userId]
+    );
+
     await connection.commit();
     connection.release();
     return getById(saleId);

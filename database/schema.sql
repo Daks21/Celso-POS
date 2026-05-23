@@ -95,12 +95,12 @@ CREATE TABLE IF NOT EXISTS inventory_adjustments (
 -- 6. Cash Movements (Phase 5 — Finance Module)
 CREATE TABLE IF NOT EXISTS cash_movements (
   id          INT AUTO_INCREMENT PRIMARY KEY,
-  type        ENUM('capital_in','owner_draw','opex','capex') NOT NULL,
+  type        ENUM('capital_in','owner_draw','opex','capex','sales_revenue') NOT NULL,
   category    VARCHAR(100)  DEFAULT NULL,
   amount      DECIMAL(10,2) NOT NULL,
   description TEXT,
   occurred_at DATE NOT NULL,
-  source      ENUM('manual','restock') DEFAULT 'manual',
+  source      ENUM('manual','restock','sale') DEFAULT 'manual',
   source_id   INT DEFAULT NULL,
   recorded_by INT DEFAULT NULL,
   is_active   TINYINT(1) DEFAULT 1,

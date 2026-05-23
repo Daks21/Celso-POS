@@ -1,36 +1,12 @@
-/* ── Finance Summary Grid ── */
+/* ── Finance Summary ── */
 
 .finance-summary {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
-.finance-stat {
-  background-color: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  text-align: center;
-  min-width: 0;
+.finance-summary .summary-card {
+  max-width: 280px;
 }
-
-.finance-stat-value {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--color-text);
-  margin-bottom: 4px;
-}
-
-.finance-stat-label {
-  font-size: 13px;
-  color: var(--color-text-muted);
-}
-
-.finance-stat-value.finance-positive { color: var(--color-success, #16a34a); }
-.finance-stat-value.finance-negative { color: var(--color-danger,  #dc2626); }
-.finance-stat-value.finance-utang    { color: #d97706; }
 
 /* ── Type badges ── */
 
@@ -45,15 +21,17 @@
   white-space: nowrap;
 }
 
-.type-badge--capital_in { background: #dcfce7; color: #15803d; }
-.type-badge--owner_draw { background: #fee2e2; color: #b91c1c; }
-.type-badge--opex       { background: #fef3c7; color: #92400e; }
-.type-badge--capex      { background: #dbeafe; color: #1d4ed8; }
+.type-badge--sales_revenue { background: #f0fdf4; color: #15803d; }
+.type-badge--capital_in    { background: #dcfce7; color: #15803d; }
+.type-badge--owner_draw    { background: #fee2e2; color: #b91c1c; }
+.type-badge--opex          { background: #fef3c7; color: #92400e; }
+.type-badge--capex         { background: #dbeafe; color: #1d4ed8; }
 
-[data-theme="dark"] .type-badge--capital_in { background: #14532d; color: #86efac; }
-[data-theme="dark"] .type-badge--owner_draw { background: #450a0a; color: #fca5a5; }
-[data-theme="dark"] .type-badge--opex       { background: #451a03; color: #fcd34d; }
-[data-theme="dark"] .type-badge--capex      { background: #1e3a5f; color: #93c5fd; }
+[data-theme="dark"] .type-badge--sales_revenue { background: #052e16; color: #86efac; }
+[data-theme="dark"] .type-badge--capital_in    { background: #14532d; color: #86efac; }
+[data-theme="dark"] .type-badge--owner_draw    { background: #450a0a; color: #fca5a5; }
+[data-theme="dark"] .type-badge--opex          { background: #451a03; color: #fcd34d; }
+[data-theme="dark"] .type-badge--capex         { background: #1e3a5f; color: #93c5fd; }
 
 /* ── Amount colors in table ── */
 
@@ -61,28 +39,6 @@
 .finance-amount.is-out   { color: var(--color-danger,  #dc2626); }
 .finance-amount.is-in    { color: var(--color-success, #16a34a); }
 
-/* ── Date filter inputs ── */
-
-.finance-date-input {
-  flex-shrink: 0;
-  padding: 8px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background-color: var(--color-background);
-  color: var(--color-text);
-  font-family: var(--font-main);
-  font-size: 14px;
-  outline: none;
-  transition: box-shadow 0.2s, border-color 0.2s;
-  width: auto;
-}
-
-.finance-date-input:focus {
-  box-shadow: 0 0 0 2px rgba(90, 158, 111, 0.3);
-  border-color: var(--color-primary);
-}
-
-html[data-theme="dark"] .finance-date-input,
 html[data-theme="dark"] #finance-date {
   color-scheme: dark;
 }
@@ -201,9 +157,6 @@ html[data-theme="dark"] #finance-date {
 
 /* ── Responsive ── */
 
-@media (max-width: 900px) {
-  .finance-summary { grid-template-columns: repeat(2, 1fr); }
-}
 
 @media (max-width: 768px) {
   /* Hide Category and Notes on small screens */
@@ -223,8 +176,6 @@ html[data-theme="dark"] #finance-date {
 }
 
 @media (max-width: 600px) {
-  .finance-summary { grid-template-columns: repeat(2, 1fr); }
-
   /* Keep header as a row — title + button never stack */
   .products-header {
     flex-wrap: nowrap;
@@ -246,16 +197,4 @@ html[data-theme="dark"] #finance-date {
     white-space: nowrap;
     flex-shrink: 0;
   }
-
-  /* Apply button stays inline with the date inputs */
-  #finance-apply-filter {
-    width: auto !important;
-    padding: 8px 10px !important;
-    font-size: 13px;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .products-toolbar { flex-wrap: wrap; }
-  .finance-date-input { flex: 1 1 120px; }
 }

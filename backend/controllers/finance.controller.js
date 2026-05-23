@@ -44,6 +44,9 @@ const create = async (req, res, next) => {
     if (!type || !Cashflow.VALID_TYPES.includes(type))
       return res.status(400).json({ success: false, message: `type must be one of: ${Cashflow.VALID_TYPES.join(', ')}` });
 
+    if (type === 'sales_revenue')
+      return res.status(400).json({ success: false, message: 'sales_revenue entries are created automatically by the POS' });
+
     if (!amount || typeof amount !== 'number' || amount <= 0)
       return res.status(400).json({ success: false, message: 'amount must be a positive number' });
 

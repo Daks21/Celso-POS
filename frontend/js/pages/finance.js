@@ -5,9 +5,6 @@ var currentUser = JSON.parse(localStorage.getItem('currentUser'));
 var financeSummaryEl  = document.getElementById('finance-summary');
 var financeTableBody  = document.getElementById('finance-table-body');
 var financeTypeSelect = document.getElementById('finance-type-select');
-var financeFromInput  = document.getElementById('finance-from');
-var financeToInput    = document.getElementById('finance-to');
-var applyFilterBtn    = document.getElementById('finance-apply-filter');
 var addEntryButton    = document.getElementById('add-entry-button');
 var financeActionsCol = document.getElementById('finance-actions-col');
 
@@ -25,10 +22,11 @@ var financeNotesInput = document.getElementById('finance-notes');
 var editingId = null;
 
 var TYPE_LABELS = {
-  capital_in: 'Puhunan In',
-  owner_draw: 'Kuha',
-  opex:       'OpEx',
-  capex:      'CapEx',
+  sales_revenue: 'Sales',
+  capital_in:    'Puhunan In',
+  owner_draw:    'Kuha',
+  opex:          'OpEx',
+  capex:         'CapEx',
 };
 
 // Matches README category conventions exactly.
@@ -68,38 +66,60 @@ function formatPeso(amount) {
   return '₱' + Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function getCurrentMonthRange() {
-  var now = new Date();
-  var from = new Date(now.getFullYear(), now.getMonth(), 1);
-  var pad = function (n) { return String(n).padStart(2, '0'); };
-  var fmt = function (d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
-  return { from: fmt(from), to: fmt(now) };
-}
 
 function renderSummary(data) {
-  var net   = Number(data.net);
-  var utang = Number(data.utang);
-
-  function stat(label, value, valMod) {
-    return '<div class="finance-stat">' +
-      '<p class="finance-stat-value ' + valMod + '">' + formatPeso(value) + '</p>' +
-      '<p class="finance-stat-label">' + label + '</p>' +
+  var net = Number(data.net);
+  financeSummaryEl.innerHTML =
+    '<div class="summary-card">' +
+      '<div class="summary-card-header">' +
+        '<span class="summary-label">Net</span>' +
+        '<div class="summary-icon"><i data-lucide="wallet"></i></div>' +
+      '</div>' +
+      '<p class="summary-value">' + formatPeso(net) + '</p>' +
+      '<p class="summary-trend">All-time cash flow</p>' +
     '</div>';
-  }
-
-  var html =
-    stat('Money In',  data.moneyIn,  'finance-positive') +
-    stat('Money Out', data.moneyOut, 'finance-negative') +
-    stat('Net',       net,           net >= 0 ? 'finance-positive' : 'finance-negative');
-
-  if (utang > 0) {
-    html += stat('Utang (Outstanding)', utang, 'finance-utang');
-  }
-
-  financeSummaryEl.innerHTML = html;
+  if (window.lucide) lucide.createIcons();
 }
 
 var SVG_DOTS = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1" fill="currentColor"></circle><circle cx="12" cy="12" r="1" fill="currentColor"></circle><circle cx="12" cy="19" r="1" fill="currentColor"></circle></svg>';
+
+function groupSalesRevenue(list) {
+  var grouped = [];
+  var salesByDate = {};
+
+  list.forEach(function (entry) {
+    if (entry.type !== 'sales_revenue') {
+      grouped.push(entry);
+      return;
+    }
+    var date = entry.occurred_at ? String(entry.occurred_at).substring(0, 10) : '—';
+    if (!salesByDate[date]) {
+      salesByDate[date] = { date: date, total: 0, count: 0 };
+    }
+    salesByDate[date].total += Number(entry.amount);
+    salesByDate[date].count += 1;
+  });
+
+  Object.values(salesByDate).forEach(function (s) {
+    grouped.push({
+      _grouped: true,
+      type:        'sales_revenue',
+      occurred_at: s.date,
+      amount:      s.total,
+      count:       s.count,
+      category:    null,
+      source:      'sale',
+    });
+  });
+
+  grouped.sort(function (a, b) {
+    var da = a.occurred_at || '';
+    var db = b.occurred_at || '';
+    return da < db ? 1 : da > db ? -1 : 0;
+  });
+
+  return grouped;
+}
 
 function renderMovements(list) {
   if (!list || list.length === 0) {
@@ -108,33 +128,45 @@ function renderMovements(list) {
     return;
   }
 
-  financeTableBody.innerHTML = list.map(function (entry) {
-    var isOut       = ['owner_draw', 'opex', 'capex'].includes(entry.type);
-    var amountCls   = isOut ? 'finance-amount is-out' : 'finance-amount is-in';
-    var sign        = isOut ? '−' : '+';
-    var catLabel    = entry.category ? entry.category.replace(/_/g, ' ') : '—';
-    var dateStr     = entry.occurred_at ? String(entry.occurred_at).substring(0, 10) : '—';
-    var isAutoEntry = entry.source !== 'manual';
+  var display = financeTypeSelect.value === 'sales_revenue'
+    ? list.filter(function (e) { return e.type === 'sales_revenue'; })
+    : groupSalesRevenue(list);
 
-    var actionsHtml = '<td class="actions-cell"></td>';
-    if (isAdmin()) {
-      if (isAutoEntry) {
-        actionsHtml = '<td class="actions-cell" style="text-align:center;color:var(--color-text-muted);font-size:0.78em;">auto</td>';
-      } else {
-        actionsHtml =
-          '<td class="actions-cell">' +
-            '<div class="kebab-wrapper">' +
-              '<button type="button" class="kebab-btn finance-kebab-btn" data-id="' + entry.id + '" title="Options">' + SVG_DOTS + '</button>' +
-              '<div class="kebab-dropdown" id="fin-kd-' + entry.id + '">' +
-                '<button type="button" class="kebab-item finance-edit-item" data-id="' + entry.id + '">' +
-                  '<i data-lucide="pencil"></i> Edit' +
-                '</button>' +
-                '<button type="button" class="kebab-item delete-item finance-delete-item" data-id="' + entry.id + '">' +
-                  '<i data-lucide="trash-2"></i> Delete' +
-                '</button>' +
+  financeTableBody.innerHTML = display.map(function (entry) {
+    var isOut     = ['owner_draw', 'opex', 'capex'].includes(entry.type);
+    var amountCls = isOut ? 'finance-amount is-out' : 'finance-amount is-in';
+    var sign      = isOut ? '−' : '+';
+    var dateStr   = entry.occurred_at ? String(entry.occurred_at).substring(0, 10) : '—';
+
+    var catLabel, notesHtml, actionsHtml;
+
+    if (entry._grouped) {
+      catLabel   = '—';
+      notesHtml  = '<span style="color:var(--color-text-muted);font-size:0.82em;">' + entry.count + ' transaction' + (entry.count !== 1 ? 's' : '') + '</span>';
+      actionsHtml = '<td class="actions-cell"></td>';
+    } else {
+      catLabel    = entry.category ? entry.category.replace(/_/g, ' ') : '—';
+      notesHtml   = (entry.description || '—');
+      actionsHtml = '<td class="actions-cell"></td>';
+      if (isAdmin()) {
+        if (entry.source !== 'manual') {
+          actionsHtml = '<td class="actions-cell" style="text-align:center;color:var(--color-text-muted);font-size:0.78em;">auto</td>';
+        } else {
+          actionsHtml =
+            '<td class="actions-cell">' +
+              '<div class="kebab-wrapper">' +
+                '<button type="button" class="kebab-btn finance-kebab-btn" data-id="' + entry.id + '" title="Options">' + SVG_DOTS + '</button>' +
+                '<div class="kebab-dropdown" id="fin-kd-' + entry.id + '">' +
+                  '<button type="button" class="kebab-item finance-edit-item" data-id="' + entry.id + '">' +
+                    '<i data-lucide="pencil"></i> Edit' +
+                  '</button>' +
+                  '<button type="button" class="kebab-item delete-item finance-delete-item" data-id="' + entry.id + '">' +
+                    '<i data-lucide="trash-2"></i> Delete' +
+                  '</button>' +
+                '</div>' +
               '</div>' +
-            '</div>' +
-          '</td>';
+            '</td>';
+        }
       }
     }
 
@@ -143,7 +175,7 @@ function renderMovements(list) {
       '<td><span class="type-badge type-badge--' + entry.type + '">' + (TYPE_LABELS[entry.type] || entry.type) + '</span></td>' +
       '<td>' + catLabel + '</td>' +
       '<td class="' + amountCls + '">' + sign + ' ' + formatPeso(entry.amount) + '</td>' +
-      '<td>' + (entry.description || '—') + '</td>' +
+      '<td>' + notesHtml + '</td>' +
       actionsHtml +
     '</tr>';
   }).join('');
@@ -246,8 +278,6 @@ function showFieldError(id, msg) {
 function getFilters() {
   var filters = {};
   if (financeTypeSelect.value) filters.type = financeTypeSelect.value;
-  if (financeFromInput.value)  filters.from = financeFromInput.value;
-  if (financeToInput.value)    filters.to   = financeToInput.value;
   return filters;
 }
 
@@ -310,7 +340,7 @@ financeModal.addEventListener('click', function (e) {
   if (e.target === financeModal) closeModal();
 });
 
-applyFilterBtn.addEventListener('click', loadData);
+financeTypeSelect.addEventListener('change', loadData);
 
 financeForm.addEventListener('submit', async function (e) {
   e.preventDefault();
@@ -368,13 +398,5 @@ document.addEventListener('click', function () {
     d.classList.remove('open');
   });
 });
-
-// ── Init: pre-fill date range to current month ──
-
-(function initDateRange() {
-  var range = getCurrentMonthRange();
-  financeFromInput.value = range.from;
-  financeToInput.value   = range.to;
-})();
 
 loadData();
