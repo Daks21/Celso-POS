@@ -244,6 +244,17 @@ html[data-theme="dark"] #finance-date {
   .summary-card--balance {
     flex: none;
     width: 100%;
+    text-align: center;
+  }
+
+  .summary-card--balance .summary-card-header {
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .summary-card--balance .summary-value {
+    font-size: clamp(28px, 8vw, 38px);
+    letter-spacing: -0.02em;
   }
 
   /* Keep header as a row — title + button never stack */
