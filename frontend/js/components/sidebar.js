@@ -218,7 +218,8 @@ function initMobileNav() {
 
 function initFab() {
   var currentPage = window.location.pathname.split('/').pop();
-  if (currentPage === 'order.html') return;
+  // finance.html has its own admin FAB for adding entries; skip the New Sale FAB there
+  if (currentPage === 'order.html' || currentPage === 'finance.html') return;
   var fab = document.createElement('button');
   fab.className = 'fab';
   fab.title = 'New Sale';

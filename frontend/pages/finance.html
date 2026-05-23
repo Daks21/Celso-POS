@@ -23,7 +23,6 @@
   <link rel="stylesheet" href="../css/main.css">
   <link rel="stylesheet" href="../css/layout.css">
   <link rel="stylesheet" href="../css/components.css">
-  <link rel="stylesheet" href="../css/pages/inventory.css">
   <link rel="stylesheet" href="../css/pages/finance.css">
 </head>
 <body class="app-body">
@@ -119,6 +118,9 @@
 
       <main class="page-body">
 
+        <!-- Summary Cards -->
+        <div class="finance-summary" id="finance-summary"></div>
+
         <section class="page-section">
 
           <div class="products-header">
@@ -126,18 +128,13 @@
               <h2>Cash Flow</h2>
               <p>Track capital, expenses, and withdrawals</p>
             </div>
-            <button type="button" class="submit-button" id="add-entry-button" style="display:none;">
+            <button type="button" class="submit-button" id="add-entry-button" style="display:none;width:auto;">
               + Add Entry
             </button>
           </div>
 
-          <!-- Summary Tiles -->
-          <div class="finance-summary" id="finance-summary">
-            <!-- Rendered by JS -->
-          </div>
-
           <!-- Filters -->
-          <div class="finance-date-filters">
+          <div class="products-toolbar">
             <select id="finance-type-select" class="filter-select">
               <option value="">All Types</option>
               <option value="capital_in">Capital In</option>
@@ -145,8 +142,8 @@
               <option value="opex">Operating Expense</option>
               <option value="capex">Investment</option>
             </select>
-            <input type="date" id="finance-from" class="search-input" />
-            <input type="date" id="finance-to"   class="search-input" />
+            <input type="date" id="finance-from" class="finance-date-input" />
+            <input type="date" id="finance-to"   class="finance-date-input" />
             <button type="button" class="submit-button" id="finance-apply-filter"
                     style="width:auto;padding:0 1.25rem;">
               Apply
@@ -154,7 +151,7 @@
           </div>
 
           <!-- Table -->
-          <div class="table-wrapper" style="margin-top:1rem;">
+          <div class="table-wrapper">
             <table class="data-table" id="finance-table">
               <thead>
                 <tr>
@@ -163,12 +160,10 @@
                   <th>Category</th>
                   <th>Amount</th>
                   <th>Notes</th>
-                  <th id="finance-actions-col"></th>
+                  <th class="actions-col" id="finance-actions-col"></th>
                 </tr>
               </thead>
-              <tbody id="finance-table-body">
-                <!-- Rendered by JS -->
-              </tbody>
+              <tbody id="finance-table-body"></tbody>
             </table>
           </div>
 
@@ -187,7 +182,7 @@
         <button type="button" class="modal-close-button" id="close-finance-modal">×</button>
       </div>
 
-      <form id="finance-form" autocomplete="off">
+      <form id="finance-form" class="product-form" autocomplete="off">
 
         <div class="form-row" style="margin-bottom:0.75rem;">
           <div class="form-group">

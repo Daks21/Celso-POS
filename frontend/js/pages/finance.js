@@ -25,38 +25,38 @@ var financeNotesInput = document.getElementById('finance-notes');
 var editingId = null;
 
 var TYPE_LABELS = {
-  capital_in: 'Capital In',
-  owner_draw: 'Withdrawal',
+  capital_in: 'Puhunan In',
+  owner_draw: 'Kuha',
   opex:       'OpEx',
   capex:      'CapEx',
 };
 
+// Matches README category conventions exactly.
+// null → free-form (opex/capex: user types any category)
 var CATEGORIES = {
   capital_in: [
-    { value: 'own_savings',  label: 'Own Savings'      },
-    { value: 'borrowed',     label: 'Borrowed / Utang' },
-    { value: 'other_income', label: 'Other Income'     },
+    { value: 'own',      label: 'Own (Sariling pera)'  },
+    { value: 'borrowed', label: 'Borrowed / Hiniram'   },
   ],
   owner_draw: [
-    { value: 'personal_use', label: 'Personal Use'     },
-    { value: 'loan_payment', label: 'Loan Payment'     },
-    { value: 'reinvestment', label: 'Reinvestment'     },
-    { value: 'other_draw',   label: 'Other Withdrawal' },
+    { value: 'personal',      label: 'Personal / Household'       },
+    { value: 'loan_payment',  label: 'Loan Payment (Bayad utang)' },
+    { value: 'reinvest',      label: 'Reinvestment'               },
+    { value: 'other',         label: 'Other / Iba pa'             },
   ],
   opex: [
-    { value: 'utilities',  label: 'Utilities'    },
-    { value: 'supplies',   label: 'Supplies'     },
-    { value: 'rent',       label: 'Rent'         },
-    { value: 'salaries',   label: 'Salaries'     },
-    { value: 'transport',  label: 'Transport'    },
-    { value: 'restock',    label: 'Restock'      },
-    { value: 'other_opex', label: 'Other Expense'},
+    { value: 'rent',       label: 'Rent'              },
+    { value: 'utilities',  label: 'Utilities'         },
+    { value: 'transport',  label: 'Transport'         },
+    { value: 'supplies',   label: 'Supplies'          },
+    { value: 'restock',    label: 'Restock'           },
+    { value: 'other',      label: 'Other / Iba pa'    },
   ],
   capex: [
-    { value: 'equipment',   label: 'Equipment'  },
-    { value: 'renovation',  label: 'Renovation' },
-    { value: 'fixtures',    label: 'Fixtures'   },
-    { value: 'other_capex', label: 'Other'      },
+    { value: 'equipment',  label: 'Equipment'         },
+    { value: 'furniture',  label: 'Furniture'         },
+    { value: 'renovation', label: 'Renovation'        },
+    { value: 'other',      label: 'Other / Iba pa'    },
   ],
 };
 
@@ -68,26 +68,38 @@ function formatPeso(amount) {
   return '₱' + Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function renderSummary(data) {
-  var net = Number(data.net);
-  financeSummaryEl.innerHTML =
-    '<div class="finance-stat">' +
-      '<p class="finance-stat-label">Money In</p>' +
-      '<p class="finance-stat-value positive">' + formatPeso(data.moneyIn) + '</p>' +
-    '</div>' +
-    '<div class="finance-stat">' +
-      '<p class="finance-stat-label">Money Out</p>' +
-      '<p class="finance-stat-value negative">' + formatPeso(data.moneyOut) + '</p>' +
-    '</div>' +
-    '<div class="finance-stat">' +
-      '<p class="finance-stat-label">Net</p>' +
-      '<p class="finance-stat-value ' + (net >= 0 ? 'positive' : 'negative') + '">' + formatPeso(net) + '</p>' +
-    '</div>' +
-    '<div class="finance-stat">' +
-      '<p class="finance-stat-label">Utang (Outstanding)</p>' +
-      '<p class="finance-stat-value utang">' + formatPeso(data.utang) + '</p>' +
-    '</div>';
+function getCurrentMonthRange() {
+  var now = new Date();
+  var from = new Date(now.getFullYear(), now.getMonth(), 1);
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  var fmt = function (d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+  return { from: fmt(from), to: fmt(now) };
 }
+
+function renderSummary(data) {
+  var net   = Number(data.net);
+  var utang = Number(data.utang);
+
+  function stat(label, value, valMod) {
+    return '<div class="finance-stat">' +
+      '<p class="finance-stat-value ' + valMod + '">' + formatPeso(value) + '</p>' +
+      '<p class="finance-stat-label">' + label + '</p>' +
+    '</div>';
+  }
+
+  var html =
+    stat('Money In',  data.moneyIn,  'finance-positive') +
+    stat('Money Out', data.moneyOut, 'finance-negative') +
+    stat('Net',       net,           net >= 0 ? 'finance-positive' : 'finance-negative');
+
+  if (utang > 0) {
+    html += stat('Utang (Outstanding)', utang, 'finance-utang');
+  }
+
+  financeSummaryEl.innerHTML = html;
+}
+
+var SVG_DOTS = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1" fill="currentColor"></circle><circle cx="12" cy="12" r="1" fill="currentColor"></circle><circle cx="12" cy="19" r="1" fill="currentColor"></circle></svg>';
 
 function renderMovements(list) {
   if (!list || list.length === 0) {
@@ -97,28 +109,41 @@ function renderMovements(list) {
   }
 
   financeTableBody.innerHTML = list.map(function (entry) {
-    var isOut = ['owner_draw', 'opex', 'capex'].includes(entry.type);
-    var amountCls = isOut ? 'finance-amount is-out' : 'finance-amount is-in';
-    var sign = isOut ? '−' : '+';
-    var catLabel = entry.category ? entry.category.replace(/_/g, ' ') : '—';
-    var dateStr  = entry.occurred_at ? String(entry.occurred_at).substring(0, 10) : '—';
-    var actionsHtml = '';
-    if (isAdmin() && entry.source === 'manual') {
-      actionsHtml =
-        '<td style="text-align:center;white-space:nowrap;">' +
-          '<button type="button" class="restock-button finance-edit-btn" data-id="' + entry.id + '" title="Edit"><i data-lucide="pencil"></i></button>' +
-          '&nbsp;' +
-          '<button type="button" class="restock-button finance-delete-btn" data-id="' + entry.id + '" title="Delete" style="color:var(--color-danger,#dc2626);"><i data-lucide="trash-2"></i></button>' +
-        '</td>';
-    } else {
-      actionsHtml = '<td></td>';
+    var isOut       = ['owner_draw', 'opex', 'capex'].includes(entry.type);
+    var amountCls   = isOut ? 'finance-amount is-out' : 'finance-amount is-in';
+    var sign        = isOut ? '−' : '+';
+    var catLabel    = entry.category ? entry.category.replace(/_/g, ' ') : '—';
+    var dateStr     = entry.occurred_at ? String(entry.occurred_at).substring(0, 10) : '—';
+    var isAutoEntry = entry.source !== 'manual';
+
+    var actionsHtml = '<td class="actions-cell"></td>';
+    if (isAdmin()) {
+      if (isAutoEntry) {
+        actionsHtml = '<td class="actions-cell" style="text-align:center;color:var(--color-text-muted);font-size:0.78em;">auto</td>';
+      } else {
+        actionsHtml =
+          '<td class="actions-cell">' +
+            '<div class="kebab-wrapper">' +
+              '<button type="button" class="kebab-btn finance-kebab-btn" data-id="' + entry.id + '" title="Options">' + SVG_DOTS + '</button>' +
+              '<div class="kebab-dropdown" id="fin-kd-' + entry.id + '">' +
+                '<button type="button" class="kebab-item finance-edit-item" data-id="' + entry.id + '">' +
+                  '<i data-lucide="pencil"></i> Edit' +
+                '</button>' +
+                '<button type="button" class="kebab-item delete-item finance-delete-item" data-id="' + entry.id + '">' +
+                  '<i data-lucide="trash-2"></i> Delete' +
+                '</button>' +
+              '</div>' +
+            '</div>' +
+          '</td>';
+      }
     }
+
     return '<tr>' +
       '<td>' + dateStr + '</td>' +
       '<td><span class="type-badge type-badge--' + entry.type + '">' + (TYPE_LABELS[entry.type] || entry.type) + '</span></td>' +
-      '<td style="text-transform:capitalize;">' + catLabel + '</td>' +
+      '<td>' + catLabel + '</td>' +
       '<td class="' + amountCls + '">' + sign + ' ' + formatPeso(entry.amount) + '</td>' +
-      '<td style="color:var(--color-text-muted);font-size:0.85em;">' + (entry.description || '—') + '</td>' +
+      '<td>' + (entry.description || '—') + '</td>' +
       actionsHtml +
     '</tr>';
   }).join('');
@@ -129,11 +154,38 @@ function renderMovements(list) {
 
 function attachTableActions() {
   if (!isAdmin()) return;
-  document.querySelectorAll('.finance-edit-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () { openEditModal(btn.dataset.id); });
+
+  function closeAllKebabs() {
+    document.querySelectorAll('#finance-table .kebab-dropdown.open').forEach(function (d) {
+      d.classList.remove('open');
+    });
+  }
+
+  document.querySelectorAll('.finance-kebab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var dropdown = document.getElementById('fin-kd-' + btn.dataset.id);
+      if (!dropdown) return;
+      var wasOpen = dropdown.classList.contains('open');
+      closeAllKebabs();
+      if (!wasOpen) dropdown.classList.add('open');
+    });
   });
-  document.querySelectorAll('.finance-delete-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () { handleDelete(btn.dataset.id); });
+
+  document.querySelectorAll('.finance-edit-item').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      closeAllKebabs();
+      openEditModal(btn.dataset.id);
+    });
+  });
+
+  document.querySelectorAll('.finance-delete-item').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      closeAllKebabs();
+      handleDelete(btn.dataset.id);
+    });
   });
 }
 
@@ -182,8 +234,13 @@ function closeModal() {
 function clearFormErrors() {
   ['finance-date-error', 'finance-type-error', 'finance-category-error', 'finance-amount-error'].forEach(function (id) {
     var el = document.getElementById(id);
-    if (el) el.textContent = '';
+    if (el) { el.textContent = ''; el.style.display = ''; }
   });
+}
+
+function showFieldError(id, msg) {
+  var el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
 }
 
 function getFilters() {
@@ -198,10 +255,12 @@ async function loadData() {
   showLoading('#finance-table-body');
   try {
     var filters = getFilters();
-    var [movResult, sumResult] = await Promise.all([
+    var results = await Promise.all([
       getFinanceMovements(filters),
       getFinanceSummary(filters),
     ]);
+    var movResult = results[0];
+    var sumResult = results[1];
 
     if (sumResult && sumResult.success) {
       renderSummary(sumResult.data);
@@ -236,6 +295,8 @@ async function handleDelete(id) {
   }
 }
 
+// ── Event Listeners ──
+
 financeTypeInput.addEventListener('change', function () {
   populateCategorySelect(financeTypeInput.value);
 });
@@ -248,6 +309,7 @@ closeFinanceModal.addEventListener('click', closeModal);
 financeModal.addEventListener('click', function (e) {
   if (e.target === financeModal) closeModal();
 });
+
 applyFilterBtn.addEventListener('click', loadData);
 
 financeForm.addEventListener('submit', async function (e) {
@@ -261,9 +323,9 @@ financeForm.addEventListener('submit', async function (e) {
   var description = financeNotesInput.value.trim() || null;
 
   var hasError = false;
-  if (!occurred_at) { document.getElementById('finance-date-error').textContent   = 'Date is required';             hasError = true; }
-  if (!type)        { document.getElementById('finance-type-error').textContent   = 'Type is required';             hasError = true; }
-  if (!amount || amount <= 0) { document.getElementById('finance-amount-error').textContent = 'Amount must be greater than 0'; hasError = true; }
+  if (!occurred_at)           { showFieldError('finance-date-error',   'Date is required');             hasError = true; }
+  if (!type)                  { showFieldError('finance-type-error',   'Type is required');             hasError = true; }
+  if (!amount || amount <= 0) { showFieldError('finance-amount-error', 'Amount must be greater than 0'); hasError = true; }
   if (hasError) return;
 
   financeSubmitBtn.disabled = true;
@@ -277,7 +339,7 @@ financeForm.addEventListener('submit', async function (e) {
       closeModal();
       await loadData();
     } else {
-      document.getElementById('finance-amount-error').textContent = result ? result.message : 'Save failed.';
+      showApiError(result ? result.message : 'Save failed.');
     }
   } catch (err) {
     showApiError('Network error. Is the server running?');
@@ -286,9 +348,33 @@ financeForm.addEventListener('submit', async function (e) {
   }
 });
 
+// ── Admin-only controls ──
+
 if (isAdmin()) {
   if (addEntryButton) addEntryButton.style.display = '';
-  if (financeActionsCol) financeActionsCol.textContent = 'Actions';
+
+  var financeFab = document.createElement('button');
+  financeFab.className = 'fab';
+  financeFab.title = 'Add Finance Entry';
+  financeFab.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>';
+  financeFab.addEventListener('click', openAddModal);
+  document.body.appendChild(financeFab);
 }
+
+// ── Close kebab dropdowns on outside click ──
+
+document.addEventListener('click', function () {
+  document.querySelectorAll('#finance-table .kebab-dropdown.open').forEach(function (d) {
+    d.classList.remove('open');
+  });
+});
+
+// ── Init: pre-fill date range to current month ──
+
+(function initDateRange() {
+  var range = getCurrentMonthRange();
+  financeFromInput.value = range.from;
+  financeToInput.value   = range.to;
+})();
 
 loadData();

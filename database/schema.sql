@@ -109,15 +109,15 @@ CREATE TABLE IF NOT EXISTS cash_movements (
 );
 
 -- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_products_name      ON products(name);
-CREATE INDEX IF NOT EXISTS idx_products_category  ON products(category);
-CREATE INDEX IF NOT EXISTS idx_sales_created      ON sales(created_at);
-CREATE INDEX IF NOT EXISTS idx_sales_receipt      ON sales(receipt_no);
-CREATE INDEX IF NOT EXISTS idx_sale_items_sale    ON sale_items(sale_id);
-CREATE INDEX IF NOT EXISTS idx_sale_items_product ON sale_items(product_id);
-CREATE INDEX IF NOT EXISTS idx_inv_adj_product    ON inventory_adjustments(product_id);
-CREATE INDEX IF NOT EXISTS idx_inv_adj_created    ON inventory_adjustments(created_at);
-CREATE INDEX IF NOT EXISTS idx_cash_type          ON cash_movements(type);
-CREATE INDEX IF NOT EXISTS idx_cash_category      ON cash_movements(category);
-CREATE INDEX IF NOT EXISTS idx_cash_occurred      ON cash_movements(occurred_at);
-CREATE INDEX IF NOT EXISTS idx_cash_source        ON cash_movements(source_id);
+CREATE INDEX idx_products_name      ON products(name);
+CREATE INDEX idx_products_category  ON products(category);
+CREATE INDEX idx_sales_created      ON sales(created_at);
+CREATE INDEX idx_sales_receipt      ON sales(receipt_no);
+CREATE INDEX idx_sale_items_sale    ON sale_items(sale_id);
+CREATE INDEX idx_sale_items_product ON sale_items(product_id);
+CREATE INDEX idx_inv_adj_product    ON inventory_adjustments(product_id);
+CREATE INDEX idx_inv_adj_created    ON inventory_adjustments(created_at);
+CREATE INDEX idx_cash_type          ON cash_movements(type);
+CREATE INDEX idx_cash_category      ON cash_movements(category);
+CREATE INDEX idx_cash_occurred      ON cash_movements(occurred_at);
+CREATE INDEX idx_cash_source        ON cash_movements(source_id);

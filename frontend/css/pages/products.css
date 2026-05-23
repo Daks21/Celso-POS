@@ -147,12 +147,27 @@
 
 @media (max-width: 600px) {
   .products-header {
-    align-items: stretch;
-    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .products-header > div {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .products-header > div p {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .add-product-button {
-    width: 100%;
+    width: auto;
+    padding: 8px 10px;
+    font-size: 13px;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 }
 

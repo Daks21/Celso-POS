@@ -2,11 +2,12 @@ const db = require('../config/db.config');
 
 const VALID_TYPES = ['capital_in', 'owner_draw', 'opex', 'capex'];
 
+// null means free-form (any non-empty string accepted)
 const CATEGORY_BY_TYPE = {
-  capital_in: ['own_savings', 'borrowed', 'other_income'],
-  owner_draw: ['personal_use', 'loan_payment', 'reinvestment', 'other_draw'],
-  opex:       ['utilities', 'supplies', 'rent', 'salaries', 'transport', 'restock', 'other_opex'],
-  capex:      ['equipment', 'renovation', 'fixtures', 'other_capex'],
+  capital_in: ['own', 'borrowed'],
+  owner_draw: ['personal', 'loan_payment', 'reinvest', 'other'],
+  opex:       null,
+  capex:      null,
 };
 
 function buildFilters(filters) {
@@ -16,8 +17,9 @@ function buildFilters(filters) {
     conditions.push('type = ?');
     params.push(filters.type);
   }
-  if (filters.from) { conditions.push('occurred_at >= ?'); params.push(filters.from); }
-  if (filters.to)   { conditions.push('occurred_at <= ?'); params.push(filters.to);   }
+  if (filters.category) { conditions.push('category = ?');      params.push(filters.category); }
+  if (filters.from)     { conditions.push('occurred_at >= ?');  params.push(filters.from);     }
+  if (filters.to)       { conditions.push('occurred_at <= ?');  params.push(filters.to);       }
   return { where: 'WHERE ' + conditions.join(' AND '), params };
 }
 
@@ -101,21 +103,43 @@ const softDelete = async (id) => {
 
 const getSummary = async (filters = {}) => {
   const { where, params } = buildFilters(filters);
+
+  // Period totals
   const [[row]] = await db.query(
     `SELECT
-       COALESCE(SUM(CASE WHEN type = 'capital_in'                          THEN amount ELSE 0 END), 0) AS moneyIn,
-       COALESCE(SUM(CASE WHEN type IN ('owner_draw','opex','capex')        THEN amount ELSE 0 END), 0) AS moneyOut
+       COALESCE(SUM(CASE WHEN type = 'capital_in'                   THEN amount ELSE 0 END), 0) AS moneyIn,
+       COALESCE(SUM(CASE WHEN type IN ('owner_draw','opex','capex') THEN amount ELSE 0 END), 0) AS moneyOut
      FROM cash_movements ${where}`,
     params
   );
 
-  // Utang is always period-independent: total borrowed minus total repaid (all time)
+  // Utang is period-independent: all-time borrowed minus all loan payments
   const [[utangRow]] = await db.query(
     `SELECT
-       COALESCE(SUM(CASE WHEN type='capital_in' AND category='borrowed'    THEN amount ELSE 0 END), 0) AS totalBorrowed,
+       COALESCE(SUM(CASE WHEN type='capital_in' AND category='borrowed'     THEN amount ELSE 0 END), 0) AS totalBorrowed,
        COALESCE(SUM(CASE WHEN type='owner_draw' AND category='loan_payment' THEN amount ELSE 0 END), 0) AS totalRepaid
      FROM cash_movements WHERE is_active=1`
   );
+
+  // byType breakdown (for the filtered period)
+  const [byTypeRows] = await db.query(
+    `SELECT type, COALESCE(SUM(amount), 0) AS total
+     FROM cash_movements ${where}
+     GROUP BY type`,
+    params
+  );
+  const byType = { capital_in: 0, owner_draw: 0, opex: 0, capex: 0 };
+  byTypeRows.forEach(r => { byType[r.type] = Number(r.total); });
+
+  // byCategory breakdown (filtered period, non-null categories only)
+  const [byCatRows] = await db.query(
+    `SELECT category, COALESCE(SUM(amount), 0) AS total
+     FROM cash_movements ${where} AND category IS NOT NULL
+     GROUP BY category`,
+    params
+  );
+  const byCategory = {};
+  byCatRows.forEach(r => { if (r.category) byCategory[r.category] = Number(r.total); });
 
   const moneyIn  = Number(row.moneyIn);
   const moneyOut = Number(row.moneyOut);
@@ -124,6 +148,8 @@ const getSummary = async (filters = {}) => {
     moneyOut,
     net:   moneyIn - moneyOut,
     utang: Math.max(0, Number(utangRow.totalBorrowed) - Number(utangRow.totalRepaid)),
+    byType,
+    byCategory,
   };
 };
 

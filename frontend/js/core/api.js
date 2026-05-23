@@ -16,6 +16,7 @@ async function apiCall(endpoint, options = {}) {
     window.location.href = getLoginPath();
     return;
   }
+  if (response.status === 204) return { success: true };
   return response.json();
 }
 

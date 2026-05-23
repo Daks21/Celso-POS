@@ -636,7 +636,9 @@
 html[data-theme="dark"] #from-date,
 html[data-theme="dark"] #to-date,
 html[data-theme="dark"] #analytics-from,
-html[data-theme="dark"] #analytics-to {
+html[data-theme="dark"] #analytics-to,
+html[data-theme="dark"] #finance-from,
+html[data-theme="dark"] #finance-to {
   color-scheme: dark;
 }
 

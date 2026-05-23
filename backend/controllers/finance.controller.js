@@ -1,12 +1,22 @@
 const Cashflow = require('../models/cashflow.model');
 
+function validateCategory(type, category) {
+  const allowed = Cashflow.CATEGORY_BY_TYPE[type];
+  // null means free-form — any non-empty string is valid
+  if (allowed === null) return null;
+  if (category && !allowed.includes(category))
+    return `category for '${type}' must be one of: ${allowed.join(', ')}`;
+  return null;
+}
+
 const getAll = async (req, res, next) => {
   try {
-    const { type, from, to } = req.query;
+    const { type, category, from, to } = req.query;
     const filters = {};
     if (type && Cashflow.VALID_TYPES.includes(type)) filters.type = type;
-    if (from) filters.from = from;
-    if (to)   filters.to   = to;
+    if (category) filters.category = category;
+    if (from)     filters.from     = from;
+    if (to)       filters.to       = to;
     const data = await Cashflow.getAll(filters);
     res.json({ success: true, data });
   } catch (err) {
@@ -40,9 +50,8 @@ const create = async (req, res, next) => {
     if (!occurred_at)
       return res.status(400).json({ success: false, message: 'occurred_at date is required' });
 
-    const validCategories = Cashflow.CATEGORY_BY_TYPE[type];
-    if (category && !validCategories.includes(category))
-      return res.status(400).json({ success: false, message: `category must be one of: ${validCategories.join(', ')}` });
+    const catError = validateCategory(type, category);
+    if (catError) return res.status(400).json({ success: false, message: catError });
 
     const entry = await Cashflow.create({
       type,
@@ -66,7 +75,7 @@ const update = async (req, res, next) => {
     if (isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid ID' });
 
     const existing = await Cashflow.getById(id);
-    if (!existing)                  return res.status(404).json({ success: false, message: 'Entry not found' });
+    if (!existing)                    return res.status(404).json({ success: false, message: 'Entry not found' });
     if (existing.source !== 'manual') return res.status(400).json({ success: false, message: 'Auto-created entries cannot be edited' });
 
     const { type, category, amount, description, occurred_at } = req.body;
@@ -80,9 +89,8 @@ const update = async (req, res, next) => {
     if (!occurred_at)
       return res.status(400).json({ success: false, message: 'occurred_at date is required' });
 
-    const validCategories = Cashflow.CATEGORY_BY_TYPE[type];
-    if (category && !validCategories.includes(category))
-      return res.status(400).json({ success: false, message: `category must be one of: ${validCategories.join(', ')}` });
+    const catError = validateCategory(type, category);
+    if (catError) return res.status(400).json({ success: false, message: catError });
 
     const entry = await Cashflow.update(id, {
       type,
@@ -105,7 +113,7 @@ const remove = async (req, res, next) => {
     if (isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid ID' });
 
     const existing = await Cashflow.getById(id);
-    if (!existing)                  return res.status(404).json({ success: false, message: 'Entry not found' });
+    if (!existing)                    return res.status(404).json({ success: false, message: 'Entry not found' });
     if (existing.source !== 'manual') return res.status(400).json({ success: false, message: 'Auto-created entries cannot be deleted' });
 
     const deleted = await Cashflow.softDelete(id);
