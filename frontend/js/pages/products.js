@@ -105,7 +105,6 @@ productForm.addEventListener("submit", async function (event) {
     category: productCategoryInput.value.trim(),
     price: Number(productPriceInput.value),
     cost: Number(productCostInput.value),
-    stock: 0,
     unit: productUnitInput.value
   };
 

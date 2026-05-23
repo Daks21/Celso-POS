@@ -1,0 +1,77 @@
+.finance-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .finance-summary { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .finance-summary { grid-template-columns: 1fr; }
+}
+
+.finance-stat {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+}
+
+.finance-stat-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.finance-stat-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.finance-stat-value.positive { color: var(--color-success, #16a34a); }
+.finance-stat-value.negative { color: var(--color-danger,  #dc2626); }
+.finance-stat-value.utang    { color: #d97706; }
+
+.type-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.2em 0.55em;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.type-badge--capital_in { background: #dcfce7; color: #15803d; }
+.type-badge--owner_draw { background: #fee2e2; color: #b91c1c; }
+.type-badge--opex       { background: #fef3c7; color: #92400e; }
+.type-badge--capex      { background: #dbeafe; color: #1d4ed8; }
+
+[data-theme="dark"] .type-badge--capital_in { background: #14532d; color: #86efac; }
+[data-theme="dark"] .type-badge--owner_draw { background: #450a0a; color: #fca5a5; }
+[data-theme="dark"] .type-badge--opex       { background: #451a03; color: #fcd34d; }
+[data-theme="dark"] .type-badge--capex      { background: #1e3a5f; color: #93c5fd; }
+
+.finance-amount          { font-weight: 600; }
+.finance-amount.is-out   { color: var(--color-danger,  #dc2626); }
+.finance-amount.is-in    { color: var(--color-success, #16a34a); }
+
+.finance-date-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.finance-date-filters input[type="date"] {
+  width: auto;
+}

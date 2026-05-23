@@ -43,7 +43,7 @@ const adjust = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid product ID' });
     }
 
-    const { quantity, type, notes } = req.body;
+    const { quantity, type, notes, recordExpense, totalPaid, supplierName, paymentMethod } = req.body;
 
     if (!type || !VALID_TYPES.includes(type)) {
       return res.status(400).json({
@@ -64,20 +64,31 @@ const adjust = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    const delta   = REMOVING_TYPES.includes(type) ? -quantity : quantity;
-    const updated = await Product.adjustStock(productId, delta, type, notes || null, req.user.id);
+    const delta = REMOVING_TYPES.includes(type) ? -quantity : quantity;
+
+    const expenseData = (type === 'restock' && recordExpense && Number(totalPaid) > 0)
+      ? {
+          recordExpense: true,
+          totalPaid:     Number(totalPaid),
+          paymentMethod: paymentMethod || null,
+          supplierName:  supplierName  || null,
+        }
+      : null;
+
+    const result = await Product.adjustStock(productId, delta, type, notes || null, req.user.id, expenseData);
 
     res.json({
       success: true,
       data: {
-        product: { id: updated.id, name: updated.name, stock: updated.stock, unit: updated.unit },
+        product: { id: result.product.id, name: result.product.name, stock: result.product.stock, unit: result.product.unit },
         adjustment: {
           type,
           quantity,
           notes:      notes || null,
           adjustedBy: req.user.fullName || req.user.email,
           timestamp:  new Date().toISOString(),
-        }
+        },
+        cashMovement: result.cashMovement,
       }
     });
   } catch (err) {

@@ -16,6 +16,11 @@ const confirmRestock       = document.getElementById('confirm-restock');
 const restockQuantityInput = document.getElementById('restock-quantity');
 const restockProductInfo   = document.getElementById('restock-product-info');
 const restockError         = document.getElementById('restock-error');
+const restockIsPurchase    = document.getElementById('restock-is-purchase');
+const restockExpenseFields = document.getElementById('restock-expense-fields');
+const restockTotalPaid     = document.getElementById('restock-total-paid');
+const restockPaymentMethod = document.getElementById('restock-payment-method');
+const restockSupplier      = document.getElementById('restock-supplier');
 
 let products       = [];
 let activeStatus   = 'all';
@@ -139,6 +144,11 @@ function openRestockModal(productId) {
 
   restockQuantityInput.value = '';
   restockError.textContent   = '';
+  if (restockIsPurchase)    restockIsPurchase.checked             = false;
+  if (restockExpenseFields) restockExpenseFields.style.display    = 'none';
+  if (restockTotalPaid)     restockTotalPaid.value                = '';
+  if (restockPaymentMethod) restockPaymentMethod.value            = 'cash';
+  if (restockSupplier)      restockSupplier.value                 = '';
   restockModal.style.display = 'flex';
 }
 
@@ -161,9 +171,20 @@ async function handleRestock() {
     return;
   }
 
+  const payload = { quantity: quantity, type: 'restock' };
+  if (restockIsPurchase && restockIsPurchase.checked) {
+    const totalPaid = Number(restockTotalPaid && restockTotalPaid.value);
+    if (totalPaid > 0) {
+      payload.recordExpense  = true;
+      payload.totalPaid      = totalPaid;
+      payload.paymentMethod  = restockPaymentMethod ? restockPaymentMethod.value : 'cash';
+      payload.supplierName   = restockSupplier && restockSupplier.value.trim() ? restockSupplier.value.trim() : null;
+    }
+  }
+
   confirmRestock.disabled = true;
   try {
-    const result = await adjustStock(restockingId, { quantity: quantity, type: 'restock' });
+    const result = await adjustStock(restockingId, payload);
     if (result && result.success) {
       closeModal();
       await refreshInventory();
@@ -235,6 +256,12 @@ if (inventoryStatusSelect) {
   inventoryStatusSelect.addEventListener('change', function () {
     activeStatus = inventoryStatusSelect.value;
     applyFilters();
+  });
+}
+
+if (restockIsPurchase) {
+  restockIsPurchase.addEventListener('change', function () {
+    if (restockExpenseFields) restockExpenseFields.style.display = this.checked ? '' : 'none';
   });
 }
 

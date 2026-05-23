@@ -3,7 +3,7 @@ const model = require('../models/product.model');
 const VALID_UNITS = ['piece', 'pack', 'bottle', 'can', 'sachet', 'box', 'kg', 'liter'];
 
 const validate = (body) => {
-  const { name, category, price, cost, stock, unit } = body;
+  const { name, category, price, cost, unit } = body;
 
   if (!name || typeof name !== 'string' || name.trim() === '')
     return 'Name is required';
@@ -15,8 +15,6 @@ const validate = (body) => {
     return 'Price must be a number greater than 0';
   if (cost === undefined || typeof cost !== 'number' || cost < 0)
     return 'Cost must be a number of 0 or more';
-  if (stock === undefined || !Number.isInteger(stock) || stock < 0)
-    return 'Stock must be a whole number of 0 or more';
   if (!unit || !VALID_UNITS.includes(unit))
     return `Unit must be one of: ${VALID_UNITS.join(', ')}`;
 
@@ -59,8 +57,8 @@ const create = async (req, res, next) => {
       return res.status(400).json({ success: false, message: error });
     }
 
-    const { name, category, price, cost, stock, unit } = req.body;
-    const product = await model.create({ name: name.trim(), category: category.trim(), price, cost, stock, unit });
+    const { name, category, price, cost, unit } = req.body;
+    const product = await model.create({ name: name.trim(), category: category.trim(), price, cost, unit });
 
     res.status(201).json({ success: true, data: product });
   } catch (err) {
@@ -84,8 +82,8 @@ const update = async (req, res, next) => {
       return res.status(400).json({ success: false, message: error });
     }
 
-    const { name, category, price, cost, stock, unit } = req.body;
-    const product = await model.update(id, { name: name.trim(), category: category.trim(), price, cost, stock, unit });
+    const { name, category, price, cost, unit } = req.body;
+    const product = await model.update(id, { name: name.trim(), category: category.trim(), price, cost, unit });
 
     res.status(200).json({ success: true, data: product });
   } catch (err) {

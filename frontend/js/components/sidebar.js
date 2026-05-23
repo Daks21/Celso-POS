@@ -139,6 +139,7 @@ function initMobileNav() {
     { href: 'order.html',     icon: 'shopping-cart',    label: 'New Order'  },
     { href: 'inventory.html', icon: 'archive',           label: 'Inventory'  },
     { href: 'products.html',  icon: 'package',           label: 'Products'   },
+    { href: 'finance.html',   icon: 'wallet',            label: 'Finance'    },
     { href: 'analytics.html', icon: 'bar-chart-2',       label: 'Analytics'  },
     { href: 'history.html',   icon: 'clock',             label: 'History'    },
   ];

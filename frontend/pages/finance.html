@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <script>
@@ -12,7 +12,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>Celso POS | Inventory</title>
+  <title>Celso POS | Finance</title>
 
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap"
@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="../css/layout.css">
   <link rel="stylesheet" href="../css/components.css">
   <link rel="stylesheet" href="../css/pages/inventory.css">
+  <link rel="stylesheet" href="../css/pages/finance.css">
 </head>
 <body class="app-body">
 
@@ -102,10 +103,9 @@
 
       <!-- Topbar -->
       <header class="topbar">
-        <h1 id="page-title">Inventory</h1>
+        <h1 id="page-title">Finance</h1>
 
         <div class="topbar-actions">
-
           <button
             type="button"
             class="topbar-icon-button"
@@ -114,8 +114,6 @@
           >
             <i data-lucide="moon" id="theme-icon"></i>
           </button>
-
-
         </div>
       </header>
 
@@ -125,52 +123,50 @@
 
           <div class="products-header">
             <div>
-              <h2>Inventory</h2>
-              <p>Monitor stock levels and restock products</p>
+              <h2>Cash Flow</h2>
+              <p>Track capital, expenses, and withdrawals</p>
             </div>
-            <div class="inventory-header-actions" id="admin-restock-header">
-              <!-- Admin only: shown by JS -->
-            </div>
+            <button type="button" class="submit-button" id="add-entry-button" style="display:none;">
+              + Add Entry
+            </button>
           </div>
 
-          <!-- Summary Row -->
-          <div class="inventory-summary" id="inventory-summary">
+          <!-- Summary Tiles -->
+          <div class="finance-summary" id="finance-summary">
             <!-- Rendered by JS -->
           </div>
 
-          <!-- Filter -->
-          <div class="products-toolbar">
-            <input
-              type="text"
-              id="inventory-search"
-              class="search-input"
-              placeholder="Search products..."
-              autocomplete="off"
-            />
-            <select id="inventory-category-select" class="filter-select">
-              <!-- Options rendered by JS -->
+          <!-- Filters -->
+          <div class="finance-date-filters">
+            <select id="finance-type-select" class="filter-select">
+              <option value="">All Types</option>
+              <option value="capital_in">Capital In</option>
+              <option value="owner_draw">Withdrawal</option>
+              <option value="opex">Operating Expense</option>
+              <option value="capex">Investment</option>
             </select>
-            <select id="inventory-status-select" class="filter-select">
-              <option value="all">All Status</option>
-              <option value="ok">In Stock</option>
-              <option value="low">Low Stock</option>
-              <option value="out">Out of Stock</option>
-            </select>
+            <input type="date" id="finance-from" class="search-input" />
+            <input type="date" id="finance-to"   class="search-input" />
+            <button type="button" class="submit-button" id="finance-apply-filter"
+                    style="width:auto;padding:0 1.25rem;">
+              Apply
+            </button>
           </div>
 
           <!-- Table -->
-          <div class="table-wrapper">
-            <table class="data-table" id="inventory-table">
+          <div class="table-wrapper" style="margin-top:1rem;">
+            <table class="data-table" id="finance-table">
               <thead>
                 <tr>
-                  <th>Product Name</th>
+                  <th>Date</th>
+                  <th>Type</th>
                   <th>Category</th>
-                  <th>Current Stock</th>
-                  <th>Status</th>
-                  <th id="restock-col-header"></th>
+                  <th>Amount</th>
+                  <th>Notes</th>
+                  <th id="finance-actions-col"></th>
                 </tr>
               </thead>
-              <tbody id="inventory-table-body">
+              <tbody id="finance-table-body">
                 <!-- Rendered by JS -->
               </tbody>
             </table>
@@ -183,75 +179,73 @@
     </div>
   </div>
 
-  <!-- Restock Modal (Admin Only) -->
-  <div class="modal-overlay" id="restock-modal">
+  <!-- Add / Edit Entry Modal -->
+  <div class="modal-overlay" id="finance-modal">
     <div class="modal-card">
       <div class="modal-header">
-        <h2>Restock Product</h2>
-        <button type="button" class="modal-close-button"
-                id="close-restock-modal">×</button>
-      </div>
-      <div id="restock-product-info" class="restock-product-info">
-        <!-- Rendered by JS -->
-      </div>
-      <div class="form-group" style="margin-top: 1rem;">
-        <label for="restock-quantity">Quantity to Add</label>
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
-          <input
-            type="number"
-            id="restock-quantity"
-            class="search-input no-spinner"
-            placeholder="Enter quantity"
-            min="1"
-            style="flex: 1;"
-          />
-          <button type="button" class="submit-button"
-                  id="confirm-restock" style="width: auto; white-space: nowrap;">Add Stock</button>
-        </div>
-        <p id="restock-error" class="form-error"></p>
+        <h2 id="finance-modal-title">Add Entry</h2>
+        <button type="button" class="modal-close-button" id="close-finance-modal">×</button>
       </div>
 
-      <!-- Expense capture -->
-      <div class="form-group" style="margin-top: 0.75rem;">
-        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:500;">
-          <input type="checkbox" id="restock-is-purchase" style="width:auto;cursor:pointer;" />
-          Binili ko ito (may gastos)
-        </label>
-      </div>
+      <form id="finance-form" autocomplete="off">
 
-      <div id="restock-expense-fields" style="display:none;margin-top:0.5rem;">
-        <div class="form-row" style="margin-bottom:0.5rem;">
+        <div class="form-row" style="margin-bottom:0.75rem;">
           <div class="form-group">
-            <label for="restock-total-paid">Total Amount Paid (&#8369;)</label>
+            <label for="finance-type">Type</label>
+            <select id="finance-type" required>
+              <option value="">Select type</option>
+              <option value="capital_in">Capital In</option>
+              <option value="owner_draw">Withdrawal</option>
+              <option value="opex">Operating Expense</option>
+              <option value="capex">Investment</option>
+            </select>
+            <p id="finance-type-error" class="form-error"></p>
+          </div>
+          <div class="form-group">
+            <label for="finance-date">Date</label>
+            <input type="date" id="finance-date" required />
+            <p id="finance-date-error" class="form-error"></p>
+          </div>
+        </div>
+
+        <div class="form-row" style="margin-bottom:0.75rem;">
+          <div class="form-group">
+            <label for="finance-category">Category</label>
+            <select id="finance-category">
+              <option value="">Select category</option>
+            </select>
+            <p id="finance-category-error" class="form-error"></p>
+          </div>
+          <div class="form-group">
+            <label for="finance-amount">Amount (&#8369;)</label>
             <input
               type="number"
-              id="restock-total-paid"
-              class="search-input no-spinner"
+              id="finance-amount"
+              class="no-spinner"
               placeholder="0.00"
-              min="0"
+              min="0.01"
               step="0.01"
+              required
             />
-          </div>
-          <div class="form-group">
-            <label for="restock-payment-method">Payment Method</label>
-            <select id="restock-payment-method" class="filter-select" style="width:100%;">
-              <option value="cash">Cash</option>
-              <option value="bank">Bank</option>
-              <option value="credit">Credit</option>
-            </select>
+            <p id="finance-amount-error" class="form-error"></p>
           </div>
         </div>
-        <div class="form-group">
-          <label for="restock-supplier">Supplier / Source (optional)</label>
+
+        <div class="form-group" style="margin-bottom:0.75rem;">
+          <label for="finance-notes">Notes (optional)</label>
           <input
             type="text"
-            id="restock-supplier"
-            class="search-input"
-            placeholder="e.g. SM, Puregold, suki supplier"
-            style="margin-bottom:0.5rem;"
+            id="finance-notes"
+            placeholder="e.g. Bayad sa 5-6, kuryente, binili supplies..."
+            autocomplete="off"
           />
         </div>
-      </div>
+
+        <div class="modal-actions">
+          <button type="submit" class="submit-button" id="finance-submit">Save Entry</button>
+        </div>
+
+      </form>
     </div>
   </div>
 
@@ -261,7 +255,7 @@
   <script src="../js/core/utils.js"></script>
   <script src="../js/core/auth.js"></script>
   <script src="../js/core/data.js"></script>
-  <script src="../js/pages/inventory.js"></script>
+  <script src="../js/pages/finance.js"></script>
   <script>lucide.createIcons();</script>
 </body>
 </html>

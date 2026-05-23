@@ -27,16 +27,16 @@ const create = async (data) => {
   const [result] = await db.query(
     'INSERT INTO products (name, category, price, cost, stock, unit)'
     + ' VALUES (?,?,?,?,?,?)',
-    [data.name, data.category, data.price, data.cost, data.stock, data.unit]
+    [data.name, data.category, data.price, data.cost, 0, data.unit]
   );
   return getById(result.insertId);
 };
 
 const update = async (id, data) => {
   const [result] = await db.query(
-    'UPDATE products SET name=?, category=?, price=?, cost=?, stock=?, unit=?'
+    'UPDATE products SET name=?, category=?, price=?, cost=?, unit=?'
     + ' WHERE id=? AND is_active = 1',
-    [data.name, data.category, data.price, data.cost, data.stock, data.unit, id]
+    [data.name, data.category, data.price, data.cost, data.unit, id]
   );
   if (result.affectedRows === 0) return null;
   return getById(id);
@@ -79,21 +79,59 @@ const getStockLevels = async (threshold = 50) => {
   }));
 };
 
-const adjustStock = async (id, qty, type, notes = null, userId = null) => {
+const adjustStock = async (id, qty, type, notes = null, userId = null, expenseData = null) => {
   const product = await getById(id);
   if (!product) return null;
-  const stockBefore = product.stock;
-  const stockAfter  = Math.max(0, stockBefore + qty);
-  await db.query(
-    'UPDATE products SET stock = ? WHERE id = ?', [stockAfter, id]
-  );
-  await db.query(
-    'INSERT INTO inventory_adjustments'
-    + ' (product_id, type, qty, stock_before, stock_after, notes, adjusted_by)'
-    + ' VALUES (?,?,?,?,?,?,?)',
-    [id, type, Math.abs(qty), stockBefore, stockAfter, notes, userId]
-  );
-  return getById(id);
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const stockBefore = product.stock;
+    const stockAfter  = Math.max(0, stockBefore + qty);
+
+    await conn.query(
+      'UPDATE products SET stock = ? WHERE id = ?', [stockAfter, id]
+    );
+
+    const [adjResult] = await conn.query(
+      `INSERT INTO inventory_adjustments
+         (product_id, type, qty, stock_before, stock_after, notes, adjusted_by,
+          unit_cost, total_paid, payment_method, supplier_name)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        id, type, Math.abs(qty), stockBefore, stockAfter, notes, userId,
+        expenseData ? (expenseData.unitCost      || null) : null,
+        expenseData ? (expenseData.totalPaid     || null) : null,
+        expenseData ? (expenseData.paymentMethod || null) : null,
+        expenseData ? (expenseData.supplierName  || null) : null,
+      ]
+    );
+
+    let cashMovement = null;
+    if (expenseData && expenseData.recordExpense && expenseData.totalPaid > 0) {
+      const desc = expenseData.supplierName
+        ? `Restock from ${expenseData.supplierName}: ${product.name}`
+        : `Restock: ${product.name}`;
+      const [cmResult] = await conn.query(
+        `INSERT INTO cash_movements
+           (type, category, amount, description, occurred_at, source, source_id, recorded_by)
+         VALUES ('opex', 'restock', ?, ?, CURDATE(), 'restock', ?, ?)`,
+        [expenseData.totalPaid, desc, adjResult.insertId, userId]
+      );
+      cashMovement = { id: cmResult.insertId, type: 'opex', category: 'restock', amount: expenseData.totalPaid };
+    }
+
+    await conn.commit();
+
+    const updatedProduct = await getById(id);
+    return { product: updatedProduct, cashMovement };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 };
 
 const getInventoryCounts = async (threshold = 50) => {

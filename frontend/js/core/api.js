@@ -167,3 +167,33 @@ async function getCharts(from, to) {
   const query = params.toString();
   return apiCall('/analytics/charts' + (query ? '?' + query : ''));
 }
+
+// --- Finance ---
+
+async function getFinanceMovements(filters = {}) {
+  const query = new URLSearchParams(filters).toString();
+  return apiCall('/finance' + (query ? '?' + query : ''));
+}
+
+async function getFinanceSummary(filters = {}) {
+  const query = new URLSearchParams(filters).toString();
+  return apiCall('/finance/summary' + (query ? '?' + query : ''));
+}
+
+async function createFinanceEntry(data) {
+  return apiCall('/finance', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+async function updateFinanceEntry(id, data) {
+  return apiCall(`/finance/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+async function deleteFinanceEntry(id) {
+  return apiCall(`/finance/${id}`, { method: 'DELETE' });
+}

@@ -1,5 +1,5 @@
-================================================================
-  Celso POS v3.1
+﻿================================================================
+  Celso POS v4.0
   SARI-SARI STORE POS + INVENTORY + SALES MANAGEMENT SYSTEM
 ================================================================
 
@@ -17,7 +17,9 @@
     - Record and track sales quickly (POS-style)
     - Generate receipts and view sales history
     - Provide a dashboard and analytics for business insights
-    - Eventually: AI assistant for smart recommendations
+    - Track capital, expenses, withdrawals, and outstanding utang
+      (cashflow log — money in / money out / net / utang balance)
+    - AI assistant for smart restock and business recommendations
 
   TARGET USERS  :
     - Sari-sari store owners
@@ -28,6 +30,8 @@
   WHAT MAKES IT DIFFERENT:
     - Built specifically for Filipino MSME needs
     - Simple UI, no overwhelming features
+    - Tracks borrowed capital and utang balance — a real PH MSME
+      need most POS apps ignore
     - Scales from basic to AI-powered over time
     - Open and learnable — built step by step
 
@@ -55,10 +59,10 @@
                │                  │
                ▼                  ▼
   ┌────────────────────┐  ┌───────────────────────┐
-  │  LAYER 3: DATABASE │  │  LAYER 4: AI (FUTURE) │
+  │  LAYER 3: DATABASE │  │  LAYER 4: AI (PHASE 4) │
   │  Stores all data   │  │  Reads data, gives    │
   │  permanently       │  │  smart suggestions    │
-  │  Tech: MySQL 8     │  │  Tech: Claude API     │
+  │  Tech: MySQL 8     │  │  Tech: Groq API       │
   └────────────────────┘  └───────────────────────┘
 
   HOW THEY CONNECT:
@@ -67,7 +71,7 @@
     3. BACKEND validates the request and writes to DATABASE
     4. DATABASE confirms → BACKEND responds to FRONTEND
     5. FRONTEND updates what the user sees
-    6. (Future) BACKEND fetches data → sends to AI → returns insight
+    6. BACKEND fetches data → sends to Groq AI → returns insight
 
   ANALOGY:
     Think of it like a restaurant:
@@ -79,13 +83,13 @@
   COMMUNICATION FORMAT:
     - Frontend ↔ Backend : JSON over HTTP (REST API)
     - Backend  ↔ Database: SQL queries via mysql2 (prepared statements)
-    - Backend  ↔ AI      : API calls with structured data
+    - Backend  ↔ AI      : OpenAI-compatible REST calls to Groq API
 
 ================================================================
 [3. PROJECT STRUCTURE]
 ================================================================
 
-  STRATEGY: Frontend First, then Backend, then Database, then AI.
+  STRATEGY: Frontend → Backend → Database → AI → Finance → Deployment.
   All code lives in ONE root folder: Celso_POS/
 
   ROOT FOLDER LAYOUT:
@@ -95,7 +99,7 @@
   ├── frontend/                ← Everything the user sees
   ├── backend/                 ← Server, routes, logic (Phase 2+3 COMPLETE)
   ├── database/                ← SQL schema and seed data (Phase 3 COMPLETE)
-  ├── ai/                      ← AI assistant (Phase 4)
+  ├── ai/                      ← AI assistant (Phase 4 — in progress)
   │
   ├── .gitignore               ← Files to exclude from Git
   └── README.md                ← This file
@@ -121,6 +125,9 @@
   │   ├── order.html           ← POS screen — cart + checkout
   │   ├── history.html         ← Past sales with filters + receipt
   │   ├── analytics.html       ← Charts, KPIs, activity heatmap
+  │   ├── finance.html        ← Cashflow log: capital, expenses,
+  │   │                           withdrawals, derived utang balance
+  │   ├── ai.html              ← AI assistant chat interface
   │   ├── sales.html           ← Sales reports page (placeholder)
   │   └── account.html         ← User profile + app settings
   │
@@ -137,6 +144,8 @@
   │       ├── order.css
   │       ├── history.css
   │       ├── analytics.css
+  │       ├── finance.css
+  │       ├── ai.css
   │       └── account.css
   │
   ├── js/
@@ -162,6 +171,9 @@
   │       ├── order.js         ← POS cart, category pills, checkout
   │       ├── history.js       ← Sales filter, detail modal
   │       ├── analytics.js     ← KPI cards, Chart.js charts, date range
+  │       ├── finance.js      ← Cashflow entry, list, summary tiles
+  │       │                       (Money In / Out / Net / Utang)
+  │       ├── ai.js            ← Chat interface, question submission
   │       ├── sales.js         ← Sales reports page (auth guard only)
   │       └── account.js       ← Account dropdown, settings, tax rate
   │
@@ -214,24 +226,31 @@
   │   │                           by ID)
   │   ├── inventory.routes.js  ← /api/inventory (stock, low-stock,
   │   │                           summary, adjust — admin-protected)
-  │   └── analytics.routes.js  ← /api/analytics (summary, heatmap,
-  │                               kpis, charts — JWT-protected)
+  │   ├── analytics.routes.js  ← /api/analytics (summary, heatmap,
+  │   │                           kpis, charts — JWT-protected)
+  │   ├── finance.routes.js    ← /api/finance (list, summary, CRUD
+  │   │                           — JWT-protected, admin delete)
+  │   └── ai.routes.js         ← /api/ai/chat — JWT-protected, rate-limited
   │
   ├── controllers/             ← Business logic for each feature
   │   ├── auth.controller.js
   │   ├── products.controller.js
   │   ├── sales.controller.js
   │   ├── inventory.controller.js
-  │   └── analytics.controller.js
+  │   ├── analytics.controller.js
+  │   ├── finance.controller.js
+  │   └── ai.controller.js
   │
   ├── models/                  ← MySQL query functions (no in-memory state)
   │   ├── user.model.js        ← Users table: findByEmail, findById,
   │   │                           create (bcrypt hashing)
   │   ├── product.model.js     ← Products table: CRUD, soft-delete,
   │   │                           search/filter, stock management
-  │   └── sale.model.js        ← Sales + analytics: atomic create(),
-  │                               getHistory(), getById(), summary,
-  │                               heatmap, kpis, charts aggregations
+  │   ├── sale.model.js        ← Sales + analytics: atomic create(),
+  │   │                           getHistory(), getById(), summary,
+  │   │                           heatmap, kpis, charts aggregations
+  │   └── cashflow.model.js    ← cash_movements CRUD, monthly summary
+  │                               (in/out/net), utang balance derivation
   │
   ├── middleware/
   │   ├── auth.middleware.js   ← JWT verification + admin role check
@@ -246,15 +265,22 @@
 
   database/                    ← Phase 3 (COMPLETE)
   │
-  ├── schema.sql               ← 5-table relational schema with indexes
-  │                               and foreign keys
+  ├── schema.sql               ← 6-table relational schema with indexes
+  │                               and foreign keys (cash_movements
+  │                               added in Phase 5)
   └── seed.sql                 ← Sample products, users, and sales data
 
   ─────────────────────────────────────────────────────────────
 
-  ai/                          ← Phase 4 (not yet built)
+  ai/                          ← Phase 4 (in progress)
   │
-  └── assistant.js             ← Claude API integration logic
+  ├── assistant.js             ← Main controller, prompt orchestration
+  ├── context-builder.js       ← Aggregates DB data, redacts PII before sending
+  ├── providers/
+  │   ├── groq.js              ← Primary: Groq Llama 3.3 70B (free tier)
+  │   └── gemini.js            ← Fallback provider slot (optional)
+  └── prompts/
+      └── system.js            ← System prompt, sari-sari business context
 
   ─────────────────────────────────────────────────────────────
 
@@ -326,10 +352,58 @@
     adjusted_by  INT          FK → users.id (nullable)
     created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 
+  TABLE: cash_movements               (Phase 5 — Cashflow log)
+  ─────────────────────────────────────────────────────────────
+    id           INT           PK, AUTO_INCREMENT
+    type         ENUM          'capital_in' | 'owner_draw' | 'opex' | 'capex'
+    category     VARCHAR       Subcategory — meaning depends on type:
+                                 capital_in:  'own' | 'borrowed'
+                                 owner_draw:  'personal' | 'loan_payment' |
+                                              'reinvest' | 'other'
+                                 opex/capex:  rent | utilities | transport |
+                                              supplies | equipment |
+                                              furniture | restock | other
+                                              (free-form allowed)
+    amount       DECIMAL(10,2) Always positive; direction implied by type
+    description  TEXT          Notes — lender name on borrowed capital,
+                               purpose on owner_draw, free-form otherwise
+    occurred_at  DATE          When the movement actually happened
+    source       VARCHAR       'manual' | 'restock' (auto-created entries)
+    source_id    INT           FK to inventory_adjustments.id (nullable)
+    recorded_by  INT           FK → users.id
+    is_active    TINYINT(1)    Soft-delete flag (default: 1)
+    created_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+
+  DERIVED VIEWS (computed, not stored):
+    Money In   = SUM(amount WHERE type='capital_in')
+                 + SUM(sales.total in period)
+    Money Out  = SUM(amount WHERE type IN ('owner_draw','opex','capex'))
+    Net        = Money In − Money Out
+    Utang      = SUM(amount WHERE type='capital_in'  AND category='borrowed')
+               − SUM(amount WHERE type='owner_draw' AND category='loan_payment')
+
+  SCHEMA ALTERATIONS (Phase 5):
+  ─────────────────────────────────────────────────────────────
+    inventory_adjustments:
+      + unit_cost       DECIMAL(10,2) NULL   cost per unit at restock time
+      + total_paid      DECIMAL(10,2) NULL   total paid to supplier
+      + payment_method  ENUM('cash','bank','credit') NULL
+      + supplier_name   VARCHAR(100) NULL
+    On restock with total_paid > 0, a corresponding cash_movements row
+    is auto-created (type='opex', category='restock', source='restock',
+    source_id=inventory_adjustments.id).
+
+    products:
+      Product creation now enforces initial stock = 0. All stock entry
+      flows through the inventory restock modal, ensuring exactly one
+      cost-capture point.
+
   INDEXES: users.email (UNIQUE), products.name, products.category,
            sales.created_at, sales.cashier_id, sale_items.sale_id,
            sale_items.product_id, inventory_adjustments.product_id,
-           inventory_adjustments.created_at
+           inventory_adjustments.created_at,
+           cash_movements.type, cash_movements.category,
+           cash_movements.occurred_at, cash_movements.source_id
 
 ================================================================
 [5. API REFERENCE]
@@ -370,7 +444,10 @@
       → 404 not found
 
     POST   /               Auth required
-      Body: { name, category, price, cost, stock, unit }
+      Body: { name, category, price, cost, unit }
+      Initial stock is always 0 — stock is added exclusively via the
+      restock endpoint (POST /api/inventory/:productId/adjust) so that
+      cost capture has a single funnel into cash_movements (Phase 5).
       → 201 { success, data: Product }
       → 400 validation error
 
@@ -425,11 +502,23 @@
               outOfStockCount, lowStockItems } }
 
     POST   /:productId/adjust   Auth + Admin required
-      Body: { quantity, type, notes? }
+      Body: { quantity, type, notes?,
+              recordExpense?, unitCost?, totalPaid?,
+              paymentMethod?, supplierName? }
       type: restock | adjustment | damage | return
       restock/return → adds stock | damage/adjustment → removes
       Stock never goes below 0.
-      → 200 { success, data: { product, adjustment } }
+
+      Phase 5 cost capture (restock only):
+        If recordExpense === true (default for restock when totalPaid > 0),
+        the inventory_adjustment is persisted with unit_cost, total_paid,
+        payment_method, supplier_name — and a cash_movements row is
+        atomically created (type='opex', category='restock',
+        source='restock', source_id=adjustment.id).
+        If recordExpense === false, stock is added without any expense
+        entry (for free / leftover / gifted stock).
+
+      → 200 { success, data: { product, adjustment, cashMovement? } }
 
   ──────────────────────────────────────────────────────────────
   ANALYTICS  /api/analytics
@@ -457,6 +546,58 @@
       revenueByDay: all dates in range, 0-filled for missing days
       topByRevenue / topByQty: top 5 products each
       byDayOfWeek: array[7] (Sun=0 … Sat=6)
+
+  ──────────────────────────────────────────────────────────────
+  AI ASSISTANT  /api/ai          (Phase 4)
+  ──────────────────────────────────────────────────────────────
+
+    POST   /chat           Auth required (20 req/15 min per user)
+      Body: { question, intent? }
+      Backend assembles full context (inventory snapshot, recent
+      sales, financial summary) — frontend never sends raw data.
+      Context is aggregated and PII-redacted before transmission.
+      Cached 5-15 min; repeated identical queries return cached result.
+      → 200 { success, answer, cached: boolean, tokens_used: int }
+      → 429 rate limit exceeded
+
+  ──────────────────────────────────────────────────────────────
+  FINANCE  /api/finance          (Phase 5)
+  ──────────────────────────────────────────────────────────────
+
+    GET    /               Auth required
+      Query: ?type=<enum>&category=<string>
+             &from=YYYY-MM-DD&to=YYYY-MM-DD
+      type: capital_in | owner_draw | opex | capex
+      → 200 { success, data: CashMovement[] }
+      Active rows only, sorted newest first.
+
+    GET    /summary        Auth required
+      Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (default: current month)
+      → 200 { success, data: {
+                moneyIn, moneyOut, net, utang,
+                byType: { capital_in, owner_draw, opex, capex },
+                byCategory: { <category>: <total>, ... }
+              } }
+      utang = SUM(capital_in WHERE category='borrowed')
+            − SUM(owner_draw WHERE category='loan_payment')
+      (period-independent — reflects current outstanding balance)
+
+    POST   /               Auth required
+      Body: { type, category, amount, description?, occurred_at }
+      type: 'capital_in' | 'owner_draw' | 'opex' | 'capex'
+      category: validated against type-specific allowed values
+      → 201 { success, data: CashMovement }
+      → 400 validation error
+
+    PUT    /:id            Auth required
+      Body: Same as POST (full update)
+      → 200 { success, data: CashMovement }
+      Auto-created restock entries are read-only (edit the
+      inventory_adjustment instead).
+
+    DELETE /:id            Auth + Admin required
+      Soft delete (sets is_active = 0).
+      → 204 no content
 
   ──────────────────────────────────────────────────────────────
   HEALTH CHECK  /api/health
@@ -521,6 +662,13 @@
     DB_POOL_SIZE       5        Connection pool size
     FRONTEND_URL       http://localhost:5173   CORS origin
 
+  AI Provider (Phase 4 — required when AI module is enabled):
+
+    GROQ_API_KEY       Groq API key (primary AI provider)
+                       Free at console.groq.com — no billing required
+    AI_CACHE_TTL_SEC   300      Cache TTL for AI responses in seconds
+    AI_MAX_TOKENS      500      Token budget cap per AI request
+
   Example .env file:
 
     JWT_SECRET=<128-char random string>
@@ -531,6 +679,7 @@
     DB_NAME=celsopos_db
     PORT=3000
     FRONTEND_URL=http://localhost:5173
+    GROQ_API_KEY=gsk_your_groq_api_key_here
 
 ================================================================
 [8. SECURITY]
@@ -568,11 +717,18 @@
     Every stock change (sale, restock, adjustment, damage, return)
     is written to inventory_adjustments with before/after snapshots
     and the user ID that performed the action.
+    Phase 5 extends the audit trail with cash_movements, which captures
+    every capital injection, withdrawal, expense, and auto-created
+    restock cost — also tagged with the user ID that recorded it.
 
   ATOMIC TRANSACTIONS
     Sale creation is fully atomic (ACID). All-or-nothing: sale header,
     line items, stock deductions, and audit entries either all succeed
     or all roll back.
+    Phase 5 extends atomicity to restock-with-payment: the
+    inventory_adjustment row and its auto-created cash_movements row
+    are written in the same transaction. A failure on either rolls
+    back both — no orphan stock adds, no orphan expense entries.
 
   HTTP SECURITY HEADERS
     helmet.js sets OWASP-recommended headers on every response:
@@ -631,7 +787,7 @@
 [10. DEVELOPMENT ROADMAP]
 ================================================================
 
-    Frontend → Backend → Database → AI → Deployment
+    Frontend → Backend → Database → AI → Finance → Deployment
 
   ──────────────────────────────────────────────────────────────
   PHASE 1: FRONTEND (HTML + CSS + JavaScript)       [COMPLETE]
@@ -671,11 +827,21 @@
       - Search and category filter
       - Stock color coding (ok / low / out)
       - Summary stats row
+      - Note (Phase 5): "stock" field is hidden on the create form —
+        new products always start with stock = 0. All stock entry
+        flows through the Inventory restock modal so the Phase 5
+        cost-capture funnel stays single-source.
 
     Module 1.5 — Inventory Page
       - Inventory table with status filters
       - Per-product restock modal
       - Stock status summary (total, ok, low, out)
+      - Note (Phase 5): the restock modal gains a "Binili ko ito
+        (may gastos)" checkbox. When checked, the modal reveals
+        Amount paid, Supplier, and Payment method fields, and the
+        backend atomically creates a cash_movements row alongside
+        the inventory_adjustment. When unchecked, stock is added
+        with no expense entry (free / leftover / gifted stock).
 
     Module 1.6 — POS / Sales Interface (order.html)
       - Two-panel layout: product grid + cart
@@ -778,6 +944,9 @@
         DELETE /:id
       - Server-side input validation on all write operations
       - JWT-protected writes; query-based filtering on reads
+      - Note (Phase 5): POST body no longer accepts a "stock" field.
+        New products are created with stock = 0; the controller
+        forces this regardless of any client-supplied value.
 
     Module 2.4 — Sales API (Create + History)
       - POST /api/sales: atomic two-phase commit — validates stock
@@ -800,6 +969,11 @@
       - GET /api/inventory/summary: stock status counts
       - POST /api/inventory/:id/adjust: signed-delta stock adjustment
         (admin-only); floors at zero; logs type, before/after, user
+      - Note (Phase 5): the adjust endpoint accepts optional cost
+        fields (unitCost, totalPaid, paymentMethod, supplierName)
+        and a recordExpense toggle. On restock with recordExpense
+        true, a cash_movements row (type='opex', category='restock')
+        is auto-created in the same transaction as the adjustment.
 
     Module 2.7 — Frontend-to-Backend Integration
       - api.js: centralized JWT HTTP client (auto-attach token,
@@ -817,14 +991,20 @@
   MODULES BUILT:
 
     Module 3.1 — Database Schema Design
-      - 5-table relational model: users, products, sales,
+      - 5-table relational model (Phase 3): users, products, sales,
         sale_items, inventory_adjustments
+      - Phase 5 adds a 6th table: cash_movements (cashflow log
+        with capital_in / owner_draw / opex / capex types)
       - Foreign keys, indexes, utf8mb4 charset, soft deletes
 
     Module 3.2 — Create Tables + Seed Data
       - schema.sql: all CREATE TABLE statements with constraints
       - seed.sql: sample users (admin + cashier), 20 products,
         and sales history for testing
+      - Note (Phase 5): seed.sql will be extended with sample
+        cash_movements (one borrowed capital_in injection, a few
+        opex entries, a couple of owner_draw withdrawals) so demos
+        show the Finance page populated with realistic data.
 
     Module 3.3 — Connect Backend to MySQL
       - mysql2/promise connection pool (connectionLimit: 5)
@@ -899,22 +1079,194 @@
   PHASE 4: AI INTEGRATION                           [NEXT]
   ──────────────────────────────────────────────────────────────
 
+  PROVIDER DECISION:
+    Primary  : Groq — llama-3.3-70b-versatile
+               Free tier: ~1,000 RPD on 70B, no billing gate, no credit card
+               OpenAI-compatible REST API. Sign up at console.groq.com.
+    Fallback : DeepSeek V3 ($0.14/$0.28 per M tokens) if Groq limits hit
+               Interface: getCompletion(messages, options) — provider-agnostic
+
+  WHY NOT CLAUDE API OR GEMINI FREE TIER:
+    Claude API requires a paid Anthropic account.
+    Gemini free tier on new Google accounts (post-March 2026) requires
+    billing setup before any API calls succeed — a hard gate for new PH-region
+    accounts. Groq has no such requirement and works immediately after signup.
+
+  ARCHITECTURE PRINCIPLES:
+    - Server-side prompt assembly only. Frontend sends { question, intent };
+      backend builds full context. Same security principle as server-side prices.
+    - Context aggregation before sending: inventory snapshot + sales summary
+      assembled in context-builder.js. Token budget capped at ~50K per call.
+    - PII redaction mandatory: send aggregates ("SKU#123: 1,247 units sold"),
+      never individual transactions or cashier identifiers.
+    - Response caching: common queries cached 5-15 min using
+      hash(question + date_window) as key. Cuts 60-80% of redundant calls.
+    - Fallback routing: primary → fallback on 429/503. Route handlers unchanged.
+
   MODULES:
-    Module 4.1 — Connect to Claude API
-    Module 4.2 — Fetch and format database data as AI input
-    Module 4.3 — Build a chat-style UI for the assistant
-    Module 4.4 — Test and refine prompts
+    Module 4.1 — Connect to Groq API
+      - ai/providers/groq.js: OpenAI-compatible fetch call to Groq endpoint
+      - GROQ_API_KEY added to .env with fail-fast validation on server start
+      - Provider-agnostic interface: getCompletion(messages, options)
+
+    Module 4.2 — Context Builder
+      - ai/context-builder.js: queries sale.model.js + product.model.js
+        + cashflow.model.js (Phase 5)
+      - Builds structured inventory snapshot (cost, stock, velocity)
+      - Aggregates last-30-day sales — no individual transaction details sent
+      - Phase 5 financial context: money in / money out / net /
+        utang balance, plus recent withdrawal categories. Lets the
+        AI answer questions like "bayaran ko ba muna utang ko o
+        mag-restock?" with grounded numbers, not generic advice.
+      - Caps assembled context at 50K tokens before sending
+
+    Module 4.3 — System Prompt + Sari-Sari Framing
+      - ai/prompts/system.js: Filipino MSME context, Tagalog-friendly tone
+      - Covers: restock advice, slow movers, safe withdrawal amounts,
+        seasonal patterns — domain-specific, not a generic chatbot
+      - Prompt vocabulary includes Phase 5 cashflow concepts: puhunan
+        (capital), utang (borrowed balance), kuha (withdrawal),
+        opex / capex — so user questions in code-switched Tagalog
+        map to the right tables and aggregations.
+
+    Module 4.4 — API Route + Caching
+      - POST /api/ai/chat: JWT-protected, 20 req/15 min per user
+      - In-memory response cache with configurable TTL (AI_CACHE_TTL_SEC)
+      - Returns: { answer, cached, tokens_used }
+
+    Module 4.5 — Chat UI
+      - frontend/pages/ai.html + css/pages/ai.css + js/pages/ai.js
+      - Simple chat interface: question input + full response display
+      - Sidebar link added (between Analytics and Account)
+
+    Module 4.6 — Prompt Refinement + Testing
+      - Test with real sales/inventory data from the live database
+      - Tune system prompt for Tagalog-English code-switching
+      - Validate answers for: restock suggestions, safe withdrawal,
+        slow-mover detection, anomaly flagging
 
   ──────────────────────────────────────────────────────────────
-  PHASE 5: DEPLOYMENT
+  PHASE 5: FINANCE MODULE (Cashflow Log)            [PLANNED]
+  ──────────────────────────────────────────────────────────────
+
+  PURPOSE:
+    A simple cashflow log that helps owners remember what they often
+    forget — capital injected, expenses paid, withdrawals taken, and
+    how much utang (borrowed capital) is still outstanding.
+
+    Four transaction types in one table:
+      capital_in   Money put into the business (own or borrowed)
+      owner_draw   Money the owner takes out (personal / loan payment /
+                   reinvest / other)
+      opex         Recurring operational costs (rent, utilities, restocks)
+      capex        One-time asset purchases (equipment, furniture, signage)
+
+    This is NOT a full financial system — no equity calculations,
+    no daily reconciliation rituals, no safe-draw warnings, no loan
+    amortization schedules. Just: "record what happened, show the totals."
+
+  KEY DESIGN PRINCIPLES:
+    - One dedicated page, accessible from sidebar
+    - Add Transaction modal: type-aware subcategory selectors
+      (5–6 fields max, sub-10-second entry)
+    - Restocks auto-log as opex (type='opex', category='restock',
+      source='restock') so the owner sees full money-out picture
+      without double entry
+    - Product creation locked to initial stock = 0 — all stock entry
+      flows through the restock modal, ensuring exactly one
+      cost-capture point in the system
+    - Plain-language Tagalog helper text on type toggles:
+      "Puhunan In — pera mong inilagay sa negosyo.
+       Kuha — pera mong kinuha out sa negosyo.
+       OpEx — gastos na paulit-ulit.
+       CapEx — malaking bili na minsan lang."
+
+  REAL-WORLD CONTEXT (why this scope matters):
+    PH MSME owners often borrow their starting capital from microfinance
+    (CARD MRI, ASA), cooperatives, 5-6 lenders, family, or pawn shops.
+    Withdrawals are frequently loan-servicing, not personal spending.
+    Subcategorizing capital_in (own vs borrowed) and owner_draw
+    (personal vs loan_payment vs reinvest) lets the app compute a
+    derived "Utang" balance — answering "magkano pa ba utang ko?" —
+    without introducing a separate loans table.
+
+  CATEGORY CONVENTIONS:
+    type=capital_in:
+      'own'           Sariling pera
+      'borrowed'      Hiniram (notes capture lender name)
+
+    type=owner_draw:
+      'personal'      Sariling gamit / household
+      'loan_payment'  Bayad sa utang (notes capture which loan)
+      'reinvest'      Inilipat sa ibang negosyo
+      'other'         Iba pa
+
+    type=opex / capex:
+      Free-form category (rent, utilities, transport, equipment,
+      furniture, restock, supplies, other, etc.)
+
+  SCHEMA ADDITIONS:
+    New table: cash_movements (id, type, category, amount, description,
+                               occurred_at, source, source_id,
+                               recorded_by, is_active, created_at)
+    Altered:   inventory_adjustments (+ unit_cost, total_paid,
+                                       payment_method, supplier_name)
+    Altered:   products (initial stock locked to 0 on creation —
+                         enforced at controller layer, not column)
+    See Section 4 [DATABASE SCHEMA] for full column definitions.
+
+  MODULES:
+    Module 5.1 — Cashflow Schema + Model
+      - cash_movements table migration (schema.sql update)
+      - cashflow.model.js: CRUD + period summary aggregation
+        (moneyIn, moneyOut, net, utang, byType, byCategory)
+      - Type/category validation enforced at the model layer
+
+    Module 5.2 — Finance API
+      - GET    /api/finance          list, filterable by type/category/date
+      - GET    /api/finance/summary  period totals + utang balance
+      - POST   /api/finance          create manual entry
+      - PUT    /api/finance/:id      edit (manual entries only)
+      - DELETE /api/finance/:id      soft-delete (admin only)
+
+    Module 5.3 — Finance Page UI
+      - finance.html + css/pages/finance.css + js/pages/finance.js
+      - Top row: four summary tiles
+          ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+          │Money In │ │Money Out│ │  Net    │ │ Utang   │
+          └─────────┘ └─────────┘ └─────────┘ └─────────┘
+        (Utang tile hides itself when no borrowed capital exists)
+      - Filter pills: [All] [Puhunan] [OpEx] [CapEx] [Kuha] + Search
+      - Recent movements list (date, description, type badge,
+        subcategory, signed amount)
+      - "+ Add Transaction" button → type-aware modal:
+          • Type radio: Puhunan In / Kuha / OpEx / CapEx
+          • Subcategory selector that swaps based on type
+          • Amount, Date, Notes (notes prominent for Kuha + borrowed)
+      - Auto-created restock entries shown but marked read-only
+
+    Module 5.4 — Restock Integration + Product Creation Lock
+      - Extend inventory restock modal: "Binili ko ito (may gastos)"
+        checkbox that toggles cost capture
+        - If checked: capture amount paid, payment method, supplier name;
+          auto-create cash_movements row (type='opex', category='restock')
+        - If unchecked: stock added with no expense entry
+          (for free/gifted/leftover stock)
+      - Lock product creation form to initial stock = 0 (UI hides the
+        stock field; controller validates)
+      - Add "Finance" to sidebar between Products and Analytics
+      - Mobile FAB on Finance page for quick add
+
+  ──────────────────────────────────────────────────────────────
+  PHASE 6: DEPLOYMENT
   ──────────────────────────────────────────────────────────────
 
   MODULES:
-    Module 5.1 — Deploy Frontend (Vercel or Netlify)
-    Module 5.2 — Deploy Backend (Railway or Render)
-    Module 5.3 — Deploy Database (Supabase or PlanetScale)
-    Module 5.4 — Set environment variables in production
-    Module 5.5 — Final testing and go-live
+    Module 6.1 — Deploy Frontend (Vercel or Netlify)
+    Module 6.2 — Deploy Backend (Railway or Render)
+    Module 6.3 — Deploy Database (Supabase or PlanetScale)
+    Module 6.4 — Set environment variables in production
+    Module 6.5 — Final testing and go-live
 
 ================================================================
 [11. DEPENDENCIES]
@@ -937,5 +1289,5 @@
   NODE REQUIREMENT: >= 18.0.0
 
 ================================================================
-  END OF DOCUMENT — Version 3.1 (Phase 3 + Enhancements Complete, Phase 4 Next)
+  END OF DOCUMENT — Version 4.0 (Phase 4 AI + Phase 5 Finance Planned)
 ================================================================
