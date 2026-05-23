@@ -23,6 +23,8 @@ const productSearchInput = document.getElementById("product-search");
 const productCategorySelect = document.getElementById('product-category-select');
 
 let activeCategory = 'All';
+let currentPage = 1;
+const PAGE_SIZE = 20;
 
 function renderCategorySelect() {
   if (!productCategorySelect) return;
@@ -57,7 +59,34 @@ function applyFilters() {
     });
   }
 
-  renderProducts(filtered);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+
+  const start = (currentPage - 1) * PAGE_SIZE;
+  renderProducts(filtered.slice(start, start + PAGE_SIZE));
+  renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+  const el = document.getElementById('products-pagination');
+  if (!el) return;
+
+  if (totalPages <= 1) {
+    el.innerHTML = '';
+    return;
+  }
+
+  el.innerHTML =
+    '<button class="page-btn" id="prod-prev-page"' + (currentPage === 1 ? ' disabled' : '') + '>&#8592;</button>' +
+    '<span class="page-info">Page ' + currentPage + ' of ' + totalPages + '</span>' +
+    '<button class="page-btn" id="prod-next-page"' + (currentPage === totalPages ? ' disabled' : '') + '>&#8594;</button>';
+
+  document.getElementById('prod-prev-page').addEventListener('click', function () {
+    if (currentPage > 1) { currentPage--; applyFilters(); }
+  });
+  document.getElementById('prod-next-page').addEventListener('click', function () {
+    if (currentPage < totalPages) { currentPage++; applyFilters(); }
+  });
 }
 
 async function refreshProducts() {
@@ -78,11 +107,15 @@ async function refreshProducts() {
   applyFilters();
 }
 
-productSearchInput.addEventListener("input", applyFilters);
+productSearchInput.addEventListener("input", function () {
+  currentPage = 1;
+  applyFilters();
+});
 
 if (productCategorySelect) {
   productCategorySelect.addEventListener('change', function () {
     activeCategory = productCategorySelect.value;
+    currentPage = 1;
     applyFilters();
   });
 }

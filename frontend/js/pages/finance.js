@@ -19,7 +19,9 @@ var financeCatInput   = document.getElementById('finance-category');
 var financeAmountInput = document.getElementById('finance-amount');
 var financeNotesInput = document.getElementById('finance-notes');
 
-var editingId = null;
+var editingId   = null;
+var currentPage = 1;
+var PAGE_SIZE   = 20;
 
 var TYPE_LABELS = {
   sales_revenue: 'Sales',
@@ -121,10 +123,31 @@ function groupSalesRevenue(list) {
   return grouped;
 }
 
+function renderFinancePagination(totalPages) {
+  var el = document.getElementById('finance-pagination');
+  if (!el) return;
+
+  if (totalPages <= 1) { el.innerHTML = ''; return; }
+
+  el.innerHTML =
+    '<button class="page-btn" id="fin-prev-page"' + (currentPage === 1 ? ' disabled' : '') + '>&#8592;</button>' +
+    '<span class="page-info">Page ' + currentPage + ' of ' + totalPages + '</span>' +
+    '<button class="page-btn" id="fin-next-page"' + (currentPage === totalPages ? ' disabled' : '') + '>&#8594;</button>';
+
+  document.getElementById('fin-prev-page').addEventListener('click', function () {
+    if (currentPage > 1) { currentPage--; renderMovements(window._financeEntries); }
+  });
+  document.getElementById('fin-next-page').addEventListener('click', function () {
+    if (currentPage < totalPages) { currentPage++; renderMovements(window._financeEntries); }
+  });
+}
+
 function renderMovements(list) {
   if (!list || list.length === 0) {
     financeTableBody.innerHTML =
       '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--color-text-muted);">No entries found.</td></tr>';
+    var pager = document.getElementById('finance-pagination');
+    if (pager) pager.innerHTML = '';
     return;
   }
 
@@ -132,7 +155,14 @@ function renderMovements(list) {
     ? list.filter(function (e) { return e.type === 'sales_revenue'; })
     : groupSalesRevenue(list);
 
-  financeTableBody.innerHTML = display.map(function (entry) {
+  window._financeDisplay = display;
+
+  var totalPages = Math.max(1, Math.ceil(display.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  var start = (currentPage - 1) * PAGE_SIZE;
+  var pageSlice = display.slice(start, start + PAGE_SIZE);
+
+  financeTableBody.innerHTML = pageSlice.map(function (entry) {
     var isOut     = ['owner_draw', 'opex', 'capex'].includes(entry.type);
     var amountCls = isOut ? 'finance-amount is-out' : 'finance-amount is-in';
     var sign      = isOut ? '−' : '+';
@@ -182,6 +212,7 @@ function renderMovements(list) {
 
   if (window.lucide) lucide.createIcons();
   attachTableActions();
+  renderFinancePagination(totalPages);
 }
 
 function attachTableActions() {
@@ -340,7 +371,10 @@ financeModal.addEventListener('click', function (e) {
   if (e.target === financeModal) closeModal();
 });
 
-financeTypeSelect.addEventListener('change', loadData);
+financeTypeSelect.addEventListener('change', function () {
+  currentPage = 1;
+  loadData();
+});
 
 financeForm.addEventListener('submit', async function (e) {
   e.preventDefault();

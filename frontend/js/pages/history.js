@@ -12,15 +12,19 @@ const receiptSearchInput = document.getElementById("receipt-search");
 const resetFiltersButton = document.getElementById("reset-filters-button");
 
 let sales = [];
+let filteredSales = [];
+let currentPage = 1;
+const PAGE_SIZE = 20;
 
 fromDateInput.addEventListener("change", function () { filterSales(); });
 toDateInput.addEventListener("change", function () { filterSales(); });
-receiptSearchInput.addEventListener("keyup", function () { filterSales(); });
+receiptSearchInput.addEventListener("input", function () { filterSales(); });
 
 resetFiltersButton.addEventListener("click", async function () {
   fromDateInput.value = "";
   toDateInput.value = "";
   receiptSearchInput.value = "";
+  currentPage = 1;
 
   showLoading('#sales-table-body');
   try {
@@ -42,18 +46,45 @@ function formatReceiptNumber(sale) {
   return sale.receiptNo || `RCPT-${sale.id}`;
 }
 
+function renderHistoryPagination(totalPages) {
+  const el = document.getElementById('history-pagination');
+  if (!el) return;
+
+  if (totalPages <= 1) { el.innerHTML = ''; return; }
+
+  el.innerHTML =
+    '<button class="page-btn" id="hist-prev-page"' + (currentPage === 1 ? ' disabled' : '') + '>&#8592;</button>' +
+    '<span class="page-info">Page ' + currentPage + ' of ' + totalPages + '</span>' +
+    '<button class="page-btn" id="hist-next-page"' + (currentPage === totalPages ? ' disabled' : '') + '>&#8594;</button>';
+
+  document.getElementById('hist-prev-page').addEventListener('click', function () {
+    if (currentPage > 1) { currentPage--; renderSales(filteredSales); }
+  });
+  document.getElementById('hist-next-page').addEventListener('click', function () {
+    if (currentPage < totalPages) { currentPage++; renderSales(filteredSales); }
+  });
+}
+
 function renderSales(salesArray) {
+  filteredSales = salesArray;
   salesTableBody.innerHTML = "";
 
   if (salesArray.length === 0) {
     salesEmptyState.style.display = "block";
     historySummary.textContent = "Showing 0 transactions | Total: ₱0.00";
+    const pager = document.getElementById('history-pagination');
+    if (pager) pager.innerHTML = '';
     return;
   }
 
   salesEmptyState.style.display = "none";
 
-  salesArray.forEach(function (sale) {
+  const totalPages = Math.max(1, Math.ceil(salesArray.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageSlice = salesArray.slice(start, start + PAGE_SIZE);
+
+  pageSlice.forEach(function (sale) {
     const row = document.createElement("tr");
 
     const saleDate = new Date(sale.timestamp);
@@ -85,9 +116,11 @@ function renderSales(salesArray) {
   }, 0);
 
   historySummary.textContent = `Showing ${salesArray.length} transaction(s) | Total: ${formatPeso(totalSalesAmount)}`;
+  renderHistoryPagination(totalPages);
 }
 
 async function filterSales() {
+  currentPage = 1;
   const fromDate = fromDateInput.value;
   const toDate = toDateInput.value;
   const receiptSearch = receiptSearchInput.value.trim().toLowerCase();
