@@ -230,7 +230,7 @@
   │   │                           kpis, charts — JWT-protected)
   │   ├── finance.routes.js    ← /api/finance (list, summary, CRUD
   │   │                           — JWT-protected, admin delete)
-  │   └── ai.routes.js         ← /api/ai/chat — JWT-protected, rate-limited
+  │   └── ai.routes.js         ← /api/ai/chat — Phase 4 (NOT YET BUILT)
   │
   ├── controllers/             ← Business logic for each feature
   │   ├── auth.controller.js
@@ -239,7 +239,7 @@
   │   ├── inventory.controller.js
   │   ├── analytics.controller.js
   │   ├── finance.controller.js
-  │   └── ai.controller.js
+  │   └── ai.controller.js     ← Phase 4 (NOT YET BUILT)
   │
   ├── models/                  ← MySQL query functions (no in-memory state)
   │   ├── user.model.js        ← Users table: findByEmail, findById,
@@ -272,7 +272,7 @@
 
   ─────────────────────────────────────────────────────────────
 
-  ai/                          ← Phase 4 (in progress)
+  ai/                          ← Phase 4 (NOT YET BUILT — all files below are planned)
   │
   ├── assistant.js             ← Main controller, prompt orchestration
   ├── context-builder.js       ← Aggregates DB data, redacts PII before sending
@@ -355,7 +355,8 @@
   TABLE: cash_movements               (Phase 5 — Cashflow log)
   ─────────────────────────────────────────────────────────────
     id           INT           PK, AUTO_INCREMENT
-    type         ENUM          'capital_in' | 'owner_draw' | 'opex' | 'capex'
+    type         ENUM          'capital_in' | 'owner_draw' | 'opex' | 'capex' |
+                               'sales_revenue'  (auto-created by POS on checkout)
     category     VARCHAR       Subcategory — meaning depends on type:
                                  capital_in:  'own' | 'borrowed'
                                  owner_draw:  'personal' | 'loan_payment' |
@@ -567,7 +568,7 @@
     GET    /               Auth required
       Query: ?type=<enum>&category=<string>
              &from=YYYY-MM-DD&to=YYYY-MM-DD
-      type: capital_in | owner_draw | opex | capex
+      type: capital_in | owner_draw | opex | capex | sales_revenue
       → 200 { success, data: CashMovement[] }
       Active rows only, sorted newest first.
 
@@ -1076,7 +1077,7 @@
       - Category pill filters collapse to a dropdown on mobile
 
   ──────────────────────────────────────────────────────────────
-  PHASE 4: AI INTEGRATION                           [NEXT]
+  PHASE 4: AI INTEGRATION                           [IN PROGRESS]
   ──────────────────────────────────────────────────────────────
 
   PROVIDER DECISION:
@@ -1103,6 +1104,24 @@
       hash(question + date_window) as key. Cuts 60-80% of redundant calls.
     - Fallback routing: primary → fallback on 429/503. Route handlers unchanged.
 
+  FILES TO CREATE (none exist yet):
+    ai/providers/groq.js        ← Primary LLM provider
+    ai/providers/gemini.js      ← Fallback provider slot
+    ai/context-builder.js       ← DB aggregation + PII redaction
+    ai/prompts/system.js        ← System prompt
+    ai/assistant.js             ← Orchestrator (provider + cache)
+    backend/routes/ai.routes.js
+    backend/controllers/ai.controller.js
+    frontend/pages/ai.html
+    frontend/css/pages/ai.css
+    frontend/js/pages/ai.js
+
+  FILES TO MODIFY:
+    backend/server.js           ← Register /api/ai route;
+                                   add GROQ_API_KEY to fail-fast check
+    frontend/js/core/api.js     ← Add askAI() function
+    All page sidebars           ← Add AI nav link
+
   MODULES:
     Module 4.1 — Connect to Groq API
       - ai/providers/groq.js: OpenAI-compatible fetch call to Groq endpoint
@@ -1111,42 +1130,41 @@
 
     Module 4.2 — Context Builder
       - ai/context-builder.js: queries sale.model.js + product.model.js
-        + cashflow.model.js (Phase 5)
+        + cashflow.model.js (Phase 5 — already built)
       - Builds structured inventory snapshot (cost, stock, velocity)
       - Aggregates last-30-day sales — no individual transaction details sent
-      - Phase 5 financial context: money in / money out / net /
-        utang balance, plus recent withdrawal categories. Lets the
-        AI answer questions like "bayaran ko ba muna utang ko o
-        mag-restock?" with grounded numbers, not generic advice.
+      - Financial context from cashflow.model.getSummary(): money in /
+        money out / net / utang balance. Lets the AI answer questions
+        like "bayaran ko ba muna utang ko o mag-restock?" with real
+        numbers, not generic advice.
       - Caps assembled context at 50K tokens before sending
 
     Module 4.3 — System Prompt + Sari-Sari Framing
       - ai/prompts/system.js: Filipino MSME context, Tagalog-friendly tone
       - Covers: restock advice, slow movers, safe withdrawal amounts,
         seasonal patterns — domain-specific, not a generic chatbot
-      - Prompt vocabulary includes Phase 5 cashflow concepts: puhunan
-        (capital), utang (borrowed balance), kuha (withdrawal),
-        opex / capex — so user questions in code-switched Tagalog
-        map to the right tables and aggregations.
+      - Prompt vocabulary covers cashflow concepts: puhunan (capital),
+        utang (borrowed balance), kuha (withdrawal), opex / capex
 
     Module 4.4 — API Route + Caching
       - POST /api/ai/chat: JWT-protected, 20 req/15 min per user
-      - In-memory response cache with configurable TTL (AI_CACHE_TTL_SEC)
+      - In-memory response cache keyed by hash(question + date_window)
+        with configurable TTL (AI_CACHE_TTL_SEC env var)
       - Returns: { answer, cached, tokens_used }
 
     Module 4.5 — Chat UI
       - frontend/pages/ai.html + css/pages/ai.css + js/pages/ai.js
-      - Simple chat interface: question input + full response display
-      - Sidebar link added (between Analytics and Account)
+      - Chat interface: question input + response display + loading state
+      - Sidebar AI link added to all pages (between Analytics and History)
 
     Module 4.6 — Prompt Refinement + Testing
-      - Test with real sales/inventory data from the live database
+      - Test with real sales/inventory/finance data from live database
       - Tune system prompt for Tagalog-English code-switching
-      - Validate answers for: restock suggestions, safe withdrawal,
+      - Validate answers: restock suggestions, safe withdrawal,
         slow-mover detection, anomaly flagging
 
   ──────────────────────────────────────────────────────────────
-  PHASE 5: FINANCE MODULE (Cashflow Log)            [PLANNED]
+  PHASE 5: FINANCE MODULE (Cashflow Log)            [COMPLETE]
   ──────────────────────────────────────────────────────────────
 
   PURPOSE:
@@ -1154,12 +1172,13 @@
     forget — capital injected, expenses paid, withdrawals taken, and
     how much utang (borrowed capital) is still outstanding.
 
-    Four transaction types in one table:
-      capital_in   Money put into the business (own or borrowed)
-      owner_draw   Money the owner takes out (personal / loan payment /
-                   reinvest / other)
-      opex         Recurring operational costs (rent, utilities, restocks)
-      capex        One-time asset purchases (equipment, furniture, signage)
+    Five transaction types in one table (four manual + one auto):
+      capital_in     Money put into the business (own or borrowed)
+      owner_draw     Money the owner takes out (personal / loan payment /
+                     reinvest / other)
+      opex           Recurring operational costs (rent, utilities, restocks)
+      capex          One-time asset purchases (equipment, furniture, signage)
+      sales_revenue  Auto-created by POS on every checkout (never manual)
 
     This is NOT a full financial system — no equity calculations,
     no daily reconciliation rituals, no safe-draw warnings, no loan
@@ -1167,19 +1186,16 @@
 
   KEY DESIGN PRINCIPLES:
     - One dedicated page, accessible from sidebar
-    - Add Transaction modal: type-aware subcategory selectors
-      (5–6 fields max, sub-10-second entry)
+    - Add Entry modal: type-aware subcategory selectors
+      (5 fields max, sub-10-second entry)
+    - Sales auto-log as sales_revenue (source='sale') so revenue
+      appears inline with cashflow without double entry
     - Restocks auto-log as opex (type='opex', category='restock',
       source='restock') so the owner sees full money-out picture
       without double entry
     - Product creation locked to initial stock = 0 — all stock entry
       flows through the restock modal, ensuring exactly one
       cost-capture point in the system
-    - Plain-language Tagalog helper text on type toggles:
-      "Puhunan In — pera mong inilagay sa negosyo.
-       Kuha — pera mong kinuha out sa negosyo.
-       OpEx — gastos na paulit-ulit.
-       CapEx — malaking bili na minsan lang."
 
   REAL-WORLD CONTEXT (why this scope matters):
     PH MSME owners often borrow their starting capital from microfinance
@@ -1205,6 +1221,9 @@
       Free-form category (rent, utilities, transport, equipment,
       furniture, restock, supplies, other, etc.)
 
+    type=sales_revenue:
+      No subcategory — auto-created only; source='sale'
+
   SCHEMA ADDITIONS:
     New table: cash_movements (id, type, category, amount, description,
                                occurred_at, source, source_id,
@@ -1216,46 +1235,51 @@
     See Section 4 [DATABASE SCHEMA] for full column definitions.
 
   MODULES:
-    Module 5.1 — Cashflow Schema + Model
-      - cash_movements table migration (schema.sql update)
+    Module 5.1 — Cashflow Schema + Model               [COMPLETE]
+      - cash_movements table in schema.sql (6-table schema)
+      - inventory_adjustments Phase 5 columns added
       - cashflow.model.js: CRUD + period summary aggregation
         (moneyIn, moneyOut, net, utang, byType, byCategory)
-      - Type/category validation enforced at the model layer
+      - VALID_TYPES includes sales_revenue; type/category validation
+        enforced at model layer
 
-    Module 5.2 — Finance API
+    Module 5.2 — Finance API                           [COMPLETE]
       - GET    /api/finance          list, filterable by type/category/date
       - GET    /api/finance/summary  period totals + utang balance
       - POST   /api/finance          create manual entry
       - PUT    /api/finance/:id      edit (manual entries only)
       - DELETE /api/finance/:id      soft-delete (admin only)
+      - Auto-created entries (source ≠ 'manual') are read-only:
+        edit and delete are blocked at the controller
 
-    Module 5.3 — Finance Page UI
+    Module 5.3 — Finance Page UI                       [COMPLETE]
       - finance.html + css/pages/finance.css + js/pages/finance.js
-      - Top row: four summary tiles
-          ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-          │Money In │ │Money Out│ │  Net    │ │ Utang   │
-          └─────────┘ └─────────┘ └─────────┘ └─────────┘
-        (Utang tile hides itself when no borrowed capital exists)
-      - Filter pills: [All] [Puhunan] [OpEx] [CapEx] [Kuha] + Search
-      - Recent movements list (date, description, type badge,
-        subcategory, signed amount)
-      - "+ Add Transaction" button → type-aware modal:
-          • Type radio: Puhunan In / Kuha / OpEx / CapEx
-          • Subcategory selector that swaps based on type
-          • Amount, Date, Notes (notes prominent for Kuha + borrowed)
-      - Auto-created restock entries shown but marked read-only
+      - Top row: two summary cards
+          ┌──────────────────────┐ ┌────────────────────────┐
+          │  Net Balance (total) │ │  Cash Flow (sparkline) │
+          └──────────────────────┘ └────────────────────────┘
+        Net Balance: all-time running net (Money In − Money Out)
+        Cash Flow sparkline: live SVG line chart, auto-adapts
+        granularity (daily → weekly → monthly → annually) based
+        on card width via ResizeObserver; no external dependencies
+      - Filter dropdown: [All Types] [Daily Sales] [Capital In]
+        [Withdrawal] — filters table rows; summary always shows totals
+      - Cash flow list (date, type + category, signed amount, notes)
+        paginated at 20 rows; daily sales grouped into single rows
+      - "+ Add Entry" button (admin only) → modal:
+          • Type selector: Capital In | Withdrawal
+          • Category selector swaps based on type
+          • Amount, Date, Notes
+      - Auto-created entries (restock, sale) shown read-only;
+        manual entries show Edit / Delete kebab menu (admin only)
+      - Pagination: 20 entries per page, shared pagination component
 
-    Module 5.4 — Restock Integration + Product Creation Lock
-      - Extend inventory restock modal: "Binili ko ito (may gastos)"
-        checkbox that toggles cost capture
-        - If checked: capture amount paid, payment method, supplier name;
-          auto-create cash_movements row (type='opex', category='restock')
-        - If unchecked: stock added with no expense entry
-          (for free/gifted/leftover stock)
-      - Lock product creation form to initial stock = 0 (UI hides the
-        stock field; controller validates)
-      - Add "Finance" to sidebar between Products and Analytics
-      - Mobile FAB on Finance page for quick add
+    Module 5.4 — Restock Integration + Product Creation Lock [COMPLETE]
+      - inventory_adjustments schema extended with unit_cost,
+        total_paid, payment_method, supplier_name columns
+      - Products controller enforces initial stock = 0 on create
+      - Finance sidebar link added between Products and Analytics
+      - "Finance" appears in every page's sidebar nav
 
   ──────────────────────────────────────────────────────────────
   PHASE 6: DEPLOYMENT
@@ -1289,5 +1313,5 @@
   NODE REQUIREMENT: >= 18.0.0
 
 ================================================================
-  END OF DOCUMENT — Version 4.0 (Phase 4 AI + Phase 5 Finance Planned)
+  END OF DOCUMENT — Version 5.0 (Phase 5 Finance COMPLETE | Phase 4 AI IN PROGRESS)
 ================================================================
