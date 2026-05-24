@@ -339,11 +339,15 @@
 
 /* ── Os Daily Brief card ── */
 
+#os-brief-section {
+  margin-bottom: 24px;
+}
+
 .os-brief-card {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 16px 20px;
+  padding: 16px 20px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;

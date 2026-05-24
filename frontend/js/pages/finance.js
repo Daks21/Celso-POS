@@ -29,7 +29,7 @@ var _chartDrawSeq        = 0;
 var TYPE_LABELS = {
   sales_revenue: 'Sales',
   capital_in:    'Capital In',
-  capex:         'Capital In',
+  capex:         'Capital Expense',
   owner_draw:    'Withdrawal',
   opex:          'Operating Expense',
 };

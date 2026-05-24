@@ -15,8 +15,8 @@
   }
 
   function getAiPath() {
-    var depth = window.location.pathname.split('/').length - 1;
-    return (depth >= 3 ? '../../' : depth === 2 ? '../' : '') + 'pages/ai.html';
+    // ai.html is always a sibling of every app page (all in frontend/pages/)
+    return 'ai.html';
   }
 
   function mount() {

@@ -161,8 +161,10 @@
   │   │                           shared UX helpers
   │   │
   │   ├── components/          ← Reusable UI pieces (not page-specific)
-  │   │   ├── sidebar.js       ← Active nav link, user initials
-  │   │   └── receipt.js       ← Shared receipt modal logic
+  │   │   ├── sidebar.js       ← Active nav link, user initials, nav prefs
+  │   │   ├── receipt.js       ← Shared receipt modal logic
+  │   │   └── os.js            ← Os FAB: mounts/unmounts floating button,
+  │   │                           reads osEnabled pref, navigates to ai.html
   │   │
   │   └── pages/               ← One script per page
   │       ├── dashboard.js     ← Summary stats, charts, heatmap
@@ -230,7 +232,8 @@
   │   │                           kpis, charts — JWT-protected)
   │   ├── finance.routes.js    ← /api/finance (list, summary, CRUD
   │   │                           — JWT-protected, admin delete)
-  │   └── ai.routes.js         ← /api/ai/chat — Phase 4 (NOT YET BUILT)
+  │   └── ai.routes.js         ← /api/ai/chat, /chat/stream, /summary,
+  │                               /restock, /forecast, /profit (Phase 4 COMPLETE)
   │
   ├── controllers/             ← Business logic for each feature
   │   ├── auth.controller.js
@@ -239,7 +242,8 @@
   │   ├── inventory.controller.js
   │   ├── analytics.controller.js
   │   ├── finance.controller.js
-  │   └── ai.controller.js     ← Phase 4 (NOT YET BUILT)
+  │   └── ai.controller.js     ← Phase 4 COMPLETE (6 endpoints: chat,
+  │                               stream, summary, restock, forecast, profit)
   │
   ├── models/                  ← MySQL query functions (no in-memory state)
   │   ├── user.model.js        ← Users table: findByEmail, findById,
@@ -272,15 +276,17 @@
 
   ─────────────────────────────────────────────────────────────
 
-  ai/                          ← Phase 4 (NOT YET BUILT — all files below are planned)
+  ai/                          ← Phase 4 (COMPLETE)
   │
-  ├── assistant.js             ← Main controller, prompt orchestration
-  ├── context-builder.js       ← Aggregates DB data, redacts PII before sending
+  ├── assistant.js             ← Orchestrator: provider routing + MD5 response cache
+  ├── context-builder.js       ← Aggregates DB data (sales, inventory, cashflow),
+  │                               builds plain-text context block for LLM
   ├── providers/
   │   ├── groq.js              ← Primary: Groq Llama 3.3 70B (free tier)
-  │   └── gemini.js            ← Fallback provider slot (optional)
+  │   └── deepseek.js          ← Fallback: DeepSeek V3 (activated on Groq 429/503)
   └── prompts/
-      └── system.js            ← System prompt, sari-sari business context
+      └── system.js            ← System prompt: Filipino MSME framing, Taglish support,
+                                   cashflow vocabulary (puhunan, utang, kuha)
 
   ─────────────────────────────────────────────────────────────
 
@@ -549,17 +555,40 @@
       byDayOfWeek: array[7] (Sun=0 … Sat=6)
 
   ──────────────────────────────────────────────────────────────
-  AI ASSISTANT  /api/ai          (Phase 4)
+  AI ASSISTANT  /api/ai          (Phase 4 COMPLETE)
   ──────────────────────────────────────────────────────────────
 
-    POST   /chat           Auth required (20 req/15 min per user)
-      Body: { question, intent? }
-      Backend assembles full context (inventory snapshot, recent
-      sales, financial summary) — frontend never sends raw data.
-      Context is aggregated and PII-redacted before transmission.
-      Cached 5-15 min; repeated identical queries return cached result.
-      → 200 { success, answer, cached: boolean, tokens_used: int }
+    All endpoints: Auth required (20 req/15 min per user)
+    Backend assembles full context (inventory snapshot, 30-day
+    sales, cashflow summary) before every call — frontend sends
+    only the user's message, never raw data.
+
+    POST   /chat           Non-streaming; MD5-cached per (question + date)
+      Body: { message, history? }
+      → 200 { success, data: { answer, cached, tokensUsed } }
       → 429 rate limit exceeded
+
+    POST   /chat/stream    SSE streaming (used by ai.html chat UI)
+      Body: { message, history? }
+      Streams: data: { text } chunks → data: { done, history } → end
+      → 200 text/event-stream
+      → 429 rate limit exceeded
+
+    GET    /summary        Daily business brief (cached)
+      → 200 { success, data: { summary, urgency: low|medium|high,
+              tip, cached } }
+
+    GET    /restock        AI-ranked restock list (cached)
+      → 200 { success, data: { items: [{ name, stock, priority:
+              urgent|soon|monitor, reason }], cached } }
+
+    GET    /forecast       Tomorrow's revenue forecast by day-of-week (cached)
+      → 200 { success, data: { day, expectedRevenue, confidence:
+              low|medium|high, note, cached } }
+
+    GET    /profit         Margin analysis + profitability insights (cached)
+      → 200 { success, data: { insights: [{ product, finding,
+              action }], summary, cached } }
 
   ──────────────────────────────────────────────────────────────
   FINANCE  /api/finance          (Phase 5)
@@ -1077,7 +1106,7 @@
       - Category pill filters collapse to a dropdown on mobile
 
   ──────────────────────────────────────────────────────────────
-  PHASE 4: AI INTEGRATION                           [IN PROGRESS]
+  PHASE 4: AI INTEGRATION                           [COMPLETE]
   ──────────────────────────────────────────────────────────────
 
   PROVIDER DECISION:
@@ -1094,74 +1123,80 @@
     accounts. Groq has no such requirement and works immediately after signup.
 
   ARCHITECTURE PRINCIPLES:
-    - Server-side prompt assembly only. Frontend sends { question, intent };
+    - Server-side prompt assembly only. Frontend sends { message, history };
       backend builds full context. Same security principle as server-side prices.
-    - Context aggregation before sending: inventory snapshot + sales summary
-      assembled in context-builder.js. Token budget capped at ~50K per call.
-    - PII redaction mandatory: send aggregates ("SKU#123: 1,247 units sold"),
-      never individual transactions or cashier identifiers.
-    - Response caching: common queries cached 5-15 min using
-      hash(question + date_window) as key. Cuts 60-80% of redundant calls.
-    - Fallback routing: primary → fallback on 429/503. Route handlers unchanged.
+    - Context aggregation before sending: inventory snapshot + 30-day sales
+      + cashflow summary assembled in context-builder.js.
+    - No PII in context: aggregates only (top products by revenue/qty, stock
+      levels, day-of-week patterns) — no individual transactions or cashier IDs.
+    - Response caching: non-streaming queries cached by MD5(question + date).
+      Cuts 60-80% of redundant Groq API calls.
+    - Fallback routing: Groq primary → DeepSeek on 429/503. Route handlers
+      are provider-agnostic via getCompletion(messages, options) interface.
 
-  FILES TO CREATE (none exist yet):
-    ai/providers/groq.js        ← Primary LLM provider
-    ai/providers/gemini.js      ← Fallback provider slot
-    ai/context-builder.js       ← DB aggregation + PII redaction
-    ai/prompts/system.js        ← System prompt
-    ai/assistant.js             ← Orchestrator (provider + cache)
-    backend/routes/ai.routes.js
+  FILES BUILT:
+    ai/providers/groq.js              ← Primary LLM provider (Groq Llama 3.3 70B)
+    ai/providers/deepseek.js          ← Fallback provider (DeepSeek V3)
+    ai/context-builder.js             ← DB aggregation: sales, inventory, cashflow
+    ai/prompts/system.js              ← System prompt + onboarding prompt
+    ai/assistant.js                   ← Orchestrator: provider routing + MD5 cache
+    backend/routes/ai.routes.js       ← 6 endpoints (chat, stream, summary,
+                                          restock, forecast, profit)
     backend/controllers/ai.controller.js
-    frontend/pages/ai.html
+    frontend/pages/ai.html            ← Os chat UI with SSE streaming
     frontend/css/pages/ai.css
-    frontend/js/pages/ai.js
-
-  FILES TO MODIFY:
-    backend/server.js           ← Register /api/ai route;
-                                   add GROQ_API_KEY to fail-fast check
-    frontend/js/core/api.js     ← Add askAI() function
-    All page sidebars           ← Add AI nav link
+    frontend/js/pages/ai.js           ← Chat, onboarding tour, session history
+    frontend/js/components/os.js      ← Os floating action button (FAB)
 
   MODULES:
-    Module 4.1 — Connect to Groq API
+    Module 4.1 — Groq + DeepSeek Providers                [COMPLETE]
       - ai/providers/groq.js: OpenAI-compatible fetch call to Groq endpoint
+      - ai/providers/deepseek.js: identical interface, DeepSeek V3 endpoint
       - GROQ_API_KEY added to .env with fail-fast validation on server start
       - Provider-agnostic interface: getCompletion(messages, options)
+      - stream: true passes raw Response to caller for SSE relay
 
-    Module 4.2 — Context Builder
-      - ai/context-builder.js: queries sale.model.js + product.model.js
-        + cashflow.model.js (Phase 5 — already built)
-      - Builds structured inventory snapshot (cost, stock, velocity)
-      - Aggregates last-30-day sales — no individual transaction details sent
-      - Financial context from cashflow.model.getSummary(): money in /
-        money out / net / utang balance. Lets the AI answer questions
-        like "bayaran ko ba muna utang ko o mag-restock?" with real
-        numbers, not generic advice.
-      - Caps assembled context at 50K tokens before sending
+    Module 4.2 — Context Builder                           [COMPLETE]
+      - ai/context-builder.js: queries sale.model + product.model + cashflow.model
+      - Today's performance, 30-day KPIs, top 5 by revenue, top 5 by qty,
+        out-of-stock list, low-stock list, busiest days, cashflow summary
+      - Financial context: moneyIn / moneyOut / net / utang (debtBalance) —
+        lets Os answer "bayaran ko ba muna utang ko o mag-restock?" with real
+        numbers, not generic advice
 
-    Module 4.3 — System Prompt + Sari-Sari Framing
+    Module 4.3 — System Prompt + Sari-Sari Framing         [COMPLETE]
       - ai/prompts/system.js: Filipino MSME context, Tagalog-friendly tone
-      - Covers: restock advice, slow movers, safe withdrawal amounts,
-        seasonal patterns — domain-specific, not a generic chatbot
-      - Prompt vocabulary covers cashflow concepts: puhunan (capital),
-        utang (borrowed balance), kuha (withdrawal), opex / capex
+      - Domain-specific: restock, slow movers, safe withdrawal, busy days
+      - Cashflow vocabulary: puhunan (capital), utang (borrowed balance),
+        kuha / owner_draw, gastos (opex/capex), kita (sales_revenue)
+      - Declines off-topic questions; bases every answer only on provided data
+      - Also exports OS_ONBOARDING_PROMPT for guided first-run flow
 
-    Module 4.4 — API Route + Caching
-      - POST /api/ai/chat: JWT-protected, 20 req/15 min per user
-      - In-memory response cache keyed by hash(question + date_window)
-        with configurable TTL (AI_CACHE_TTL_SEC env var)
-      - Returns: { answer, cached, tokens_used }
+    Module 4.4 — API Routes + Per-user Rate Limiting       [COMPLETE]
+      - 6 JWT-protected endpoints, 20 req/15 min per user (in-memory map)
+      - POST /api/ai/chat:        non-streaming, MD5-cached response
+      - POST /api/ai/chat/stream: SSE streaming (chat UI uses this)
+      - GET  /api/ai/summary:     daily brief → { summary, urgency, tip }
+      - GET  /api/ai/restock:     ranked restock list → { items[] }
+      - GET  /api/ai/forecast:    tomorrow's forecast → { day, expectedRevenue }
+      - GET  /api/ai/profit:      margin insights → { insights[], summary }
 
-    Module 4.5 — Chat UI
-      - frontend/pages/ai.html + css/pages/ai.css + js/pages/ai.js
-      - Chat interface: question input + response display + loading state
-      - Sidebar AI link added to all pages (between Analytics and History)
+    Module 4.5 — Chat UI + Os FAB                          [COMPLETE]
+      - frontend/pages/ai.html: full chat interface with SSE streaming
+      - Suggestion chips (6 quick questions in Taglish)
+      - Session history restored from sessionStorage on page load
+      - "Clear conversation" button resets both UI and sessionStorage
+      - frontend/js/components/os.js: floating "Os" button on all 9 app
+        pages; respects osEnabled pref; toggled live from Account Settings
+      - Os AI nav link in all page sidebars (between Analytics and History)
 
-    Module 4.6 — Prompt Refinement + Testing
-      - Test with real sales/inventory/finance data from live database
-      - Tune system prompt for Tagalog-English code-switching
-      - Validate answers: restock suggestions, safe withdrawal,
-        slow-mover detection, anomaly flagging
+    Module 4.6 — Onboarding Tour + Dashboard Widgets       [COMPLETE]
+      - Role-aware onboarding: 4-step admin tour, 3-step cashier tour
+      - Tour runs automatically on first Os enable; re-triggerable via chat
+      - Os Daily Brief card on Dashboard: urgency-colored dot + summary + tip
+        (auto-loads when osEnabled; hidden otherwise)
+      - Os Restock Advisor widget on Inventory page: AI-ranked priority list
+        (urgent / soon / monitor), loaded when osEnabled
 
   ──────────────────────────────────────────────────────────────
   PHASE 5: FINANCE MODULE (Cashflow Log)            [COMPLETE]
@@ -1213,8 +1248,9 @@
 
     type=owner_draw:
       'personal'      Sariling gamit / household
-      'loan_payment'  Bayad sa utang (notes capture which loan)
-      'reinvest'      Inilipat sa ibang negosyo
+      'debt_payment'  Bayad sa utang (notes capture which loan)
+      'restock'       Stock purchase recorded as owner withdrawal
+      'opex'          Operating expense drawn by owner
       'other'         Iba pa
 
     type=opex / capex:
@@ -1313,5 +1349,5 @@
   NODE REQUIREMENT: >= 18.0.0
 
 ================================================================
-  END OF DOCUMENT — Version 5.0 (Phase 5 Finance COMPLETE | Phase 4 AI IN PROGRESS)
+  END OF DOCUMENT — Version 6.0 (Phase 4 AI COMPLETE | Phase 5 Finance COMPLETE)
 ================================================================
