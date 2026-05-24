@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <script>
@@ -12,7 +12,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>Celso POS | Sales</title>
+  <title>Celso POS | Os AI</title>
 
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap"
@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="../css/main.css">
   <link rel="stylesheet" href="../css/layout.css">
   <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/pages/ai.css">
 </head>
 <body class="app-body">
 
@@ -105,10 +106,9 @@
 
       <!-- Topbar -->
       <header class="topbar">
-        <h1 id="page-title">Sales</h1>
+        <h1>Os AI</h1>
 
         <div class="topbar-actions">
-
           <button
             type="button"
             class="topbar-icon-button"
@@ -117,36 +117,84 @@
           >
             <i data-lucide="moon" id="theme-icon"></i>
           </button>
-
-
         </div>
       </header>
 
       <main class="page-body">
 
-        <div class="coming-soon-wrapper">
-          <div class="coming-soon-icon">
-            <i data-lucide="bar-chart-2"></i>
+        <!-- Os Chat Container -->
+        <div class="os-chat-container" id="os-chat-container">
+
+          <!-- Disabled state (when osEnabled = false) -->
+          <div class="os-disabled-state" id="os-disabled-state">
+            <div class="os-disabled-card">
+              <div class="os-logo">Os</div>
+              <h2>Os Business Advisor</h2>
+              <p class="beta-badge">BETA</p>
+              <p>Enable Os in Account Settings to start asking questions
+                 about your store.</p>
+              <a href="account.html" class="submit-button">
+                Go to Account Settings
+              </a>
+            </div>
           </div>
-          <h2 class="coming-soon-title">Sales Analytics</h2>
-          <p class="coming-soon-text">
-            Financial reports and sales analysis will be available here.
-          </p>
+
+          <!-- Chat state (when osEnabled = true) -->
+          <div class="os-chat-state" id="os-chat-state" style="display:none;">
+
+            <div class="os-messages" id="os-messages"></div>
+
+            <!-- Suggestion chips -->
+            <div class="os-suggestions" id="os-suggestions">
+              <button class="os-chip" data-q="Kumusta negosyo ngayon?">
+                Kumusta ngayon?
+              </button>
+              <button class="os-chip" data-q="Ano ang kailangan ko i-restock?">
+                Kailangan i-restock?
+              </button>
+              <button class="os-chip" data-q="Magkano pa ang utang ko?">
+                Magkano utang ko?
+              </button>
+              <button class="os-chip" data-q="Safe ba mag-kuha ngayon?">
+                Safe ba mag-kuha?
+              </button>
+              <button class="os-chip" data-q="Ano best seller natin this month?">
+                Best sellers?
+              </button>
+              <button class="os-chip" data-q="Kailan busiest ang tindahan?">
+                Kailan busiest?
+              </button>
+            </div>
+
+            <!-- Input area -->
+            <div class="os-input-area">
+              <textarea
+                id="os-input"
+                placeholder="Ask Os anything about your store..."
+                rows="1"
+              ></textarea>
+              <button id="os-send" class="os-send-btn">Send</button>
+            </div>
+
+            <div class="os-footer">
+              <button id="os-clear" class="os-clear-btn">Clear conversation</button>
+              <span class="os-powered">Powered by Groq · llama-3.3-70b</span>
+            </div>
+
+          </div>
         </div>
 
       </main>
-
     </div>
   </div>
 
+  <script>lucide.createIcons();</script>
   <script src="../js/components/sidebar.js"></script>
-  <script src="../js/components/os.js"></script>
   <script src="../js/core/theme.js"></script>
   <script src="../js/core/api.js"></script>
   <script src="../js/core/utils.js"></script>
   <script src="../js/core/auth.js"></script>
   <script src="../js/core/data.js"></script>
-  <script src="../js/pages/sales.js"></script>
-  <script>lucide.createIcons();</script>
+  <script src="../js/pages/ai.js"></script>
 </body>
 </html>

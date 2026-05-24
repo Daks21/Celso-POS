@@ -151,6 +151,7 @@ function initMobileNav() {
     { href: 'products.html',  icon: 'package',           label: 'Products'   },
     { href: 'finance.html',   icon: 'wallet',            label: 'Finance'    },
     { href: 'analytics.html', icon: 'bar-chart-2',       label: 'Analytics'  },
+    { href: 'ai.html',        icon: 'bot',               label: 'Os AI'      },
     { href: 'history.html',   icon: 'clock',             label: 'History'    },
   ];
 
@@ -224,6 +225,14 @@ function initFab() {
   var currentPage = window.location.pathname.split('/').pop();
   // finance.html has its own admin FAB for adding entries; skip the New Sale FAB there
   if (currentPage === 'order.html') return;
+
+  try {
+    var user  = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    var key   = 'prefs_' + (user.id || 'guest');
+    var prefs = JSON.parse(localStorage.getItem(key) || '{}');
+    if (prefs.osEnabled === true) return; // Os button takes the corner
+  } catch (_) {}
+
   var fab = document.createElement('button');
   fab.className = 'fab';
   fab.title = 'New Sale';

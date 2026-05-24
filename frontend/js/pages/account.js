@@ -57,6 +57,16 @@ document.addEventListener('DOMContentLoaded', function() {
       syncPreferencesToDb(currentUser.id);
     }
 
+    // ── User-specific prefs blob (read by os.js / ai.js) ──
+    function loadUserPrefs() {
+      try {
+        return JSON.parse(localStorage.getItem('prefs_' + currentUser.id) || '{}');
+      } catch (_) { return {}; }
+    }
+    function saveUserPrefs(p) {
+      localStorage.setItem('prefs_' + currentUser.id, JSON.stringify(p));
+    }
+
     // ── Shared: flash "Saved!" on a save button ──
     function flashSaved(btn) {
       btn.textContent = 'Saved!';
@@ -332,6 +342,18 @@ document.addEventListener('DOMContentLoaded', function() {
         syncToDb();
       }
     );
+
+    // ── Os AI Feature Toggle ──
+    var osToggle = document.getElementById('os-enabled-toggle');
+    if (osToggle) {
+      var prefs = loadUserPrefs();
+      osToggle.checked = prefs.osEnabled === true;
+      osToggle.addEventListener('change', function () {
+        prefs.osEnabled = osToggle.checked;
+        saveUserPrefs(prefs);
+        syncToDb();
+      });
+    }
 
   } catch (e) {
     console.error('Error parsing user data:', e);

@@ -198,3 +198,9 @@ async function updateFinanceEntry(id, data) {
 async function deleteFinanceEntry(id) {
   return apiCall(`/finance/${id}`, { method: 'DELETE' });
 }
+
+// --- Os AI (non-streaming endpoints) ---
+async function getOsDailySummary()  { return apiCall('/ai/summary');  }
+async function getOsRestockAdvice() { return apiCall('/ai/restock');  }
+async function getOsForecast()      { return apiCall('/ai/forecast'); }
+async function getOsProfitCoach()   { return apiCall('/ai/profit');   }
