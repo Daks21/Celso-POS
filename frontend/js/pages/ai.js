@@ -1,6 +1,58 @@
 // frontend/js/pages/ai.js
 (function () {
 
+  // ── Onboarding steps (static — no AI calls, no tokens) ───────
+  var ONBOARDING_STEPS = {
+    admin: [
+      {
+        title:   'Welcome to Celso POS!',
+        message: "Hi! I'm Os, your AI business advisor. I can help " +
+                 "you understand your sales, inventory, and cashflow. " +
+                 "Let me show you around.",
+        action:  'Next →'
+      },
+      {
+        title:   'Step 1 — Set Up Your Products',
+        message: 'Head to the Products page to add everything you sell. ' +
+                 'Then use Inventory to restock — I\'ll track costs automatically.',
+        action:  'Next →'
+      },
+      {
+        title:   'Step 2 — Watch Your Dashboard',
+        message: 'Your Dashboard shows today\'s revenue, recent sales, and ' +
+                 'low stock alerts. I\'ll add a daily brief card there once ' +
+                 'you have some data.',
+        action:  'Next →'
+      },
+      {
+        title:   'Step 3 — Ask Me Anything',
+        message: 'Click Os from the sidebar anytime. Try asking: ' +
+                 '"Magkano pa ang utang ko?" or "Ano best seller natin?"',
+        action:  'Got it — start using Celso POS'
+      }
+    ],
+    cashier: [
+      {
+        title:   'Welcome to Celso POS!',
+        message: "Hi! I'm Os. I can answer questions about the store. " +
+                 "Let me show you the basics.",
+        action:  'Next →'
+      },
+      {
+        title:   'Step 1 — Making a Sale',
+        message: 'Go to New Order in the sidebar. Add items to the cart, ' +
+                 'enter the payment amount, and tap Checkout.',
+        action:  'Next →'
+      },
+      {
+        title:   'Step 2 — View Past Sales',
+        message: 'Check History to see all past receipts. Ask me anything ' +
+                 'about today\'s sales anytime.',
+        action:  'Got it!'
+      }
+    ]
+  };
+
   var chatHistory = [];
   var isStreaming  = false;
 
@@ -18,11 +70,17 @@
     } catch (_) { return false; }
   }
 
+  function getUserRole() {
+    try {
+      var user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      return (user.role || 'cashier').toLowerCase();
+    } catch (_) { return 'cashier'; }
+  }
+
   function scrollToBottom() {
     if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
-  // role: 'user' | 'assistant'
   // Always textContent — never innerHTML — for AI-generated text
   function addMessage(role, text, isStreamingBubble) {
     var bubble = document.createElement('div');
@@ -70,18 +128,104 @@
     if (suggestionsEl) suggestionsEl.style.display = '';
   }
 
+  // ── Onboarding ────────────────────────────────────────────────
+
+  function showOnboardingStep(index) {
+    hideSuggestions();
+
+    var existing = document.getElementById('os-onboarding-card');
+    if (existing) existing.parentNode.removeChild(existing);
+
+    var role  = getUserRole();
+    var steps = ONBOARDING_STEPS[role] || ONBOARDING_STEPS.cashier;
+
+    if (index >= steps.length) {
+      localStorage.setItem('osOnboardingDone', 'true');
+      return;
+    }
+
+    var step    = steps[index];
+    var isFirst = index === 0;
+    var isLast  = index === steps.length - 1;
+
+    var card = document.createElement('div');
+    card.id        = 'os-onboarding-card';
+    card.className = 'os-onboarding-card';
+
+    var titleEl = document.createElement('p');
+    titleEl.className   = 'os-onboarding-title';
+    titleEl.textContent = step.title;
+
+    var msgEl = document.createElement('p');
+    msgEl.className   = 'os-onboarding-message';
+    msgEl.textContent = step.message;
+
+    var actionsEl = document.createElement('div');
+    actionsEl.className = 'os-onboarding-actions';
+
+    if (!isLast) {
+      var skipBtn = document.createElement('button');
+      skipBtn.className   = 'os-onboarding-skip';
+      skipBtn.textContent = 'Skip tour';
+      skipBtn.addEventListener('click', function () {
+        localStorage.setItem('osOnboardingDone', 'true');
+        var c = document.getElementById('os-onboarding-card');
+        if (c) c.parentNode.removeChild(c);
+      });
+      actionsEl.appendChild(skipBtn);
+    }
+
+    if (!isFirst) {
+      var backBtn = document.createElement('button');
+      backBtn.className   = 'os-onboarding-btn os-onboarding-btn--back';
+      backBtn.textContent = '← Back';
+      backBtn.addEventListener('click', function () { showOnboardingStep(index - 1); });
+      actionsEl.appendChild(backBtn);
+    }
+
+    var nextBtn = document.createElement('button');
+    nextBtn.className   = 'os-onboarding-btn os-onboarding-btn--primary';
+    nextBtn.textContent = step.action;
+    nextBtn.addEventListener('click', function () {
+      if (isLast) {
+        localStorage.setItem('osOnboardingDone', 'true');
+        var c = document.getElementById('os-onboarding-card');
+        if (c) c.parentNode.removeChild(c);
+      } else {
+        showOnboardingStep(index + 1);
+      }
+    });
+    actionsEl.appendChild(nextBtn);
+
+    card.appendChild(titleEl);
+    card.appendChild(msgEl);
+    card.appendChild(actionsEl);
+    messagesEl.appendChild(card);
+    scrollToBottom();
+  }
+
   // ── Send message (streaming) ──────────────────────────────────
 
   async function sendMessage() {
     var message = inputEl.value.trim();
     if (!message || isStreaming) return;
 
+    // Tour re-trigger
+    var lower = message.toLowerCase();
+    if (lower.includes('show me around') || lower.includes('take the tour')) {
+      inputEl.value        = '';
+      inputEl.style.height = 'auto';
+      addMessage('user', message);
+      showOnboardingStep(0);
+      return;
+    }
+
     var token = localStorage.getItem('token');
     if (!token) return;
 
     hideSuggestions();
     addMessage('user', message);
-    inputEl.value      = '';
+    inputEl.value        = '';
     inputEl.style.height = 'auto';
     setInputEnabled(false);
 
@@ -206,6 +350,11 @@
     clearBtn.addEventListener('click', clearConversation);
 
     inputEl.focus();
+
+    // Fire onboarding on first Os enable
+    if (!localStorage.getItem('osOnboardingDone')) {
+      setTimeout(function () { showOnboardingStep(0); }, 600);
+    }
   }
 
   document.addEventListener('DOMContentLoaded', init);

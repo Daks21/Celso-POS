@@ -76,3 +76,12 @@ function _dismissToast(toast) {
   toast.classList.remove('is-visible');
   setTimeout(function () { if (toast.parentNode) toast.remove(); }, 300);
 }
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}

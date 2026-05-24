@@ -588,6 +588,9 @@ async function initDashboard() {
   } else {
     renderDashboardWidgets();
   }
+
+  // Os Daily Brief — after all regular data, never blocks other cards
+  loadOsBrief();
 }
 
 initDashboard();
@@ -608,6 +611,43 @@ async function refreshCards() {
 }
 
 setInterval(refreshCards, 60000);
+
+// ── Os Daily Brief ──
+
+async function loadOsBrief() {
+  var section = document.getElementById('os-brief-section');
+  if (!section) return;
+
+  try {
+    var user  = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    var prefs = JSON.parse(localStorage.getItem('prefs_' + (user.id || 'guest')) || '{}');
+    if (!prefs.osEnabled) return;
+    section.style.display = '';
+
+    var result = await getOsDailySummary();
+    var body   = document.getElementById('os-brief-body');
+    if (!body) return;
+
+    if (!result || !result.success) {
+      body.innerHTML = '<p class="os-brief-error">Os is unavailable right now.</p>';
+      return;
+    }
+    var d          = result.data;
+    var urgencyMap = { low: 'green', medium: 'orange', high: 'red' };
+    var color      = urgencyMap[d.urgency] || 'gray';
+
+    body.innerHTML =
+      '<span class="os-urgency-dot" style="background:' + color + '"></span>' +
+      '<p class="os-brief-text">' + escapeHtml(d.summary) + '</p>' +
+      (d.tip ? '<p class="os-brief-tip">💡 ' + escapeHtml(d.tip) + '</p>' : '');
+
+  } catch (_) {
+    // Dashboard still works — Os error is silently hidden
+  }
+}
+
+var refreshBtn = document.getElementById('os-brief-refresh');
+if (refreshBtn) refreshBtn.addEventListener('click', loadOsBrief);
 
 // ── Items popover ──
 
