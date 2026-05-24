@@ -1318,15 +1318,105 @@
       - "Finance" appears in every page's sidebar nav
 
   ──────────────────────────────────────────────────────────────
-  PHASE 6: DEPLOYMENT
+  PHASE 6: USER ONBOARDING SYSTEM                   [PLANNED]
+  ──────────────────────────────────────────────────────────────
+ 
+  PURPOSE:
+    Guide first-time users through the app immediately after
+    registration. Non-technical MSME owners see a guided
+    spotlight tour, a setup checklist, and empty-state prompts
+    so they always know what to do next. No backend changes
+    required — all state is localStorage-based.
+ 
+  LAYERS:
+    Layer 1 — Welcome Modal      (first login, dashboard only)
+    Layer 2 — Setup Checklist    (dashboard card, dismissible)
+    Layer 3 — Page Spotlight     (per-page, first visit only)
+    Layer 4 — Empty State Prompts (no-data fallback screens)
+ 
+  NEW FILES:
+    frontend/css/onboarding.css
+    frontend/js/onboarding/onboarding.core.js
+    frontend/js/onboarding/onboarding.welcome.js
+    frontend/js/onboarding/onboarding.checklist.js
+    frontend/js/onboarding/onboarding.tour.js
+    frontend/js/onboarding/onboarding.tours.js
+ 
+  MODULES:
+ 
+    Module 6.1 — Onboarding Core (State Manager)       [PLANNED]
+      - Central localStorage state manager for all onboarding
+        modules (welcome, checklist, tour, empty states)
+      - Tracks: welcome seen, checklist dismissed, checklist
+        progress per item, tour seen per page
+      - Exposes resetAll() for dev/debug use
+      - Role-aware: reads admin | cashier from auth session
+ 
+    Module 6.2 — Welcome Modal                         [PLANNED]
+      - Full-screen overlay on first login (dashboard only)
+      - Two panels: value proposition + critical path preview
+      - Role-aware copy: admin sees 4-step path,
+        cashier sees 2-step path
+      - No skip button — short enough to click through
+      - On close: marks welcome as seen, fires checklist init
+ 
+    Module 6.3 — Setup Checklist                       [PLANNED]
+      - Persistent card at top of Dashboard until dismissed
+      - Admin: 4 items (Add Product → Restock → Sell → Dashboard)
+      - Cashier: 2 items (Make Sale → Check History)
+      - Auto-checks each item when the task is actually completed
+        (hooks into save/restock/checkout success callbacks)
+      - Progress bar and sidebar pill show "N of 4 done"
+      - X button dismisses permanently at any time
+      - All items done → celebration message → auto-dismiss
+ 
+    Module 6.4 — Spotlight Tour Engine                 [PLANNED]
+      - Reusable engine: accepts a step array, runs the tour
+      - Per step: scrolls target into view, computes bounding
+        box, renders SVG spotlight hole + tooltip bubble
+      - Tooltip: title, body, Skip Tour button, Next button
+      - Mobile-safe positioning: flips tooltip if near viewport
+        edge; minimum 44px touch targets throughout
+      - Fires on first page visit only; never repeats after
+        completion or skip
+ 
+    Module 6.5 — Tour Step Definitions                 [PLANNED]
+      - All step copy and selectors defined in one file
+        (onboarding.tours.js) — engine reads, never hard-codes
+      - Pages covered: Products (3 steps), Inventory (3 steps),
+        Order/POS (3 steps), Dashboard (2 steps)
+      - Targets use data-onb-id attributes, not CSS classes,
+        so tours survive style refactors
+      - Copy is plain English, one sentence per tooltip body
+ 
+    Module 6.6 — Empty State Prompts                   [PLANNED]
+      - Replaces blank tables with a helpful card + CTA when
+        there is no data to display
+      - Products page: "No products yet — Add your first product"
+      - Order page: "Your catalog is empty — Go to Products"
+      - History page: "No sales yet — Make your first sale"
+      - Inventory page: "Nothing to stock — Add Products first"
+      - Shared renderEmptyState() helper injected per page script
+ 
+    Module 6.7 — Integration Hooks                     [PLANNED]
+      - Small additions to existing page scripts only
+      - dashboard.js: Welcome + Checklist init, viewDashboard
+        auto-complete when first sale data is detected
+      - products.js: tour start + addProduct completion hook
+      - inventory.js: tour start + restock completion hook
+      - order.js: tour start + makeSale completion hook
+      - sidebar.js: SidebarProgress pill init and update
+      
+  ──────────────────────────────────────────────────────────────
+  PHASE 7: DEPLOYMENT
   ──────────────────────────────────────────────────────────────
 
   MODULES:
-    Module 6.1 — Deploy Frontend (Vercel or Netlify)
-    Module 6.2 — Deploy Backend (Railway or Render)
-    Module 6.3 — Deploy Database (Supabase or PlanetScale)
-    Module 6.4 — Set environment variables in production
-    Module 6.5 — Final testing and go-live
+    Module 7.1 — Deploy Frontend (Vercel or Netlify)
+    Module 7.2 — Deploy Backend (Railway or Render)
+    Module 7.3 — Deploy Database (Supabase or PlanetScale)
+    Module 7.4 — Set environment variables in production
+    Module 7.5 — Final testing and go-live
 
 ================================================================
 [11. DEPENDENCIES]

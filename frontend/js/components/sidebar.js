@@ -292,6 +292,69 @@ document.addEventListener('keydown', function(e) {
   });
 });
 
+// ── Sidebar Progress Pill (onboarding) ──
+
+var SidebarProgress = (function () {
+
+  var ROLE_KEYS = {
+    admin:   ['addProduct', 'restock', 'makeSale', 'viewDashboard'],
+    cashier: ['makeSale', 'viewHistory'],
+  };
+
+  function _counts() {
+    if (typeof OnboardingCore === 'undefined') return null;
+    var role     = OnboardingCore.getUserRole();
+    var keys     = ROLE_KEYS[role] || ROLE_KEYS.cashier;
+    var progress = OnboardingCore.getChecklistProgress();
+    var done     = keys.filter(function (k) { return !!progress[k]; }).length;
+    return { done: done, total: keys.length };
+  }
+
+  function init() {
+    if (typeof OnboardingCore === 'undefined') return;
+    if (OnboardingCore.isChecklistDismissed()) return;
+    render();
+  }
+
+  function render() {
+    var existing = document.getElementById('onb-sidebar-progress');
+    if (existing) existing.remove();
+
+    var c = _counts();
+    if (!c) return;
+
+    var nav = document.querySelector('.sidebar-nav');
+    if (!nav) return;
+
+    var pill = document.createElement('div');
+    pill.id        = 'onb-sidebar-progress';
+    pill.className = 'onb-sidebar-progress';
+    pill.innerHTML =
+      '<span class="onb-sidebar-progress-label">Setup</span>' +
+      '<span class="onb-sidebar-progress-count" id="onb-sidebar-progress-count">' +
+        c.done + ' of ' + c.total + ' done' +
+      '</span>';
+
+    nav.insertAdjacentElement('afterend', pill);
+  }
+
+  function update() {
+    var countEl = document.getElementById('onb-sidebar-progress-count');
+    if (!countEl) return;
+    var c = _counts();
+    if (!c) return;
+    countEl.textContent = c.done + ' of ' + c.total + ' done';
+  }
+
+  function hide() {
+    var pill = document.getElementById('onb-sidebar-progress');
+    if (pill) pill.remove();
+  }
+
+  return { init: init, update: update, hide: hide };
+
+})();
+
 // ── Boot ──
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -303,4 +366,5 @@ document.addEventListener('DOMContentLoaded', function() {
   initLogout();
   initFab();
   initScrollHideTopbar();
+  SidebarProgress.init();
 });

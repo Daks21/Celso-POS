@@ -78,7 +78,9 @@
       "PowerShell(& \"C:\\\\Program Files\\\\MySQL\\\\MySQL Server 8.0\\\\bin\\\\mysql.exe\" -h localhost -P 3306 -u celsopos_app \"-p1z3BcvntNO818x8aYcN48g\" celsopos_db -e \"SELECT id, type, category, amount, occurred_at FROM cash_movements WHERE is_active=1 AND \\(\\(type='capital_in' AND category='borrowed'\\) OR \\(type='owner_draw' AND category IN \\('loan_payment','debt_payment'\\)\\)\\) ORDER BY occurred_at;\")",
       "PowerShell(& \"C:\\\\Program Files\\\\MySQL\\\\MySQL Server 8.0\\\\bin\\\\mysql.exe\" -h localhost -P 3306 -u celsopos_app \"-p1z3BcvntNO818x8aYcN48g\" celsopos_db -e \"UPDATE cash_movements SET category='debt_payment' WHERE type='owner_draw' AND category='loan_payment' AND is_active=1; SELECT ROW_COUNT\\(\\) AS rows_updated;\")",
       "Bash(dir C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos *)",
-      "Bash(taskkill *)"
+      "Bash(taskkill *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\" -Recurse | Where-Object { !$_.FullName.Contains\\('.git'\\) -and !$_.PSIsContainer } | Select-Object -ExpandProperty FullName | Sort-Object)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\" -Recurse | Where-Object { !$_.FullName.Contains\\('.git'\\) -and !$_.FullName.Contains\\('node_modules'\\) -and !$_.PSIsContainer } | Select-Object -ExpandProperty FullName | Sort-Object)"
     ]
   }
 }
