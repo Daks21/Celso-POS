@@ -629,17 +629,35 @@ async function loadOsBrief() {
     if (!body) return;
 
     if (!result || !result.success) {
-      body.innerHTML = '<p class="os-brief-error">Os is unavailable right now.</p>';
+      body.innerHTML = '';
+      var errEl = document.createElement('p');
+      errEl.className = 'os-brief-error';
+      errEl.textContent = 'Os is unavailable right now.';
+      body.appendChild(errEl);
       return;
     }
     var d          = result.data;
     var urgencyMap = { low: 'green', medium: 'orange', high: 'red' };
     var color      = urgencyMap[d.urgency] || 'gray';
 
-    body.innerHTML =
-      '<span class="os-urgency-dot" style="background:' + color + '"></span>' +
-      '<p class="os-brief-text">' + escapeHtml(d.summary) + '</p>' +
-      (d.tip ? '<p class="os-brief-tip">💡 ' + escapeHtml(d.tip) + '</p>' : '');
+    body.innerHTML = '';
+
+    var dot = document.createElement('span');
+    dot.className = 'os-urgency-dot';
+    dot.style.background = color;
+    body.appendChild(dot);
+
+    var summaryEl = document.createElement('p');
+    summaryEl.className = 'os-brief-text';
+    summaryEl.textContent = d.summary;
+    body.appendChild(summaryEl);
+
+    if (d.tip) {
+      var tipEl = document.createElement('p');
+      tipEl.className = 'os-brief-tip';
+      tipEl.textContent = '💡 ' + d.tip;
+      body.appendChild(tipEl);
+    }
 
   } catch (_) {
     // Dashboard still works — Os error is silently hidden
