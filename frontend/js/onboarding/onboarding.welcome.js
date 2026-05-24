@@ -14,9 +14,10 @@ const OnboardingWelcome = (() => {
   };
 
   function init() {
-    if (!OnboardingCore.isFirstLogin()) return;
+    if (!OnboardingCore.isFirstLogin()) return false;
     render();
     bindEvents();
+    return true;
   }
 
   function render() {
@@ -70,7 +71,8 @@ const OnboardingWelcome = (() => {
 </div>`;
 
     document.body.insertAdjacentHTML('beforeend', html);
-    document.body.style.overflow = 'hidden';
+    var _scrollEl = document.querySelector('.page-body') || document.body;
+    _scrollEl.style.overflow = 'hidden';
   }
 
   function bindEvents() {
@@ -107,11 +109,11 @@ const OnboardingWelcome = (() => {
     const overlay = document.getElementById('onb-welcome-overlay');
     if (overlay) overlay.remove();
 
-    document.body.style.overflow = '';
+    var _scrollEl = document.querySelector('.page-body') || document.body;
+    _scrollEl.style.overflow = '';
 
-    if (typeof OnboardingChecklist !== 'undefined') {
-      OnboardingChecklist.init();
-    }
+    if (typeof OnboardingChecklist !== 'undefined') OnboardingChecklist.init();
+    if (typeof SidebarProgress     !== 'undefined') SidebarProgress.init();
   }
 
   return { init };

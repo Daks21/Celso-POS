@@ -1,8 +1,10 @@
 const OnboardingTour = (() => {
 
-  let steps   = [];
-  let current = 0;
-  let page    = '';
+  let steps        = [];
+  let current      = 0;
+  let page         = '';
+  let _resizeTimer = null;
+  let _scrollEl    = null;
 
   // ── DOM injection ──
 
@@ -38,6 +40,18 @@ const OnboardingTour = (() => {
 
     document.getElementById('onb-tour-skip').addEventListener('click', skip);
     document.getElementById('onb-tour-next').addEventListener('click', next);
+    window.addEventListener('resize', _onResize);
+  }
+
+  // ── Resize handler — recalculates spotlight + tooltip for current step ──
+
+  function _onResize() {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(function () {
+      if (document.getElementById('onb-tour-overlay')) {
+        showStep(current);
+      }
+    }, 150);
   }
 
   // ── Step rendering ──
@@ -79,11 +93,10 @@ const OnboardingTour = (() => {
     var GAP  = 12;
     var maxW = Math.min(320, window.innerWidth * 0.9);
 
-    // Vertical guards: override if element is near viewport edges
-    if (rect.top    < 120)                          pos = 'bottom';
-    if (rect.bottom > window.innerHeight - 120)    pos = 'top';
+    // 180px threshold accounts for typical tooltip rendered height (~160px) + gap
+    if (rect.top    < 180)                       pos = 'bottom';
+    if (rect.bottom > window.innerHeight - 180)  pos = 'top';
 
-    // Horizontal guards: fall back to bottom if left/right won't fit
     if (pos === 'right' && rect.right + GAP + maxW > window.innerWidth - 8)  pos = 'bottom';
     if (pos === 'left'  && rect.left  - GAP - maxW < 8)                      pos = 'bottom';
 
@@ -91,6 +104,7 @@ const OnboardingTour = (() => {
   }
 
   function updateTooltip(step, index, rect) {
+    // Set content first so offsetHeight reflects actual rendered height
     document.getElementById('onb-tip-title').textContent    = step.title;
     document.getElementById('onb-tip-body').textContent     = step.body;
     document.getElementById('onb-step-counter').textContent =
@@ -99,17 +113,16 @@ const OnboardingTour = (() => {
     var nextBtn = document.getElementById('onb-tour-next');
     nextBtn.textContent = (index === steps.length - 1) ? 'Done' : 'Next →';
 
-    var tooltip = document.getElementById('onb-tooltip');
-    var GAP     = 12;
-    var maxW    = Math.min(320, window.innerWidth * 0.9);
-    var pos     = resolvePosition(step.position, rect);
+    var tooltip  = document.getElementById('onb-tooltip');
+    var GAP      = 12;
+    var PAD      = 8;
+    var maxW     = Math.min(320, window.innerWidth * 0.9);
+    var pos      = resolvePosition(step.position, rect);
+    var cx       = rect.left + rect.width  / 2;
+    var cy       = rect.top  + rect.height / 2;
+    var leftEdge = Math.max(PAD, Math.min(cx - maxW / 2, window.innerWidth - maxW - PAD));
 
-    // Center-x of the spotlighted element, clamped so tooltip stays in viewport
-    var cx = rect.left + rect.width  / 2;
-    var cy = rect.top  + rect.height / 2;
-    var leftEdge = Math.max(8, Math.min(cx - maxW / 2, window.innerWidth - maxW - 8));
-
-    // Reset
+    // Reset all position properties, then set width so offsetHeight is accurate
     tooltip.style.top       = '';
     tooltip.style.left      = '';
     tooltip.style.bottom    = '';
@@ -117,27 +130,27 @@ const OnboardingTour = (() => {
     tooltip.style.transform = '';
     tooltip.style.maxWidth  = maxW + 'px';
 
+    var th = tooltip.offsetHeight; // read after content + width settled
+
     switch (pos) {
       case 'bottom':
-        tooltip.style.top  = (rect.bottom + GAP) + 'px';
+        tooltip.style.top  = Math.min(rect.bottom + GAP, window.innerHeight - th - PAD) + 'px';
         tooltip.style.left = leftEdge + 'px';
         break;
 
       case 'top':
-        tooltip.style.bottom = (window.innerHeight - rect.top + GAP) + 'px';
-        tooltip.style.left   = leftEdge + 'px';
+        tooltip.style.top  = Math.max(PAD, rect.top - GAP - th) + 'px';
+        tooltip.style.left = leftEdge + 'px';
         break;
 
       case 'right':
-        tooltip.style.left      = (rect.right + GAP) + 'px';
-        tooltip.style.top       = cy + 'px';
-        tooltip.style.transform = 'translateY(-50%)';
+        tooltip.style.left = (rect.right + GAP) + 'px';
+        tooltip.style.top  = Math.max(PAD, Math.min(cy - th / 2, window.innerHeight - th - PAD)) + 'px';
         break;
 
       case 'left':
-        tooltip.style.right     = (window.innerWidth - rect.left + GAP) + 'px';
-        tooltip.style.top       = cy + 'px';
-        tooltip.style.transform = 'translateY(-50%)';
+        tooltip.style.right = (window.innerWidth - rect.left + GAP) + 'px';
+        tooltip.style.top   = Math.max(PAD, Math.min(cy - th / 2, window.innerHeight - th - PAD)) + 'px';
         break;
     }
   }
@@ -159,22 +172,41 @@ const OnboardingTour = (() => {
 
   function finish() {
     OnboardingCore.markTourSeen(page);
+    window.removeEventListener('resize', _onResize);
+    if (_scrollEl) { _scrollEl.style.overflow = ''; _scrollEl = null; }
     var overlay = document.getElementById('onb-tour-overlay');
     if (overlay) overlay.remove();
   }
 
   // ── Public ──
 
+  function _doStart(pageKey, stepArray) {
+    page      = pageKey;
+    steps     = stepArray;
+    current   = 0;
+    _scrollEl = document.querySelector('.page-body') || document.body;
+    _scrollEl.style.overflow = 'hidden';
+    injectDOM();
+    showStep(0);
+  }
+
   function start(pageKey, stepArray) {
     if (OnboardingCore.isTourSeen(pageKey)) return;
     if (!stepArray || !stepArray.length) return;
 
-    page    = pageKey;
-    steps   = stepArray;
-    current = 0;
+    // If welcome modal is open, defer until it's removed from the DOM
+    if (document.getElementById('onb-welcome-overlay')) {
+      var observer = new MutationObserver(function (_, obs) {
+        if (!document.getElementById('onb-welcome-overlay')) {
+          obs.disconnect();
+          _doStart(pageKey, stepArray);
+        }
+      });
+      observer.observe(document.body, { childList: true });
+      return;
+    }
 
-    injectDOM();
-    showStep(0);
+    _doStart(pageKey, stepArray);
   }
 
   return { start: start };

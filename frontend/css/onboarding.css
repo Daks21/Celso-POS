@@ -343,11 +343,12 @@ a.onb-checklist-label:hover {
   position: fixed;
   inset: 0;
   z-index: 9000;
-  pointer-events: none; /* SVG backdrop is visual-only; tooltip overrides with auto */
+  pointer-events: auto; /* absorbs all clicks/taps so the page is not interactive during tour */
 }
 
 .onb-tour-overlay svg {
   display: block;
+  pointer-events: none; /* SVG is decorative; events fall through to the overlay div */
 }
 
 .onb-tooltip {

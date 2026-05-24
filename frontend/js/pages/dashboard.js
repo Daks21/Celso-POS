@@ -596,14 +596,20 @@ async function initDashboard() {
   loadOsBrief();
 
   // ── Onboarding hooks ──
-  if (typeof OnboardingWelcome   !== 'undefined') OnboardingWelcome.init();
-  if (typeof OnboardingChecklist !== 'undefined') OnboardingChecklist.init();
-  if (typeof SidebarProgress     !== 'undefined') SidebarProgress.init();
+  // init() returns true if it rendered the modal; if so, checklist + sidebar
+  // are deferred to welcome.close() to avoid showing them behind the overlay.
+  var _welcomeShowing = typeof OnboardingWelcome !== 'undefined' && OnboardingWelcome.init();
+
+  if (!_welcomeShowing) {
+    if (typeof OnboardingChecklist !== 'undefined') OnboardingChecklist.init();
+    if (typeof SidebarProgress     !== 'undefined') SidebarProgress.init();
+  }
 
   if (allSales.length > 0 && typeof OnboardingChecklist !== 'undefined') {
     OnboardingChecklist.complete('viewDashboard');
   }
 
+  // Tour defers automatically via MutationObserver if welcome modal is open
   if (typeof OnboardingTour !== 'undefined' && typeof OnboardingTours !== 'undefined') {
     OnboardingTour.start('dashboard', OnboardingTours.dashboard);
   }

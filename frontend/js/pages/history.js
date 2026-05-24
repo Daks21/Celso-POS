@@ -186,6 +186,10 @@ async function init() {
   } finally {
     hideLoading('#sales-table-body');
   }
+
+  if (typeof OnboardingChecklist !== 'undefined') {
+    OnboardingChecklist.complete('viewHistory');
+  }
 }
 
 init();
