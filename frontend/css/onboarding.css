@@ -1,0 +1,493 @@
+/* ================================================================
+   Celso POS — Onboarding System Styles
+   All variables come from main.css. Dark mode is automatic.
+   ================================================================ */
+
+/* ── 1. SHARED ──────────────────────────────────────────────── */
+
+.onb-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+}
+
+.onb-hidden {
+  display: none !important;
+}
+
+.onb-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 20px;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-main);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.onb-btn-primary:hover  { opacity: 0.9; }
+.onb-btn-primary:active { transform: scale(0.98); }
+
+.onb-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-main);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.onb-btn-ghost:hover {
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+@keyframes onbFadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 2. WELCOME MODAL ───────────────────────────────────────── */
+
+.onb-overlay--welcome {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9999;
+}
+
+.onb-welcome-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: var(--shadow-lg);
+  animation: onbFadeUp 0.3s var(--transition-bounce) forwards;
+}
+
+.onb-welcome-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.onb-welcome-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-full);
+  background: rgba(90, 158, 111, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.onb-welcome-modal h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.onb-welcome-modal > .onb-welcome-panel > p,
+.onb-welcome-modal p {
+  font-size: 15px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 360px;
+}
+
+.onb-welcome-steps {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  justify-content: center;
+}
+
+.onb-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--color-background);
+  border-radius: var(--radius-md);
+  flex: 1;
+  font-size: 13px;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.onb-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.onb-welcome-panel .onb-btn-primary {
+  width: 100%;
+  padding: 13px 20px;
+  font-size: 15px;
+  margin-top: 4px;
+}
+
+.onb-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 24px;
+}
+
+.onb-dot {
+  height: 8px;
+  width: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  transition: width 0.25s ease, background 0.25s ease;
+}
+
+.onb-dot--active {
+  width: 20px;
+  background: var(--color-primary);
+}
+
+/* ── 3. CHECKLIST CARD ──────────────────────────────────────── */
+
+.onb-checklist-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  margin-bottom: 20px;
+  animation: onbFadeUp 0.3s var(--transition-bounce) forwards;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.onb-checklist-card--hiding {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+
+.onb-checklist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.onb-checklist-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.onb-checklist-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.onb-checklist-close:hover {
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.onb-checklist-progress-bar {
+  height: 4px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.onb-checklist-progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width 0.45s var(--transition-bounce);
+  min-width: 0;
+}
+
+.onb-checklist-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onb-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.onb-check-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.onb-checklist-label {
+  font-size: 14px;
+  color: var(--color-text);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+a.onb-checklist-label:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.onb-item--done .onb-checklist-label {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+.onb-checklist-celebrate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 4px;
+  text-align: center;
+}
+
+.onb-checklist-celebrate p {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 0;
+}
+
+/* ── 4. SIDEBAR PROGRESS PILL ───────────────────────────────── */
+
+.onb-sidebar-progress {
+  margin: 6px 12px;
+  padding: 10px 14px;
+  background: rgba(90, 158, 111, 0.07);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.onb-sidebar-progress-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.onb-sidebar-progress-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+/* ── 5. SPOTLIGHT TOUR ──────────────────────────────────────── */
+
+.onb-tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: none; /* SVG backdrop is visual-only; tooltip overrides with auto */
+}
+
+.onb-tour-overlay svg {
+  display: block;
+}
+
+.onb-tooltip {
+  position: fixed;
+  z-index: 9001;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  width: 320px;
+  max-width: 90vw;
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  animation: onbFadeUp 0.2s ease forwards;
+}
+
+.onb-tooltip-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 6px;
+}
+
+.onb-tooltip-body {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+  margin-bottom: 16px;
+}
+
+.onb-tooltip-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.onb-tooltip-footer .onb-btn-primary,
+.onb-tooltip-footer .onb-btn-ghost {
+  padding: 9px 16px;
+  font-size: 13px;
+  min-height: 44px;
+}
+
+.onb-tooltip-step-counter {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-align: right;
+  margin-top: 10px;
+}
+
+/* ── 6. EMPTY STATES ────────────────────────────────────────── */
+
+.onb-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  gap: 12px;
+}
+
+/* Removes default <td> padding so the card fills the cell cleanly */
+.onb-empty-cell {
+  padding: 0 !important;
+  border: none !important;
+}
+
+.onb-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  opacity: 0.45;
+  margin-bottom: 4px;
+}
+
+.onb-empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.onb-empty-body {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+  margin: 0;
+  max-width: 320px;
+}
+
+.onb-empty-cta {
+  margin-top: 4px;
+  padding: 11px 24px;
+}
+
+/* ── 7. RESPONSIVE ──────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+
+  /* Welcome modal becomes a bottom sheet */
+  .onb-overlay--welcome {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .onb-welcome-modal {
+    max-width: 100%;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 28px 24px 36px;
+  }
+
+  .onb-welcome-steps {
+    gap: 8px;
+  }
+
+  .onb-step {
+    padding: 10px 10px;
+    font-size: 12px;
+  }
+
+  /* Tooltip always full-width on mobile */
+  .onb-tooltip {
+    width: 90vw;
+    max-width: 90vw;
+  }
+
+  /* Buttons always meet 44px touch target */
+  .onb-tooltip-footer .onb-btn-primary,
+  .onb-tooltip-footer .onb-btn-ghost {
+    min-height: 44px;
+    flex: 1;
+  }
+
+  /* Checklist stretches to edge */
+  .onb-checklist-card {
+    border-radius: var(--radius-sm);
+    margin-left: -4px;
+    margin-right: -4px;
+  }
+}

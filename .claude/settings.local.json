@@ -80,7 +80,8 @@
       "Bash(dir C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos *)",
       "Bash(taskkill *)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\" -Recurse | Where-Object { !$_.FullName.Contains\\('.git'\\) -and !$_.PSIsContainer } | Select-Object -ExpandProperty FullName | Sort-Object)",
-      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\" -Recurse | Where-Object { !$_.FullName.Contains\\('.git'\\) -and !$_.FullName.Contains\\('node_modules'\\) -and !$_.PSIsContainer } | Select-Object -ExpandProperty FullName | Sort-Object)"
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\" -Recurse | Where-Object { !$_.FullName.Contains\\('.git'\\) -and !$_.FullName.Contains\\('node_modules'\\) -and !$_.PSIsContainer } | Select-Object -ExpandProperty FullName | Sort-Object)",
+      "Bash(not exist *)"
     ]
   }
 }
