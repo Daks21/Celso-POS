@@ -19,11 +19,9 @@
     return (depth >= 3 ? '../../' : depth === 2 ? '../' : '') + 'pages/ai.html';
   }
 
-  function init() {
-    // Skip on ai.html itself — the page IS the chat interface
+  function mount() {
     if (window.location.pathname.includes('ai.html')) return;
-    if (!isOsEnabled()) return; // Os disabled — render nothing
-
+    if (document.getElementById('os-float-btn')) return;
     var btn = document.createElement('button');
     btn.id        = 'os-float-btn';
     btn.title     = 'Ask Os';
@@ -33,6 +31,17 @@
     });
     document.body.appendChild(btn);
   }
+
+  function unmount() {
+    var btn = document.getElementById('os-float-btn');
+    if (btn) btn.parentNode.removeChild(btn);
+  }
+
+  function init() {
+    if (isOsEnabled()) mount();
+  }
+
+  window.OsFloat = { mount: mount, unmount: unmount };
 
   document.addEventListener('DOMContentLoaded', init);
 })();

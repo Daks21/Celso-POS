@@ -221,19 +221,12 @@ function initMobileNav() {
 
 // ── FAB ──
 
-function initFab() {
+function mountFab() {
   var currentPage = window.location.pathname.split('/').pop();
-  // finance.html has its own admin FAB for adding entries; skip the New Sale FAB there
   if (currentPage === 'order.html') return;
-
-  try {
-    var user  = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    var key   = 'prefs_' + (user.id || 'guest');
-    var prefs = JSON.parse(localStorage.getItem(key) || '{}');
-    if (prefs.osEnabled === true) return; // Os button takes the corner
-  } catch (_) {}
-
+  if (document.getElementById('new-sale-fab')) return;
   var fab = document.createElement('button');
+  fab.id = 'new-sale-fab';
   fab.className = 'fab';
   fab.title = 'New Sale';
   fab.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>';
@@ -242,6 +235,23 @@ function initFab() {
   });
   document.body.appendChild(fab);
 }
+
+function unmountFab() {
+  var fab = document.getElementById('new-sale-fab');
+  if (fab) fab.parentNode.removeChild(fab);
+}
+
+function initFab() {
+  try {
+    var user  = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    var key   = 'prefs_' + (user.id || 'guest');
+    var prefs = JSON.parse(localStorage.getItem(key) || '{}');
+    if (prefs.osEnabled === true) return;
+  } catch (_) {}
+  mountFab();
+}
+
+window.DefaultFab = { mount: mountFab, unmount: unmountFab };
 
 // ── Mobile: hide topbar on scroll down, reveal on scroll up ──
 

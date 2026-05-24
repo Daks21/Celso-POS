@@ -352,6 +352,13 @@ document.addEventListener('DOMContentLoaded', function() {
         prefs.osEnabled = osToggle.checked;
         saveUserPrefs(prefs);
         syncToDb();
+        if (osToggle.checked) {
+          if (window.OsFloat) window.OsFloat.mount();
+          if (window.DefaultFab) window.DefaultFab.unmount();
+        } else {
+          if (window.OsFloat) window.OsFloat.unmount();
+          if (window.DefaultFab) window.DefaultFab.mount();
+        }
       });
     }
 
