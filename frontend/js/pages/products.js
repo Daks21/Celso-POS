@@ -169,6 +169,13 @@ productModal.addEventListener("click", function (event) {
 });
 
 function renderProducts(productList) {
+  if (products.length === 0) {
+    if (typeof OnboardingCore !== 'undefined') {
+      OnboardingCore.renderEmptyState(productsTableBody, 'products', 5);
+    }
+    return;
+  }
+
   productsTableBody.innerHTML = "";
 
   (productList || products).forEach(function (product) {

@@ -186,10 +186,22 @@
 
           <div id="history-pagination" class="pagination"></div>
 
-          <div class="empty-state" id="sales-empty-state">
-            <div class="empty-state-icon">🧾</div>
-            <h3>No sales recorded yet.</h3>
-            <p>Start selling to see transactions here.</p>
+          <div id="sales-empty-state" style="display:none">
+            <div class="onb-empty-state">
+              <div class="onb-empty-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+              </div>
+              <h3 class="onb-empty-title">No sales yet</h3>
+              <p class="onb-empty-body">Your sales history will appear here after your first transaction.</p>
+              <button class="onb-btn-primary onb-empty-cta" onclick="window.location.href='order.html'">
+                Make Your First Sale
+              </button>
+            </div>
           </div>
 
         </section>

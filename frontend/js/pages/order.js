@@ -127,7 +127,11 @@ function renderProductGrid(productList) {
   const list = productList || products;
 
   if (list.length === 0) {
-    productGrid.innerHTML = `<p class="cart-empty-message">No products available.</p>`;
+    if (products.length === 0 && typeof OnboardingCore !== 'undefined') {
+      OnboardingCore.renderEmptyState(productGrid, 'order', null);
+    } else {
+      productGrid.innerHTML = '<p class="cart-empty-message">No products match your search.</p>';
+    }
     return;
   }
 

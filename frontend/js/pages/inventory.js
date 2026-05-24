@@ -103,9 +103,13 @@ function renderInventory(list) {
   inventoryTableBody.innerHTML = '';
 
   if (list.length === 0) {
-    inventoryTableBody.innerHTML =
-      '<tr><td colspan="5" style="text-align:center;padding:40px;' +
-      'color:var(--color-text-muted);">No products found.</td></tr>';
+    if (products.length === 0 && typeof OnboardingCore !== 'undefined') {
+      OnboardingCore.renderEmptyState(inventoryTableBody, 'inventory', 5);
+    } else {
+      inventoryTableBody.innerHTML =
+        '<tr><td colspan="5" style="text-align:center;padding:40px;' +
+        'color:var(--color-text-muted);">No products match your search.</td></tr>';
+    }
     return;
   }
 
