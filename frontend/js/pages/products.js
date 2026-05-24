@@ -105,6 +105,10 @@ async function refreshProducts() {
   }
   renderCategorySelect();
   applyFilters();
+
+  if (typeof OnboardingTour !== 'undefined' && typeof OnboardingTours !== 'undefined') {
+    OnboardingTour.start('products', OnboardingTours.products);
+  }
 }
 
 productSearchInput.addEventListener("input", function () {
@@ -139,6 +143,7 @@ productForm.addEventListener("submit", async function (event) {
     unit: productUnitInput.value
   };
 
+  const isNewProduct = editingProductId === null;
   if (submitButton) submitButton.disabled = true;
 
   try {
@@ -152,6 +157,9 @@ productForm.addEventListener("submit", async function (event) {
     if (result && result.success) {
       await refreshProducts();
       closeProductModal();
+      if (isNewProduct && typeof OnboardingChecklist !== 'undefined') {
+        OnboardingChecklist.complete('addProduct');
+      }
     } else {
       showApiError(result ? result.message : 'Failed to save product.');
     }

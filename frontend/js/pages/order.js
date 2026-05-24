@@ -49,6 +49,10 @@ async function init() {
   renderProductGrid();
   renderCart();
   applyTaxRowVisibility();
+
+  if (typeof OnboardingTour !== 'undefined' && typeof OnboardingTours !== 'undefined') {
+    OnboardingTour.start('order', OnboardingTours.order);
+  }
 }
 
 clearCartButton.addEventListener("click", function () {
@@ -468,6 +472,10 @@ async function completeSale() {
       renderCart();
       renderCategoryPills();
       applyFilters();
+
+      if (typeof OnboardingChecklist !== 'undefined') {
+        OnboardingChecklist.complete('makeSale');
+      }
 
       showReceipt(result.data);
     } else {

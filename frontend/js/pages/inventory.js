@@ -188,6 +188,9 @@ async function handleRestock() {
     if (result && result.success) {
       closeModal();
       await refreshInventory();
+      if (typeof OnboardingChecklist !== 'undefined') {
+        OnboardingChecklist.complete('restock');
+      }
     } else {
       restockError.textContent = result ? result.message : 'Restock failed. Please try again.';
     }
@@ -265,6 +268,10 @@ async function refreshInventory() {
   await renderSummary();
   applyFilters();
   loadOsRestock(); // non-blocking — inventory table never waits for AI
+
+  if (typeof OnboardingTour !== 'undefined' && typeof OnboardingTours !== 'undefined') {
+    OnboardingTour.start('inventory', OnboardingTours.inventory);
+  }
 }
 
 // ── Os Restock Advice ──

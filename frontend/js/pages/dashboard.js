@@ -594,6 +594,19 @@ async function initDashboard() {
 
   // Os Daily Brief — after all regular data, never blocks other cards
   loadOsBrief();
+
+  // ── Onboarding hooks ──
+  if (typeof OnboardingWelcome   !== 'undefined') OnboardingWelcome.init();
+  if (typeof OnboardingChecklist !== 'undefined') OnboardingChecklist.init();
+  if (typeof SidebarProgress     !== 'undefined') SidebarProgress.init();
+
+  if (allSales.length > 0 && typeof OnboardingChecklist !== 'undefined') {
+    OnboardingChecklist.complete('viewDashboard');
+  }
+
+  if (typeof OnboardingTour !== 'undefined' && typeof OnboardingTours !== 'undefined') {
+    OnboardingTour.start('dashboard', OnboardingTours.dashboard);
+  }
 }
 
 initDashboard();
