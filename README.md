@@ -1318,22 +1318,22 @@
       - "Finance" appears in every page's sidebar nav
 
   ──────────────────────────────────────────────────────────────
-  PHASE 6: USER ONBOARDING SYSTEM                   [PLANNED]
+  PHASE 6: USER ONBOARDING SYSTEM                   [COMPLETE]
   ──────────────────────────────────────────────────────────────
- 
+
   PURPOSE:
     Guide first-time users through the app immediately after
     registration. Non-technical MSME owners see a guided
     spotlight tour, a setup checklist, and empty-state prompts
     so they always know what to do next. No backend changes
     required — all state is localStorage-based.
- 
+
   LAYERS:
     Layer 1 — Welcome Modal      (first login, dashboard only)
     Layer 2 — Setup Checklist    (dashboard card, dismissible)
     Layer 3 — Page Spotlight     (per-page, first visit only)
     Layer 4 — Empty State Prompts (no-data fallback screens)
- 
+
   NEW FILES:
     frontend/css/onboarding.css
     frontend/js/onboarding/onboarding.core.js
@@ -1341,71 +1341,97 @@
     frontend/js/onboarding/onboarding.checklist.js
     frontend/js/onboarding/onboarding.tour.js
     frontend/js/onboarding/onboarding.tours.js
- 
+
   MODULES:
- 
-    Module 6.1 — Onboarding Core (State Manager)       [PLANNED]
+
+    Module 6.1 — Onboarding Core (State Manager)       [COMPLETE]
       - Central localStorage state manager for all onboarding
         modules (welcome, checklist, tour, empty states)
       - Tracks: welcome seen, checklist dismissed, checklist
         progress per item, tour seen per page
       - Exposes resetAll() for dev/debug use
       - Role-aware: reads admin | cashier from auth session
- 
-    Module 6.2 — Welcome Modal                         [PLANNED]
+
+    Module 6.2 — Welcome Modal                         [COMPLETE]
       - Full-screen overlay on first login (dashboard only)
       - Two panels: value proposition + critical path preview
       - Role-aware copy: admin sees 4-step path,
         cashier sees 2-step path
       - No skip button — short enough to click through
-      - On close: marks welcome as seen, fires checklist init
- 
-    Module 6.3 — Setup Checklist                       [PLANNED]
+      - On close: marks welcome as seen, fires checklist +
+        sidebar pill init; scroll locked on .page-body during
+        display and restored on close
+
+    Module 6.3 — Setup Checklist                       [COMPLETE]
       - Persistent card at top of Dashboard until dismissed
       - Admin: 4 items (Add Product → Restock → Sell → Dashboard)
       - Cashier: 2 items (Make Sale → Check History)
       - Auto-checks each item when the task is actually completed
-        (hooks into save/restock/checkout success callbacks)
+        (hooks into save/restock/checkout/history success callbacks)
       - Progress bar and sidebar pill show "N of 4 done"
       - X button dismisses permanently at any time
       - All items done → celebration message → auto-dismiss
- 
-    Module 6.4 — Spotlight Tour Engine                 [PLANNED]
+
+    Module 6.4 — Spotlight Tour Engine                 [COMPLETE]
       - Reusable engine: accepts a step array, runs the tour
       - Per step: scrolls target into view, computes bounding
         box, renders SVG spotlight hole + tooltip bubble
       - Tooltip: title, body, Skip Tour button, Next button
-      - Mobile-safe positioning: flips tooltip if near viewport
-        edge; minimum 44px touch targets throughout
+      - Viewport-safe positioning: vertical and horizontal
+        clamping prevents tooltip from clipping off-screen;
+        position flip threshold raised to 180px
+      - Debounced resize handler recalculates spotlight and
+        tooltip on window resize (150ms debounce)
+      - Page scroll and tap locked during tour via .page-body
+        overflow:hidden; pointer-events:auto on overlay div
+        blocks all interaction except tooltip buttons
+      - Defers start via MutationObserver if welcome modal is
+        open — no overlap between layers on first login
       - Fires on first page visit only; never repeats after
         completion or skip
- 
-    Module 6.5 — Tour Step Definitions                 [PLANNED]
+
+    Module 6.5 — Tour Step Definitions                 [COMPLETE]
       - All step copy and selectors defined in one file
         (onboarding.tours.js) — engine reads, never hard-codes
       - Pages covered: Products (3 steps), Inventory (3 steps),
         Order/POS (3 steps), Dashboard (2 steps)
-      - Targets use data-onb-id attributes, not CSS classes,
-        so tours survive style refactors
+      - Targets use data-onb-id attributes and stable IDs so
+        tours survive style refactors
       - Copy is plain English, one sentence per tooltip body
- 
-    Module 6.6 — Empty State Prompts                   [PLANNED]
+
+    Module 6.6 — Empty State Prompts                   [COMPLETE]
       - Replaces blank tables with a helpful card + CTA when
         there is no data to display
       - Products page: "No products yet — Add your first product"
       - Order page: "Your catalog is empty — Go to Products"
       - History page: "No sales yet — Make your first sale"
+        (hard-coded in history.html using onboarding CSS classes)
       - Inventory page: "Nothing to stock — Add Products first"
-      - Shared renderEmptyState() helper injected per page script
- 
-    Module 6.7 — Integration Hooks                     [PLANNED]
+      - Shared renderEmptyState() helper in OnboardingCore used
+        by products, inventory, and order page scripts
+
+    Module 6.7 — Integration Hooks                     [COMPLETE]
       - Small additions to existing page scripts only
-      - dashboard.js: Welcome + Checklist init, viewDashboard
-        auto-complete when first sale data is detected
+      - dashboard.js: Welcome + Checklist init gated so checklist
+        and sidebar only mount after welcome modal closes;
+        viewDashboard auto-completes when sales data is detected
       - products.js: tour start + addProduct completion hook
       - inventory.js: tour start + restock completion hook
       - order.js: tour start + makeSale completion hook
+      - history.js: viewHistory completion hook for cashier flow
       - sidebar.js: SidebarProgress pill init and update
+
+    Module 6.8 — CSS Architecture                      [COMPLETE]
+      - All onboarding visual styles in frontend/css/onboarding.css
+      - Linked on all 9 app pages (dashboard, products, inventory,
+        order, history, analytics, finance, ai, account)
+      - Onboarding JS scripts (core, welcome, checklist, tours,
+        tour) added to all 9 app pages in correct load order
+      - Uses only CSS variables from main.css — dark mode
+        compatible with zero extra rules
+      - 7 sections: shared utilities, welcome modal, checklist
+        card, sidebar pill, spotlight tour, empty states,
+        responsive (mobile bottom-sheet + touch targets)
       
   ──────────────────────────────────────────────────────────────
   PHASE 7: DEPLOYMENT
@@ -1439,5 +1465,5 @@
   NODE REQUIREMENT: >= 18.0.0
 
 ================================================================
-  END OF DOCUMENT — Version 6.0 (Phase 4 AI COMPLETE | Phase 5 Finance COMPLETE)
+  END OF DOCUMENT — Version 7.0 (Phase 4 AI COMPLETE | Phase 5 Finance COMPLETE | Phase 6 Onboarding COMPLETE)
 ================================================================
