@@ -15,7 +15,7 @@ router.get('/me', auth, async (req, res, next) => {
     }
     res.json({
       success: true,
-      user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role }
+      user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt }
     });
   } catch (err) {
     next(err);

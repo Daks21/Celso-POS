@@ -371,7 +371,9 @@ function getCartTotal() {
 }
 
 function updateChangeDisplay() {
-  const total = getCartTotal();
+  const subtotal = getCartTotal();
+  const tax = (taxEnabled && cartTaxOn) ? subtotal * taxRate : 0;
+  const total = subtotal + tax;
   const paymentAmount = Number(paymentAmountInput.value);
 
   paymentWarning.textContent = "";
@@ -433,6 +435,7 @@ async function completeSale() {
     subtotal: subtotal,
     tax: tax,
     taxRate: tax > 0 ? taxRate : 0,
+    cartTaxOn: cartTaxOn,
     total: total,
     payment: paymentAmount,
     change: change,
@@ -476,7 +479,7 @@ async function completeSale() {
 function showReceipt(sale) {
   const saleDate = new Date(sale.timestamp);
 
-  receiptNumber.textContent = `RCPT-${sale.id}`;
+  receiptNumber.textContent = sale.receiptNo || ('RCPT-' + String(sale.id).padStart(6, '0'));
   receiptDate.textContent = saleDate.toLocaleDateString("en-PH");
   receiptTime.textContent = saleDate.toLocaleTimeString("en-PH");
   receiptCashier.textContent = sale.cashier;
@@ -485,12 +488,14 @@ function showReceipt(sale) {
 
   sale.items.forEach(function (item) {
     const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${item.name}</td>
-      <td>${item.quantity}</td>
-      <td>${formatPeso(item.price)}</td>
-      <td>${formatPeso(item.lineTotal)}</td>
-    `;
+    const tdName  = document.createElement("td"); tdName.textContent  = item.name;
+    const tdQty   = document.createElement("td"); tdQty.textContent   = item.quantity;
+    const tdPrice = document.createElement("td"); tdPrice.textContent = formatPeso(item.price);
+    const tdTotal = document.createElement("td"); tdTotal.textContent = formatPeso(item.lineTotal);
+    row.appendChild(tdName);
+    row.appendChild(tdQty);
+    row.appendChild(tdPrice);
+    row.appendChild(tdTotal);
     receiptItemsBody.appendChild(row);
   });
 

@@ -99,7 +99,7 @@
   ├── frontend/                ← Everything the user sees
   ├── backend/                 ← Server, routes, logic (Phase 2+3 COMPLETE)
   ├── database/                ← SQL schema and seed data (Phase 3 COMPLETE)
-  ├── ai/                      ← AI assistant (Phase 4 — in progress)
+  ├── ai/                      ← AI assistant (Phase 4 COMPLETE)
   │
   ├── .gitignore               ← Files to exclude from Git
   └── README.md                ← This file
@@ -365,8 +365,8 @@
                                'sales_revenue'  (auto-created by POS on checkout)
     category     VARCHAR       Subcategory — meaning depends on type:
                                  capital_in:  'own' | 'borrowed'
-                                 owner_draw:  'personal' | 'loan_payment' |
-                                              'reinvest' | 'other'
+                                 owner_draw:  'personal' | 'debt_payment' |
+                                              'restock' | 'opex' | 'other'
                                  opex/capex:  rent | utilities | transport |
                                               supplies | equipment |
                                               furniture | restock | other
@@ -387,7 +387,7 @@
     Money Out  = SUM(amount WHERE type IN ('owner_draw','opex','capex'))
     Net        = Money In − Money Out
     Utang      = SUM(amount WHERE type='capital_in'  AND category='borrowed')
-               − SUM(amount WHERE type='owner_draw' AND category='loan_payment')
+               − SUM(amount WHERE type='owner_draw' AND category='debt_payment')
 
   SCHEMA ALTERATIONS (Phase 5):
   ─────────────────────────────────────────────────────────────
@@ -604,26 +604,26 @@
     GET    /summary        Auth required
       Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (default: current month)
       → 200 { success, data: {
-                moneyIn, moneyOut, net, utang,
-                byType: { capital_in, owner_draw, opex, capex },
+                moneyIn, moneyOut, net, debtBalance,
+                byType: { capital_in, owner_draw, opex, capex, sales_revenue },
                 byCategory: { <category>: <total>, ... }
               } }
-      utang = SUM(capital_in WHERE category='borrowed')
-            − SUM(owner_draw WHERE category='loan_payment')
+      debtBalance = SUM(capital_in WHERE category='borrowed')
+                  − SUM(owner_draw WHERE category='debt_payment')
       (period-independent — reflects current outstanding balance)
 
     POST   /               Auth required
       Body: { type, category, amount, description?, occurred_at }
       type: 'capital_in' | 'owner_draw' | 'opex' | 'capex'
       category: validated against type-specific allowed values
+      occurred_at: YYYY-MM-DD format (validated server-side)
       → 201 { success, data: CashMovement }
       → 400 validation error
 
     PUT    /:id            Auth required
       Body: Same as POST (full update)
       → 200 { success, data: CashMovement }
-      Auto-created restock entries are read-only (edit the
-      inventory_adjustment instead).
+      Auto-created entries (source ≠ 'manual') are read-only.
 
     DELETE /:id            Auth + Admin required
       Soft delete (sets is_active = 0).
@@ -697,7 +697,7 @@
     GROQ_API_KEY       Groq API key (primary AI provider)
                        Free at console.groq.com — no billing required
     AI_CACHE_TTL_SEC   300      Cache TTL for AI responses in seconds
-    AI_MAX_TOKENS      500      Token budget cap per AI request
+    AI_MAX_TOKENS      600      Token budget cap per AI request
 
   Example .env file:
 
@@ -1248,7 +1248,7 @@
 
     type=owner_draw:
       'personal'      Sariling gamit / household
-      'debt_payment'  Bayad sa utang (notes capture which loan)
+      'debt_payment'  Bayad sa utang / loan repayment (notes capture which loan)
       'restock'       Stock purchase recorded as owner withdrawal
       'opex'          Operating expense drawn by owner
       'other'         Iba pa

@@ -43,13 +43,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (memberSinceEl) {
-      const today = new Date();
-      const formattedDate = today.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-      memberSinceEl.textContent = formattedDate;
+      const createdAt = currentUser.createdAt ? new Date(currentUser.createdAt) : null;
+      memberSinceEl.textContent = createdAt && !isNaN(createdAt)
+        ? createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+        : '—';
     }
 
     // ── Preferences DB sync ──

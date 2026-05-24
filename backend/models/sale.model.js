@@ -63,6 +63,7 @@ const getAll = async (filters = {}) => {
   if (filters.to)   { conds.push('DATE(s.created_at) <= ?'); params.push(filters.to); }
   if (conds.length) sql += ' WHERE ' + conds.join(' AND ');
   sql += ' ORDER BY s.created_at DESC';
+  if (filters.limit) { sql += ' LIMIT ?'; params.push(filters.limit); }
 
   const [saleRows] = await db.query(sql, params);
   if (saleRows.length === 0) return [];

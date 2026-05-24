@@ -1,5 +1,7 @@
 const Cashflow = require('../models/cashflow.model');
 
+const DATE_RE = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/;
+
 function validateCategory(type, category) {
   const allowed = Cashflow.CATEGORY_BY_TYPE[type];
   // null means free-form — any non-empty string is valid
@@ -50,8 +52,8 @@ const create = async (req, res, next) => {
     if (!amount || typeof amount !== 'number' || amount <= 0)
       return res.status(400).json({ success: false, message: 'amount must be a positive number' });
 
-    if (!occurred_at)
-      return res.status(400).json({ success: false, message: 'occurred_at date is required' });
+    if (!occurred_at || !DATE_RE.test(occurred_at))
+      return res.status(400).json({ success: false, message: 'occurred_at must be a valid date in YYYY-MM-DD format' });
 
     const catError = validateCategory(type, category);
     if (catError) return res.status(400).json({ success: false, message: catError });
@@ -89,8 +91,8 @@ const update = async (req, res, next) => {
     if (!amount || typeof amount !== 'number' || amount <= 0)
       return res.status(400).json({ success: false, message: 'amount must be a positive number' });
 
-    if (!occurred_at)
-      return res.status(400).json({ success: false, message: 'occurred_at date is required' });
+    if (!occurred_at || !DATE_RE.test(occurred_at))
+      return res.status(400).json({ success: false, message: 'occurred_at must be a valid date in YYYY-MM-DD format' });
 
     const catError = validateCategory(type, category);
     if (catError) return res.status(400).json({ success: false, message: catError });

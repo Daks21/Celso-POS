@@ -165,7 +165,7 @@ function _cachePreferences(prefs, userId) {
     lowStockThreshold: 50, stockColors: { ok: '#5a9e6f', low: '#eab308', out: '#dc2626' },
     dashboardRecentCount: 5, dashboardWidgets: [],
     navLabel: 'app', logoTarget: 'order.html', showThemeToggle: false,
-    financeDebtBalanceVisible: true,
+    financeDebtBalanceVisible: true, osEnabled: false,
   };
   var p = Object.assign({}, DEFAULTS, prefs);
 
@@ -186,4 +186,11 @@ function _cachePreferences(prefs, userId) {
     logoTarget:      p.logoTarget,
     showThemeToggle: p.showThemeToggle,
   }));
+
+  // Restore Os feature toggle into the user-specific prefs blob
+  var userPrefsKey = 'prefs_' + String(userId);
+  var userPrefs = {};
+  try { userPrefs = JSON.parse(localStorage.getItem(userPrefsKey) || '{}'); } catch (e) {}
+  userPrefs.osEnabled = p.osEnabled === true;
+  localStorage.setItem(userPrefsKey, JSON.stringify(userPrefs));
 }

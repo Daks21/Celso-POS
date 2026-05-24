@@ -405,7 +405,7 @@ function _renderStockAlerts(products, page) {
     var stockStr = p.stock + ' ' + (p.unit || 'pc') + (p.stock !== 1 ? 's' : '');
     html +=
       '<tr>' +
-        '<td><strong>' + p.name + '</strong></td>' +
+        '<td><strong>' + escapeHtml(p.name) + '</strong></td>' +
         '<td class="low-stock-qty">' + stockStr + '</td>' +
         '<td>' +
           '<span class="stock-status-inline">' +
@@ -559,10 +559,13 @@ async function initDashboard() {
   var alertItems = (summary.lowStockItems || []).filter(function (p) { return getStockStatus(p.stock).key !== 'ok'; });
   _renderStockAlerts(alertItems, 1);
 
-  // Recent transactions
+  // Recent transactions — fetch last 90 days to avoid loading full history
   var txSalesResult;
   try {
-    txSalesResult = await getSales();
+    var _txFrom = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(
+      new Date(Date.now() - 90 * 86400000)
+    );
+    txSalesResult = await getSales({ from: _txFrom });
   } catch (err) {
     showApiError('Network error. Is the server running?');
     txSalesResult = { data: [] };
@@ -679,10 +682,11 @@ if (refreshBtn) refreshBtn.addEventListener('click', loadOsBrief);
   function buildPopover(items) {
     var html = '';
     items.forEach(function (item) {
-      var lineFmt = _formatPeso(item.lineTotal || (item.price * item.quantity));
+      var lineFmt  = _formatPeso(item.lineTotal || (item.price * item.quantity));
+      var safeName = escapeHtml(item.name);
       html +=
         '<div class="items-popover-row">' +
-          '<span class="items-popover-name" title="' + item.name + '">' + item.name + '</span>' +
+          '<span class="items-popover-name" title="' + safeName + '">' + safeName + '</span>' +
           '<span class="items-popover-qty">&times;' + item.quantity + '&nbsp;&nbsp;' + lineFmt + '</span>' +
         '</div>';
     });

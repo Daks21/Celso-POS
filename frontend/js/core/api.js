@@ -1,4 +1,8 @@
-const BASE_URL = 'http://localhost:3000/api';
+const BASE_URL = (function () {
+  var h = window.location.hostname;
+  if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:3000/api';
+  return window.location.origin + '/api';
+})();
 
 async function apiCall(endpoint, options = {}) {
   const token = localStorage.getItem('token');

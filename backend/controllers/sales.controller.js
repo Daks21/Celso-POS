@@ -3,8 +3,9 @@ const productModel = require('../models/product.model');
 
 const getSales = async (req, res, next) => {
   try {
-    const { from, to } = req.query;
-    const sales = await saleModel.getAll({ from, to });
+    const { from, to, limit } = req.query;
+    const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+    const sales = await saleModel.getAll({ from, to, limit: parsedLimit && parsedLimit > 0 ? parsedLimit : undefined });
     res.status(200).json({ success: true, data: sales });
   } catch (err) {
     next(err);

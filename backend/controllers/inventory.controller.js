@@ -70,6 +70,7 @@ const adjust = async (req, res, next) => {
       ? {
           recordExpense: true,
           totalPaid:     Number(totalPaid),
+          unitCost:      Number(totalPaid) / quantity,
           paymentMethod: paymentMethod || null,
           supplierName:  supplierName  || null,
         }
