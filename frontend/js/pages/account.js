@@ -312,6 +312,18 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     );
 
+    // ── Restart Onboarding ──
+    var restartOnboardingBtn = document.getElementById('restart-onboarding-btn');
+    if (restartOnboardingBtn) {
+      restartOnboardingBtn.addEventListener('click', function () {
+        var ok = confirm('Restart the onboarding flow? You\'ll be taken back to the Dashboard and see the welcome modal, setup checklist, and page tours again.');
+        if (!ok) return;
+        if (typeof OnboardingCore !== 'undefined') {
+          OnboardingCore.resetAll(); // resetAll already redirects to dashboard.html
+        }
+      });
+    }
+
     // ── Dashboard Preferences ──
     initRadioGroup(
       'recent-tx-count-group',

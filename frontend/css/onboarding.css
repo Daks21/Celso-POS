@@ -74,6 +74,7 @@
 }
 
 .onb-welcome-modal {
+  position: relative;
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   padding: 40px;
@@ -81,6 +82,39 @@
   max-width: 480px;
   box-shadow: var(--shadow-lg);
   animation: onbFadeUp 0.3s var(--transition-bounce) forwards;
+}
+
+/* Drag-handle bar — hidden on desktop, shown when modal becomes a bottom sheet */
+.onb-welcome-handle {
+  display: none;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border);
+  margin: 0 auto 16px;
+}
+
+.onb-welcome-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.onb-welcome-close:hover {
+  background: var(--color-background);
+  color: var(--color-text);
 }
 
 .onb-welcome-panel {
@@ -280,9 +314,26 @@
   transition: color 0.15s ease;
 }
 
-a.onb-checklist-label:hover {
+/* Whole-row link: full-width tap target for mobile, hover state for desktop */
+.onb-checklist-row-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  padding: 6px 8px;
+  margin: -6px -8px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  min-height: 36px;
+  transition: background 0.15s ease;
+}
+
+.onb-checklist-row-link:hover {
+  background: var(--color-background);
+}
+
+.onb-checklist-row-link:hover .onb-checklist-label {
   color: var(--color-primary);
-  text-decoration: underline;
 }
 
 .onb-item--done .onb-checklist-label {
@@ -393,11 +444,54 @@ a.onb-checklist-label:hover {
   min-height: 44px;
 }
 
-.onb-tooltip-step-counter {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  text-align: right;
-  margin-top: 10px;
+.onb-tooltip-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.onb-tip-dot {
+  height: 6px;
+  width: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  transition: width 0.25s ease, background 0.25s ease;
+}
+
+.onb-tip-dot--active {
+  width: 18px;
+  background: var(--color-primary);
+}
+
+/* Celebration view (last-step completion) */
+.onb-tooltip--celebrate {
+  width: 280px;
+  max-width: 90vw;
+  text-align: center;
+  animation: onbFadeUp 0.25s var(--transition-bounce) forwards;
+}
+
+.onb-tour-celebrate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0 4px;
+}
+
+.onb-tour-celebrate p {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 0;
+}
+
+/* Hide the FAB while a tour is active so it can't be tapped through the overlay
+   or distract from the focused step */
+body.onb-tour-active .fab,
+body.onb-tour-active #new-sale-fab {
+  display: none !important;
 }
 
 /* ── 6. EMPTY STATES ────────────────────────────────────────── */
@@ -460,7 +554,18 @@ a.onb-checklist-label:hover {
   .onb-welcome-modal {
     max-width: 100%;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    padding: 28px 24px 36px;
+    padding: 20px 24px 36px;
+  }
+
+  /* Drag-handle bar visible at bottom-sheet sizes for affordance */
+  .onb-welcome-handle {
+    display: block;
+  }
+
+  /* Close button sits above the handle on mobile to stay tappable */
+  .onb-welcome-close {
+    top: 8px;
+    right: 8px;
   }
 
   .onb-welcome-steps {
@@ -490,5 +595,18 @@ a.onb-checklist-label:hover {
     border-radius: var(--radius-sm);
     margin-left: -4px;
     margin-right: -4px;
+  }
+}
+
+/* Very narrow phones — switch 4-pill row to a 2x2 grid so "Log starting capital"
+   doesn't get squeezed to 3 lines at ~70px width */
+@media (max-width: 380px) {
+  .onb-welcome-steps {
+    flex-wrap: wrap;
+  }
+
+  .onb-step {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
   }
 }

@@ -297,7 +297,7 @@ document.addEventListener('keydown', function(e) {
 var SidebarProgress = (function () {
 
   var ROLE_KEYS = {
-    admin:   ['addProduct', 'restock', 'makeSale', 'viewDashboard'],
+    admin:   ['logCapital', 'addProduct', 'restock', 'makeSale', 'viewDashboard'],
     cashier: ['makeSale', 'viewHistory'],
   };
 

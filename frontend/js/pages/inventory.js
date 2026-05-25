@@ -269,8 +269,14 @@ async function refreshInventory() {
   applyFilters();
   loadOsRestock(); // non-blocking — inventory table never waits for AI
 
+  // Gate the inventory tour: only fire when the table has at least one product
+  // with a stock row rendered. Otherwise the .action-btn / .stock-dot steps
+  // silently skip and the user misses the stock-status-colors explanation.
   if (typeof OnboardingTour !== 'undefined' && typeof OnboardingTours !== 'undefined') {
-    OnboardingTour.start('inventory', OnboardingTours.inventory);
+    var hasInventoryRows = !!document.querySelector('#inventory-table-body .stock-dot');
+    if (hasInventoryRows) {
+      OnboardingTour.start('inventory', OnboardingTours.inventory);
+    }
   }
 }
 

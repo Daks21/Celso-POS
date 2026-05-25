@@ -557,6 +557,13 @@ financeForm.addEventListener('submit', async function (e) {
       : await createFinanceEntry(payload);
 
     if (result && result.success) {
+      if (!editingId && type === 'capital_in' &&
+          typeof OnboardingChecklist !== 'undefined' &&
+          typeof OnboardingCore !== 'undefined' &&
+          OnboardingCore.getUserRole() === 'admin' &&
+          !OnboardingCore.getChecklistProgress().logCapital) {
+        OnboardingChecklist.complete('logCapital');
+      }
       closeModal();
       await loadData();
     } else {
@@ -584,4 +591,8 @@ document.addEventListener('click', function () {
   });
 });
 
-loadData();
+loadData().then(function () {
+  if (typeof OnboardingTour !== 'undefined' && typeof OnboardingTours !== 'undefined') {
+    OnboardingTour.start('finance', OnboardingTours.finance);
+  }
+});

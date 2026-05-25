@@ -8,9 +8,11 @@ const OnboardingCore = (() => {
     tourInventory:      'onboarding_tour_inventory',
     tourOrder:          'onboarding_tour_order',
     tourDashboard:      'onboarding_tour_dashboard',
+    tourFinance:        'onboarding_tour_finance',
   };
 
   const PROGRESS_DEFAULTS = {
+    logCapital:    false,
     addProduct:    false,
     restock:       false,
     makeSale:      false,
@@ -23,6 +25,7 @@ const OnboardingCore = (() => {
     inventory: 'tourInventory',
     order:     'tourOrder',
     dashboard: 'tourDashboard',
+    finance:   'tourFinance',
   };
 
   function getUserRole() {
@@ -79,7 +82,25 @@ const OnboardingCore = (() => {
 
   function resetAll() {
     Object.values(KEYS).forEach(k => localStorage.removeItem(k));
-    console.log('[Onboarding] State reset. Reload the page to restart the flow.');
+    console.log('[Onboarding] State reset. Redirecting to Dashboard...');
+    window.location.replace('dashboard.html');
+  }
+
+  function isOnDashboard() {
+    var path = window.location.pathname.toLowerCase().replace(/\\/g, '/');
+    return /\/dashboard\.html$/.test(path);
+  }
+
+  function guardFirstLogin() {
+    if (isOnDashboard()) return;
+
+    var user = null;
+    try { user = JSON.parse(localStorage.getItem('currentUser') || 'null'); } catch (e) {}
+    if (!user) return; // not authenticated — checkAuth() on the page handles redirect to login
+
+    if (!isFirstLogin()) return; // welcome already seen — no guard needed
+
+    window.location.replace('dashboard.html');
   }
 
   // ── Empty state helpers ──
@@ -177,6 +198,13 @@ const OnboardingCore = (() => {
     markTourSeen,
     resetAll,
     renderEmptyState,
+    guardFirstLogin,
   };
 
 })();
+
+// Safety guard: first-time users must always start at the Dashboard.
+// Runs synchronously on every page that loads onboarding.core.js — covers
+// direct URL access, console-triggered resetAll() from a non-dashboard page,
+// and any other path that bypasses the normal post-login redirect.
+OnboardingCore.guardFirstLogin();

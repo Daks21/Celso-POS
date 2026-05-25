@@ -9,7 +9,7 @@ const OnboardingWelcome = (() => {
   </svg>`;
 
   const PANEL_2_COPY = {
-    admin:   'Your store dashboard is ready. Start by adding the products you sell.',
+    admin:   'Your store dashboard is ready. Start by logging your starting capital, then add the products you sell.',
     cashier: 'Your POS is ready. Start by making your first sale.',
   };
 
@@ -25,28 +25,36 @@ const OnboardingWelcome = (() => {
     const desc = PANEL_2_COPY[role] || PANEL_2_COPY.cashier;
 
     const html = `
-<div id="onb-welcome-overlay" class="onb-overlay onb-overlay--welcome">
+<div id="onb-welcome-overlay" class="onb-overlay onb-overlay--welcome"
+     role="dialog" aria-modal="true" aria-labelledby="onb-welcome-title">
   <div class="onb-welcome-modal">
+
+    <div class="onb-welcome-handle" aria-hidden="true"></div>
+    <button type="button" class="onb-welcome-close" id="onb-welcome-close" aria-label="Close welcome">&#10005;</button>
 
     <div class="onb-welcome-panel" id="onb-panel-1">
       <div class="onb-welcome-icon">${STORE_ICON}</div>
-      <h2>Welcome to Celso POS</h2>
+      <h2 id="onb-welcome-title">Welcome to Celso POS</h2>
       <p>Everything you need to manage your store — products, stock, sales, and your money — all in one place.</p>
       <div class="onb-welcome-steps">
         <div class="onb-step">
           <span class="onb-step-num">1</span>
-          <span>Add your products</span>
+          <span>Log starting capital</span>
         </div>
         <div class="onb-step">
           <span class="onb-step-num">2</span>
-          <span>Restock them</span>
+          <span>Add your products</span>
         </div>
         <div class="onb-step">
           <span class="onb-step-num">3</span>
+          <span>Restock them</span>
+        </div>
+        <div class="onb-step">
+          <span class="onb-step-num">4</span>
           <span>Make your first sale</span>
         </div>
       </div>
-      <button class="onb-btn-primary" id="onb-welcome-next">Next →</button>
+      <button type="button" class="onb-btn-primary" id="onb-welcome-next">Next →</button>
     </div>
 
     <div class="onb-welcome-panel onb-hidden" id="onb-panel-2">
@@ -59,7 +67,7 @@ const OnboardingWelcome = (() => {
       </div>
       <h2>You're all set.</h2>
       <p id="onb-panel-2-desc">${desc}</p>
-      <button class="onb-btn-primary" id="onb-welcome-done">Let's Go</button>
+      <button type="button" class="onb-btn-primary" id="onb-welcome-done">Let's Go</button>
     </div>
 
     <div class="onb-dots">
@@ -73,6 +81,13 @@ const OnboardingWelcome = (() => {
     document.body.insertAdjacentHTML('beforeend', html);
     var _scrollEl = document.querySelector('.page-body') || document.body;
     _scrollEl.style.overflow = 'hidden';
+
+    // Move focus into the modal so screen readers announce it and Esc handler
+    // (which is global) is reachable from anywhere.
+    setTimeout(function () {
+      var first = document.getElementById('onb-welcome-next');
+      if (first) first.focus();
+    }, 50);
   }
 
   function bindEvents() {
@@ -82,6 +97,36 @@ const OnboardingWelcome = (() => {
     document.getElementById('onb-welcome-done').addEventListener('click', function () {
       close();
     });
+    document.getElementById('onb-welcome-close').addEventListener('click', close);
+
+    document.addEventListener('keydown', _onKey);
+
+    // Focus trap — Tab cycles within the modal
+    var overlay = document.getElementById('onb-welcome-overlay');
+    if (overlay) overlay.addEventListener('keydown', _trapFocus);
+  }
+
+  function _onKey(e) {
+    if (!document.getElementById('onb-welcome-overlay')) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+    }
+  }
+
+  function _trapFocus(e) {
+    if (e.key !== 'Tab') return;
+    var overlay = document.getElementById('onb-welcome-overlay');
+    if (!overlay) return;
+    var focusables = overlay.querySelectorAll('button:not([disabled])');
+    if (!focusables.length) return;
+    var first = focusables[0];
+    var last  = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
   }
 
   function showPanel(num) {
@@ -95,6 +140,8 @@ const OnboardingWelcome = (() => {
       panel2.classList.remove('onb-hidden');
       dot1.classList.remove('onb-dot--active');
       dot2.classList.add('onb-dot--active');
+      var done = document.getElementById('onb-welcome-done');
+      if (done) done.focus();
     } else {
       panel2.classList.add('onb-hidden');
       panel1.classList.remove('onb-hidden');
@@ -105,6 +152,7 @@ const OnboardingWelcome = (() => {
 
   function close() {
     OnboardingCore.markWelcomeSeen();
+    document.removeEventListener('keydown', _onKey);
 
     const overlay = document.getElementById('onb-welcome-overlay');
     if (overlay) overlay.remove();

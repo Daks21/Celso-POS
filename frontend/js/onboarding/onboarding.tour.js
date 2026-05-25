@@ -5,6 +5,24 @@ const OnboardingTour = (() => {
   let page         = '';
   let _resizeTimer = null;
   let _scrollEl    = null;
+  let _hiddenFab   = null;
+
+  const MOBILE_MAX_WIDTH = 768;
+
+  // ── Helpers ──
+
+  function isMobileViewport() {
+    return window.innerWidth <= MOBILE_MAX_WIDTH;
+  }
+
+  // Resolves the target selector, preferring `mobileTarget` on small viewports
+  function resolveTarget(step) {
+    if (isMobileViewport() && step.mobileTarget) {
+      var mEl = document.querySelector(step.mobileTarget);
+      if (mEl) return mEl;
+    }
+    return document.querySelector(step.target);
+  }
 
   // ── DOM injection ──
 
@@ -14,6 +32,7 @@ const OnboardingTour = (() => {
     document.body.insertAdjacentHTML('beforeend',
       '<div id="onb-tour-overlay" class="onb-tour-overlay">' +
         '<svg id="onb-spotlight-svg" xmlns="http://www.w3.org/2000/svg"' +
+            ' aria-hidden="true"' +
             ' style="position:absolute;top:0;left:0;width:100%;height:100%">' +
           '<defs>' +
             '<mask id="onb-spotlight-mask">' +
@@ -26,14 +45,17 @@ const OnboardingTour = (() => {
                ' fill="rgba(0,0,0,0.55)"' +
                ' mask="url(#onb-spotlight-mask)"/>' +
         '</svg>' +
-        '<div id="onb-tooltip" class="onb-tooltip">' +
+        '<div id="onb-tooltip" class="onb-tooltip"' +
+            ' role="dialog" aria-modal="true"' +
+            ' aria-labelledby="onb-tip-title" aria-describedby="onb-tip-body"' +
+            ' aria-live="polite">' +
           '<div class="onb-tooltip-title" id="onb-tip-title"></div>' +
           '<div class="onb-tooltip-body"  id="onb-tip-body"></div>' +
+          '<div class="onb-tooltip-dots" id="onb-tip-dots"></div>' +
           '<div class="onb-tooltip-footer">' +
-            '<button class="onb-btn-ghost"   id="onb-tour-skip">Skip Tour</button>' +
-            '<button class="onb-btn-primary" id="onb-tour-next">Next →</button>' +
+            '<button type="button" class="onb-btn-ghost"   id="onb-tour-skip">Skip Tour</button>' +
+            '<button type="button" class="onb-btn-primary" id="onb-tour-next">Next →</button>' +
           '</div>' +
-          '<div class="onb-tooltip-step-counter" id="onb-step-counter"></div>' +
         '</div>' +
       '</div>'
     );
@@ -41,6 +63,26 @@ const OnboardingTour = (() => {
     document.getElementById('onb-tour-skip').addEventListener('click', skip);
     document.getElementById('onb-tour-next').addEventListener('click', next);
     window.addEventListener('resize', _onResize);
+    document.addEventListener('keydown', _onKey);
+  }
+
+  // ── Keyboard support ──
+
+  function _onKey(e) {
+    if (!document.getElementById('onb-tour-overlay')) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      skip();
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      // Only fire next() when NO specific button is focused — otherwise let
+      // the focused button handle Enter/Space natively via its click event,
+      // so Skip doesn't accidentally trigger next() and vice versa.
+      var active = document.activeElement;
+      if (!active || active === document.body) {
+        e.preventDefault();
+        next();
+      }
+    }
   }
 
   // ── Resize handler — recalculates spotlight + tooltip for current step ──
@@ -60,16 +102,34 @@ const OnboardingTour = (() => {
     var step = steps[index];
     if (!step) { finish(); return; }
 
-    var el = document.querySelector(step.target);
+    var el = resolveTarget(step);
     if (!el) { next(); return; }
 
+    // Scroll first while overflow is unlocked, then lock. Prevents iOS Safari
+    // and some Android browsers from refusing programmatic scroll when the
+    // scroll container has overflow:hidden.
+    if (_scrollEl) _scrollEl.style.overflow = '';
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     setTimeout(function () {
+      if (_scrollEl) _scrollEl.style.overflow = 'hidden';
       var rect = el.getBoundingClientRect();
       updateSpotlight(rect);
       updateTooltip(step, index, rect);
+      renderDots(index);
+      var nextBtn = document.getElementById('onb-tour-next');
+      if (nextBtn) nextBtn.focus();
     }, 350);
+  }
+
+  function renderDots(index) {
+    var el = document.getElementById('onb-tip-dots');
+    if (!el) return;
+    var html = '';
+    for (var i = 0; i < steps.length; i++) {
+      html += '<span class="onb-tip-dot' + (i === index ? ' onb-tip-dot--active' : '') + '"></span>';
+    }
+    el.innerHTML = html;
   }
 
   function updateSpotlight(rect) {
@@ -107,8 +167,6 @@ const OnboardingTour = (() => {
     // Set content first so offsetHeight reflects actual rendered height
     document.getElementById('onb-tip-title').textContent    = step.title;
     document.getElementById('onb-tip-body').textContent     = step.body;
-    document.getElementById('onb-step-counter').textContent =
-      'Step ' + (index + 1) + ' of ' + steps.length;
 
     var nextBtn = document.getElementById('onb-tour-next');
     nextBtn.textContent = (index === steps.length - 1) ? 'Done' : 'Next →';
@@ -158,22 +216,59 @@ const OnboardingTour = (() => {
   // ── Flow control ──
 
   function next() {
-    current++;
-    if (current >= steps.length) {
-      finish();
-    } else {
-      showStep(current);
+    if (current >= steps.length - 1) {
+      celebrateThenFinish();
+      return;
     }
+    current++;
+    showStep(current);
   }
 
   function skip() {
     finish();
   }
 
+  function celebrateThenFinish() {
+    var tooltip = document.getElementById('onb-tooltip');
+    var hole    = document.getElementById('onb-spotlight-hole');
+    if (!tooltip) { finish(); return; }
+
+    // Collapse the spotlight hole so the overlay dims uniformly
+    if (hole) {
+      hole.setAttribute('x', '-200');
+      hole.setAttribute('y', '-200');
+      hole.setAttribute('width', '0');
+      hole.setAttribute('height', '0');
+    }
+
+    tooltip.classList.add('onb-tooltip--celebrate');
+    tooltip.style.top    = '';
+    tooltip.style.right  = '';
+    tooltip.style.bottom = '';
+    tooltip.style.left   = '50%';
+    tooltip.style.top    = '50%';
+    tooltip.style.transform = 'translate(-50%, -50%)';
+
+    tooltip.innerHTML =
+      '<div class="onb-tour-celebrate">' +
+        '<svg viewBox="0 0 24 24" width="48" height="48" aria-hidden="true">' +
+          '<circle cx="12" cy="12" r="12" fill="var(--color-primary)"/>' +
+          '<path d="M7 12l4 4 6-7" stroke="#fff" stroke-width="2"' +
+            ' stroke-linecap="round" stroke-linejoin="round" fill="none"/>' +
+        '</svg>' +
+        '<p>Nice! You finished the tour.</p>' +
+      '</div>';
+
+    setTimeout(finish, 1400);
+  }
+
   function finish() {
     OnboardingCore.markTourSeen(page);
     window.removeEventListener('resize', _onResize);
+    document.removeEventListener('keydown', _onKey);
     if (_scrollEl) { _scrollEl.style.overflow = ''; _scrollEl = null; }
+    document.body.classList.remove('onb-tour-active');
+    if (_hiddenFab) { _hiddenFab.style.display = ''; _hiddenFab = null; }
     var overlay = document.getElementById('onb-tour-overlay');
     if (overlay) overlay.remove();
   }
@@ -185,7 +280,10 @@ const OnboardingTour = (() => {
     steps     = stepArray;
     current   = 0;
     _scrollEl = document.querySelector('.page-body') || document.body;
-    _scrollEl.style.overflow = 'hidden';
+    // Hide the FAB so it can't be tapped through the overlay or distract
+    var fab = document.getElementById('new-sale-fab');
+    if (fab) { _hiddenFab = fab; fab.style.display = 'none'; }
+    document.body.classList.add('onb-tour-active');
     injectDOM();
     showStep(0);
   }

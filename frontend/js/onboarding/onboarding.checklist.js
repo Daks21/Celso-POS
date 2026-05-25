@@ -1,6 +1,7 @@
 const OnboardingChecklist = (() => {
 
   const ADMIN_ITEMS = [
+    { key: 'logCapital',    label: 'Log your starting capital',   link: 'finance.html'   },
     { key: 'addProduct',    label: 'Add your first product',      link: 'products.html'  },
     { key: 'restock',       label: 'Restock it so it has stock',  link: 'inventory.html' },
     { key: 'makeSale',      label: 'Make your first sale',        link: 'order.html'     },
@@ -47,14 +48,20 @@ const OnboardingChecklist = (() => {
     const done      = !!progress[item.key];
     const doneClass = done ? ' onb-item--done' : '';
     const icon      = done ? SVG_DONE : SVG_PENDING;
-    const label     = (item.link && !done)
-      ? '<a href="' + item.link + '" class="onb-checklist-label">' + item.label + '</a>'
-      : '<span class="onb-checklist-label">' + item.label + '</span>';
+    const inner     =
+      '<span class="onb-check-icon">' + icon + '</span>' +
+      '<span class="onb-checklist-label">' + item.label + '</span>';
 
-    return '<li class="onb-checklist-item' + doneClass + '">' +
-             '<span class="onb-check-icon">' + icon + '</span>' +
-             label +
-           '</li>';
+    // When the item has a link and isn't done, the WHOLE row is the anchor —
+    // bigger tap target, better mobile UX. Done items render as <li> only.
+    if (item.link && !done) {
+      return '<li class="onb-checklist-item' + doneClass + '">' +
+               '<a href="' + item.link + '" class="onb-checklist-row-link">' +
+                 inner +
+               '</a>' +
+             '</li>';
+    }
+    return '<li class="onb-checklist-item' + doneClass + '">' + inner + '</li>';
   }
 
   // ── Core functions ──
