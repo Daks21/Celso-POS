@@ -86,16 +86,21 @@ const OnboardingTours = {
     {
       target:   '.summary-card--balance',
       title:    'Your Net Balance',
-      body:     'This is your all-time money — capital in, sales, expenses, and withdrawals combined.',
+      body:     'This is your all-time money — capital you put in, sales, and withdrawals combined.',
       position: 'bottom',
     },
     {
+      // Position 'bottom' (not 'left') — the chart card is the rightmost
+      // summary card, so anchoring left would push the tooltip across the
+      // other cards on desktop. Bottom keeps it out of the way.
       target:   '#cashflow-chart-card',
       title:    'Cash Flow Over Time',
       body:     'See how your money moves day-by-day, week-by-week, or by month — it adapts automatically.',
-      position: 'left',
+      position: 'bottom',
     },
     {
+      // Hidden for non-admin users; the tour engine now auto-skips this
+      // step when the button is display:none.
       target:   '#add-entry-button',
       title:    'Log Capital or Withdrawals',
       body:     'Tap here to log money you put in (capital) or take out (withdrawal, debt payment).',
@@ -103,8 +108,8 @@ const OnboardingTours = {
     },
     {
       target:   '#finance-table',
-      title:    'Sales & Restocks Logged Automatically',
-      body:     'Every sale and every restock-with-cost appears here on its own. You only enter capital and withdrawals manually.',
+      title:    'Sales Appear Automatically',
+      body:     'Sales and restock costs show up here on their own. You only need to manually log capital and withdrawals.',
       position: 'top',
     },
   ],

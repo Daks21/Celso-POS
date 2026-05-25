@@ -24,6 +24,20 @@ const OnboardingTour = (() => {
     return document.querySelector(step.target);
   }
 
+  // Returns true if an element is in the DOM but not actually visible —
+  // display:none, visibility:hidden, or rendered with 0×0 dimensions.
+  // Without this guard, hidden targets (e.g. an admin-only button) leave
+  // getBoundingClientRect at all-zero, which pins the spotlight to the
+  // top-left corner instead of skipping the step cleanly.
+  function isHidden(el) {
+    if (!el) return true;
+    var style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden') return true;
+    var rect = el.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return true;
+    return false;
+  }
+
   // ── DOM injection ──
 
   function injectDOM() {
@@ -103,13 +117,18 @@ const OnboardingTour = (() => {
     if (!step) { finish(); return; }
 
     var el = resolveTarget(step);
-    if (!el) { next(); return; }
+    if (!el || isHidden(el)) { next(); return; }
 
     // Scroll first while overflow is unlocked, then lock. Prevents iOS Safari
     // and some Android browsers from refusing programmatic scroll when the
     // scroll container has overflow:hidden.
+    //
+    // `block: 'nearest'` keeps already-visible targets in place instead of
+    // forcing them to viewport center — that prevented top-of-page targets
+    // (e.g. the finance balance card) from being pushed down with the
+    // tooltip stranded in the lower half of the page.
     if (_scrollEl) _scrollEl.style.overflow = '';
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     setTimeout(function () {
       if (_scrollEl) _scrollEl.style.overflow = 'hidden';
@@ -151,14 +170,33 @@ const OnboardingTour = (() => {
   function resolvePosition(requestedPos, rect) {
     var pos  = requestedPos || 'bottom';
     var GAP  = 12;
+    var PAD  = 8;
     var maxW = Math.min(320, window.innerWidth * 0.9);
+    var THRESHOLD = 180; // approx tooltip footprint (title + body + dots + buttons)
 
-    // 180px threshold accounts for typical tooltip rendered height (~160px) + gap
-    if (rect.top    < 180)                       pos = 'bottom';
-    if (rect.bottom > window.innerHeight - 180)  pos = 'top';
+    // Vertical: only flip top↔bottom when the requested side is too cramped
+    // AND the opposite side has strictly more room. The old logic used two
+    // independent ifs, so when both sides were cramped the second one always
+    // won — which placed the tooltip on the SMALLER side and let it clamp
+    // into the spotlight (the "top:8px over the chart card" bug on small
+    // viewports).
+    if (pos === 'top' || pos === 'bottom') {
+      var roomAbove = rect.top;
+      var roomBelow = window.innerHeight - rect.bottom;
 
-    if (pos === 'right' && rect.right + GAP + maxW > window.innerWidth - 8)  pos = 'bottom';
-    if (pos === 'left'  && rect.left  - GAP - maxW < 8)                      pos = 'bottom';
+      if (pos === 'top' && roomAbove < THRESHOLD && roomBelow > roomAbove) {
+        pos = 'bottom';
+      } else if (pos === 'bottom' && roomBelow < THRESHOLD && roomAbove > roomBelow) {
+        pos = 'top';
+      }
+    }
+
+    // Horizontal: fall back to bottom when there isn't enough room left/right.
+    if (pos === 'right' && rect.right + GAP + maxW > window.innerWidth - PAD) {
+      pos = 'bottom';
+    } else if (pos === 'left' && rect.left - GAP - maxW < PAD) {
+      pos = 'bottom';
+    }
 
     return pos;
   }
