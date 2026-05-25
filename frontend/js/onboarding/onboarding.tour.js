@@ -45,7 +45,7 @@ const OnboardingTour = (() => {
                ' fill="rgba(0,0,0,0.55)"' +
                ' mask="url(#onb-spotlight-mask)"/>' +
         '</svg>' +
-        '<div id="onb-tooltip" class="onb-tooltip"' +
+        '<div id="onb-tooltip" class="onb-tooltip" style="visibility:hidden"' +
             ' role="dialog" aria-modal="true"' +
             ' aria-labelledby="onb-tip-title" aria-describedby="onb-tip-body"' +
             ' aria-live="polite">' +
@@ -211,6 +211,15 @@ const OnboardingTour = (() => {
         tooltip.style.top   = Math.max(PAD, Math.min(cy - th / 2, window.innerHeight - th - PAD)) + 'px';
         break;
     }
+
+    // Reveal at the correct position and replay the fade-up animation.
+    // Setting animation:none, forcing reflow, then clearing lets the CSS
+    // class animation restart from the correct coords instead of the
+    // unpositioned default (which caused the top-of-page flash on step 1).
+    tooltip.style.animation = 'none';
+    void tooltip.offsetHeight;
+    tooltip.style.animation  = '';
+    tooltip.style.visibility = 'visible';
   }
 
   // ── Flow control ──
@@ -241,13 +250,24 @@ const OnboardingTour = (() => {
       hole.setAttribute('height', '0');
     }
 
+    // Clear all inline positioning from the last step. The CSS class
+    // (.onb-tooltip--celebrate) owns centering via top/left 50% +
+    // the onbCelebrateIn animation which ends at translate(-50%, -50%).
+    tooltip.style.top       = '';
+    tooltip.style.right     = '';
+    tooltip.style.bottom    = '';
+    tooltip.style.left      = '';
+    tooltip.style.transform = '';
+    tooltip.style.maxWidth  = '';
+
+    // Force a clean animation restart so the celebrate animation
+    // definitely runs from time 0 (avoids browser quirks where merely
+    // swapping classes with different animation-name doesn't always
+    // restart the animation).
+    tooltip.style.animation = 'none';
+    void tooltip.offsetHeight;
     tooltip.classList.add('onb-tooltip--celebrate');
-    tooltip.style.top    = '';
-    tooltip.style.right  = '';
-    tooltip.style.bottom = '';
-    tooltip.style.left   = '50%';
-    tooltip.style.top    = '50%';
-    tooltip.style.transform = 'translate(-50%, -50%)';
+    tooltip.style.animation = '';
 
     tooltip.innerHTML =
       '<div class="onb-tour-celebrate">' +

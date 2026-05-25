@@ -117,7 +117,7 @@ const OnboardingTours = {
       position: 'bottom',
     },
     {
-      target:   '#stock-alert-table',
+      target:   '#stock-alert-section',
       title:    'Low Stock Alerts',
       body:     'Products running low appear here so you can restock before you run out.',
       position: 'top',
