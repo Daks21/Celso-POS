@@ -1,11 +1,12 @@
 const OnboardingTour = (() => {
 
-  let steps        = [];
-  let current      = 0;
-  let page         = '';
-  let _resizeTimer = null;
-  let _scrollEl    = null;
-  let _hiddenFab   = null;
+  let steps             = [];
+  let current           = 0;
+  let page              = '';
+  let _resizeTimer      = null;
+  let _scrollEl         = null;
+  let _hiddenFab        = null;
+  let _injectedPreviews = []; // tracks preview content/badges so we can fully restore on next/finish
 
   const MOBILE_MAX_WIDTH = 768;
 
@@ -36,6 +37,90 @@ const OnboardingTour = (() => {
     var rect = el.getBoundingClientRect();
     if (rect.width === 0 && rect.height === 0) return true;
     return false;
+  }
+
+  // ── Preview content (tour-only example values) ──
+  //
+  // Brand-new users have no products, no sales, no chart data — every tour
+  // target looks empty (₱0.00, blank tables). To make the tour feel alive
+  // without polluting their real data, each step can declare `preview` —
+  // HTML to inject into the spotlighted element only while that step is
+  // showing. Cleanup runs on next/skip/finish; nothing persists.
+  //
+  // Step schema:
+  //   preview: { selector, html|value, when?, badge? }
+  //   preview: [ { ... }, { ... } ]   // multiple injection points per step
+  //
+  // Fields:
+  //   selector — child of the target where content is injected; omit to use target itself
+  //   html / value — replacement innerHTML
+  //   when — 'empty' (default-skip if data already exists), 'always', or function(el)
+  //   badge — text for the "Example" pill (default: 'Example')
+
+  function isElementEmpty(el) {
+    if (!el) return true;
+    var text = (el.textContent || '').trim();
+    if (text === '' || text === '0') return true;
+    if (/^[₱$€£]\s*0(\.0{1,2})?$/.test(text)) return true; // ₱0, ₱0.00, $0.00, etc.
+    // Containers that only hold an API loading row count as empty too
+    if (el.querySelector && el.querySelector('.api-loading-row')) {
+      var realRows = el.querySelectorAll('tr:not(.api-loading-row)');
+      if (realRows.length === 0) return true;
+    }
+    return false;
+  }
+
+  function injectPreview(step, targetEl) {
+    if (!step || !step.preview || !targetEl) return false;
+    var previewsArr = Array.isArray(step.preview) ? step.preview : [step.preview];
+    var anyInjected = false;
+
+    previewsArr.forEach(function (pv) {
+      var injectEl = pv.selector
+        ? targetEl.querySelector(pv.selector)
+        : targetEl;
+      if (!injectEl) return;
+
+      // Gate: 'empty' (default behavior) skips when real data is already present
+      if (pv.when === 'empty' && !isElementEmpty(injectEl)) return;
+      if (typeof pv.when === 'function' && !pv.when(injectEl)) return;
+      // 'always' (or undefined) → inject unconditionally
+
+      _injectedPreviews.push({
+        injectEl: injectEl,
+        originalHTML: injectEl.innerHTML,
+      });
+      injectEl.innerHTML = pv.html || pv.value || '';
+      anyInjected = true;
+    });
+
+    // One badge per step (top-right of the spotlight) — only added if at
+    // least one injection actually happened, so untouched targets stay clean.
+    if (anyInjected) {
+      targetEl.classList.add('onb-preview-host');
+      var badge = document.createElement('div');
+      badge.className = 'onb-preview-badge';
+      badge.textContent = previewsArr[0].badge || 'Example';
+      targetEl.appendChild(badge);
+      _injectedPreviews.push({ targetEl: targetEl, badge: badge });
+    }
+
+    return anyInjected;
+  }
+
+  function clearPreviews() {
+    _injectedPreviews.forEach(function (p) {
+      if (p.injectEl) {
+        p.injectEl.innerHTML = p.originalHTML;
+      }
+      if (p.badge && p.badge.parentNode) {
+        p.badge.parentNode.removeChild(p.badge);
+      }
+      if (p.targetEl) {
+        p.targetEl.classList.remove('onb-preview-host');
+      }
+    });
+    _injectedPreviews = [];
   }
 
   // ── DOM injection ──
@@ -113,11 +198,18 @@ const OnboardingTour = (() => {
   // ── Step rendering ──
 
   function showStep(index) {
+    // Always clear the previous step's preview before doing anything else.
+    clearPreviews();
+
     var step = steps[index];
     if (!step) { finish(); return; }
 
     var el = resolveTarget(step);
     if (!el || isHidden(el)) { next(); return; }
+
+    // Inject preview BEFORE scroll so any size changes (e.g. adding rows to
+    // an empty table) are reflected in the rect we measure below.
+    var didInject = injectPreview(step, el);
 
     // Scroll first while overflow is unlocked, then lock. Prevents iOS Safari
     // and some Android browsers from refusing programmatic scroll when the
@@ -134,7 +226,7 @@ const OnboardingTour = (() => {
       if (_scrollEl) _scrollEl.style.overflow = 'hidden';
       var rect = el.getBoundingClientRect();
       updateSpotlight(rect);
-      updateTooltip(step, index, rect);
+      updateTooltip(step, index, rect, didInject);
       renderDots(index);
       var nextBtn = document.getElementById('onb-tour-next');
       if (nextBtn) nextBtn.focus();
@@ -201,10 +293,14 @@ const OnboardingTour = (() => {
     return pos;
   }
 
-  function updateTooltip(step, index, rect) {
-    // Set content first so offsetHeight reflects actual rendered height
+  function updateTooltip(step, index, rect, didInject) {
+    // Set content first so offsetHeight reflects actual rendered height.
+    // When preview content was injected (data was empty), swap in the
+    // empty-state copy if the step declared one — keeps the wording honest
+    // ("Example below" vs. asserting the user already has these numbers).
     document.getElementById('onb-tip-title').textContent    = step.title;
-    document.getElementById('onb-tip-body').textContent     = step.body;
+    var bodyText = (didInject && step.bodyWhenEmpty) ? step.bodyWhenEmpty : step.body;
+    document.getElementById('onb-tip-body').textContent     = bodyText;
 
     var nextBtn = document.getElementById('onb-tour-next');
     nextBtn.textContent = (index === steps.length - 1) ? 'Done' : 'Next →';
@@ -276,6 +372,10 @@ const OnboardingTour = (() => {
   }
 
   function celebrateThenFinish() {
+    // Restore real (empty) UI before showing the celebration so the user
+    // doesn't briefly see example data behind the dimmed overlay.
+    clearPreviews();
+
     var tooltip = document.getElementById('onb-tooltip');
     var hole    = document.getElementById('onb-spotlight-hole');
     if (!tooltip) { finish(); return; }
@@ -321,6 +421,9 @@ const OnboardingTour = (() => {
   }
 
   function finish() {
+    // Final safety net — restore any leftover preview content in case
+    // finish() was reached via skip() without going through showStep cleanup.
+    clearPreviews();
     OnboardingCore.markTourSeen(page);
     window.removeEventListener('resize', _onResize);
     document.removeEventListener('keydown', _onKey);
