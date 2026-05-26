@@ -27,6 +27,7 @@ const financeRouter    = require('./routes/finance.routes');
 const aiRouter         = require('./routes/ai.routes');
 const errorMiddleware  = require('./middleware/error.middleware');
 const pool             = require('./config/db.config');
+const dailyBriefJob    = require('./jobs/dailyBriefJob');
 
 const app = express();
 
@@ -90,9 +91,12 @@ app.use(errorMiddleware);
 
 // --- Start server ---
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () =>
-  console.log(`[Server] Celso POS running on port ${PORT}`)
-);
+const server = app.listen(PORT, () => {
+  console.log(`[Server] Celso POS running on port ${PORT}`);
+  // Schedule the 6am Manila daily-brief pre-warm. Sandbox/test instances
+  // (PORT !== 3000) skip it — avoids duplicate jobs racing the same row.
+  if (Number(PORT) === 3000) dailyBriefJob.schedule();
+});
 
 // --- Graceful shutdown ---
 const shutdown = async (signal) => {

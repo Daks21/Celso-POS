@@ -114,7 +114,9 @@
       "PowerShell(node C:\\\\tmp\\\\detect_verify.js)",
       "PowerShell(node C:\\\\tmp\\\\migrate_ai_log.js)",
       "PowerShell(node C:\\\\tmp\\\\migrate_ai_log_root.js)",
-      "PowerShell(node C:\\\\tmp\\\\log_verify.js)"
+      "PowerShell(node C:\\\\tmp\\\\log_verify.js)",
+      "PowerShell(node C:\\\\tmp\\\\migrate_daily_brief.js)",
+      "PowerShell(node C:\\\\tmp\\\\brief_verify.js)"
     ]
   }
 }

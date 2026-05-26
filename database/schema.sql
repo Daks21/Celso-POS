@@ -112,6 +112,20 @@ CREATE TABLE IF NOT EXISTS cash_movements (
 -- One row per inbound AI request. Lets us debug "Os gave a wrong answer"
 -- reports, attribute cost to specific users/endpoints, and watch the
 -- cache hit rate without instrumenting the assistant module itself.
+-- Pre-computed daily summary for the dashboard.
+-- Single-store today → one row per Manila calendar day. The /summary
+-- endpoint reads here first so the dashboard card is instant. A 6am
+-- Manila scheduler pre-warms the row so even the first user of the
+-- day skips the cold-start LLM call.
+CREATE TABLE IF NOT EXISTS daily_brief (
+  brief_date    DATE PRIMARY KEY,
+  payload       TEXT         NOT NULL,                -- JSON: {summary, urgency, tip}
+  tokens_used   INT          DEFAULT NULL,
+  latency_ms    INT          DEFAULT NULL,
+  generated_by  VARCHAR(20)  DEFAULT 'lazy',          -- 'cron' | 'lazy'
+  generated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP
+);
+
 -- No FK on user_id — log rows must survive user deletion so we don't
 -- lose historical cost/debugging context. user_id is just a logged value.
 -- Indexes inlined so this works even if the runtime DB user lacks the

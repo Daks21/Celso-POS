@@ -3,6 +3,7 @@ const { fetchContext, buildContextText } = require('../../ai/context-builder');
 const { OS_SYSTEM_PROMPT }               = require('../../ai/prompts/system');
 const assistant                          = require('../../ai/assistant');
 const aiLog                              = require('../models/aiQueryLog.model');
+const dailyBrief                         = require('../models/dailyBrief.model');
 
 // ── Per-user rate limiter ──────────────────────────────────────
 const userLimits = new Map();
@@ -164,6 +165,43 @@ const chatStream = async (req, res, next) => {
   }
 };
 
+// Shared compute step — used by both the /summary endpoint (lazy path)
+// and the 6am scheduler (pre-warm path). Always writes to daily_brief
+// keyed on Manila today, so subsequent reads in the same day hit cache.
+async function computeAndStoreDailyBrief(generatedBy) {
+  const contextText = await getContextMessage();
+  const question    =
+    contextText + '\n\nGive a brief daily business summary. ' +
+    'Include today\'s performance, top selling item, and one ' +
+    'actionable tip. Return JSON: ' +
+    '{ "summary": "...", "urgency": "low|medium|high", ' +
+    '"tip": "..." }. ' +
+    'Respond ONLY with the JSON object.';
+
+  const t0     = Date.now();
+  const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question, {});
+  const latencyMs = Date.now() - t0;
+
+  let parsed;
+  try {
+    const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+    parsed = JSON.parse(jsonMatch ? jsonMatch[0] : result.text);
+  } catch (_) {
+    parsed = { summary: result.text, urgency: 'low', tip: '' };
+  }
+
+  const today = dailyBrief.manilaToday();
+  await dailyBrief.save({
+    date:        today,
+    payload:     parsed,
+    tokensUsed:  result.tokensUsed,
+    latencyMs,
+    generatedBy: generatedBy || 'lazy',
+  });
+  return { payload: parsed, tokensUsed: result.tokensUsed,
+           latencyMs, provider: result.provider };
+}
+
 // ── GET /api/ai/summary ────────────────────────────────────────
 const dailySummary = async (req, res, next) => {
   try {
@@ -171,30 +209,32 @@ const dailySummary = async (req, res, next) => {
       return res.status(429).json({ success: false,
         message: 'Too many requests. Wait a moment and try again.' });
 
-    const contextText = await getContextMessage();
-    const question    =
-      contextText + '\n\nGive a brief daily business summary. ' +
-      'Include today\'s performance, top selling item, and one ' +
-      'actionable tip. Return JSON: ' +
-      '{ "summary": "...", "urgency": "low|medium|high", ' +
-      '"tip": "..." }. ' +
-      'Respond ONLY with the JSON object.';
-    const t0 = Date.now();
-    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question,
-      { userId: req.user.id });
-    let parsed;
-    try {
-      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
-      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : result.text);
-    } catch (_) {
-      parsed = { summary: result.text, urgency: 'low', tip: '' };
+    const today  = dailyBrief.manilaToday();
+    const cached = await dailyBrief.getForDate(today);
+
+    if (cached) {
+      // Day-scoped persistent cache — instant for everyone after the
+      // first read (or after the 6am cron pre-warm).
+      res.json({ success: true,
+        data: { ...cached.payload, cached: true,
+                generatedBy: cached.generatedBy } });
+      aiLog.log({ userId: req.user.id, endpoint: 'summary',
+        responseLength: JSON.stringify(cached.payload).length,
+        tokensUsed: cached.tokensUsed, provider: 'cache',
+        latencyMs: 0, cached: true });
+      return;
     }
+
+    // Lazy compute: first user of the day pays the cold start, then
+    // everyone else benefits from the DB-backed cache.
+    const t0     = Date.now();
+    const fresh  = await computeAndStoreDailyBrief('lazy');
     res.json({ success: true,
-      data: { ...parsed, cached: result.cached } });
+      data: { ...fresh.payload, cached: false, generatedBy: 'lazy' } });
     aiLog.log({ userId: req.user.id, endpoint: 'summary',
-      responseLength: result.text?.length, tokensUsed: result.tokensUsed,
-      provider: result.provider, latencyMs: Date.now() - t0,
-      cached: result.cached });
+      responseLength: JSON.stringify(fresh.payload).length,
+      tokensUsed: fresh.tokensUsed, provider: fresh.provider,
+      latencyMs: Date.now() - t0, cached: false });
   } catch (err) {
     aiLog.log({ userId: req.user?.id, endpoint: 'summary', error: err.message });
     next(err);
@@ -315,4 +355,5 @@ const profitCoaching = async (req, res, next) => {
 };
 
 module.exports = { chat, chatStream, dailySummary,
-                   restockAdvice, forecast, profitCoaching };
+                   restockAdvice, forecast, profitCoaching,
+                   computeAndStoreDailyBrief };
