@@ -1,3 +1,23 @@
+/* ── Period selector ── */
+
+.finance-period-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.finance-period-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.finance-period-bar .filter-select {
+  min-width: 160px;
+}
+
 /* ── Finance Summary ── */
 
 .finance-summary {
