@@ -589,6 +589,11 @@ html[data-theme="dark"] .analytics-kpi-card.kpi-card-accent {
   color: var(--color-text-muted);
   transition: transform 0.2s ease;
   flex-shrink: 0;
+  transform: rotate(0deg);
+}
+
+.collapsible-toggle[aria-expanded="true"] .collapsible-chevron {
+  transform: rotate(90deg);
 }
 
 .collapsible-content[hidden] { display: none; }

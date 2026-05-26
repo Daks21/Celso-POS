@@ -187,10 +187,16 @@ function _cachePreferences(prefs, userId) {
     showThemeToggle: p.showThemeToggle,
   }));
 
-  // Restore Os feature toggle into the user-specific prefs blob
+  // Restore user-specific prefs blob (Os toggle, advanced analytics, etc.)
   var userPrefsKey = 'prefs_' + String(userId);
   var userPrefs = {};
   try { userPrefs = JSON.parse(localStorage.getItem(userPrefsKey) || '{}'); } catch (e) {}
-  userPrefs.osEnabled = p.osEnabled === true;
+  userPrefs.osEnabled         = p.osEnabled === true;
+  userPrefs.advancedAnalytics = p.advancedAnalytics === true;
+  if (p.monthlyRevenueGoal != null && p.monthlyRevenueGoal !== '') {
+    userPrefs.monthlyRevenueGoal = p.monthlyRevenueGoal;
+  } else {
+    delete userPrefs.monthlyRevenueGoal;
+  }
   localStorage.setItem(userPrefsKey, JSON.stringify(userPrefs));
 }

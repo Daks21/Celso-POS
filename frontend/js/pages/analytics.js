@@ -805,8 +805,8 @@ function initCollapsibleHeatmap() {
   function applyHeatmapState(isOpen) {
     toggle.setAttribute('aria-expanded', String(isOpen));
     content.hidden = !isOpen;
-    var chevron = toggle.querySelector('.collapsible-chevron');
-    if (chevron) chevron.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+    // Rotation is driven by CSS keyed to aria-expanded — see analytics.css.
+    // (Inline style would be wiped when lucide.createIcons() replaces the <i> with <svg>.)
   }
 }
 
