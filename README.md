@@ -554,7 +554,12 @@
     GET    /kpis           Auth required
       Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (default: last 30 days)
       → 200 { success, data: { totalRevenue, transactionCount,
-              avgOrderValue, totalUnits } }
+              avgOrderValue, totalUnits,
+              previous: { totalRevenue, transactionCount,
+                          avgOrderValue, totalUnits },
+              previousRange: { from, to } } }
+      `previous` is the immediately-prior same-length window — used
+      by the analytics page to render period-over-period deltas.
 
     GET    /charts         Auth required
       Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (default: last 30 days)
@@ -563,6 +568,33 @@
       revenueByDay: all dates in range, 0-filled for missing days
       topByRevenue / topByQty: top 5 products each
       byDayOfWeek: array[7] (Sun=0 … Sat=6)
+
+    GET    /profit         Auth required
+      Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (default: last 30 days)
+      → 200 { success, data: { revenue, cogs, grossProfit, margin,
+              byProduct: [{ name, revenue, cogs, profit, units,
+                            margin }],
+              previous: { revenue, cogs, grossProfit, margin },
+              previousRange: { from, to } } }
+      Realized gross profit:
+        grossProfit = SUM(line_total) − SUM(quantity × products.cost)
+      `margin` is a percentage. `byProduct` is the top 10 products
+      ranked by profit in the window. Compared against the
+      immediately-prior same-length window.
+
+    GET    /inventory-health   Auth required
+      Looks back 90 days. Buckets products by movement velocity.
+      Each item carries { id, name, stock, unit, category, price,
+      cost, unitsSold, dailyRate, weeklyRate, daysOfStock,
+      tiedUpCapital }.
+      → 200 { success, data: {
+                windowDays,
+                deadStock:  Item[],   // ≤ 20, no movement, in-stock
+                slowMovers: Item[],   // ≤ 20, ≤ 1 unit/week, in-stock
+                turnover:   Item[],   // ≤ 20, sorted by daysOfStock desc
+                fastMovers: Item[]    // ≤ 10, ≥ 5 units/week
+              } }
+      daysOfStock is null when there's no movement.
 
   ──────────────────────────────────────────────────────────────
   AI ASSISTANT  /api/ai          (Phase 4 COMPLETE)
@@ -910,6 +942,11 @@
         Low Stock Alerts rows and Recent Transactions rows
       - Items popover toggle: show or hide the transaction detail
         popover on the dashboard Recent Transactions table
+      - Advanced Analytics toggle (off by default): unlocks the
+        Tier 2 section on the Analytics page (monthly revenue goal,
+        cashflow snapshot, inventory health, CSV + PDF export)
+      - Monthly revenue goal: optional numeric target used by the
+        Tier 2 goal-tracking card on Analytics
       - Settings sync to the backend database — persist across
         devices and sessions (localStorage is a cache only)
 
@@ -1648,6 +1685,16 @@
                    data during onboarding tours, clean rollback)
     • Module 6.5 — Finance tour added (5 tours total)
     • Module 6.3 — Restart Onboarding button in Account Settings
+    • Analytics — Two-tier dashboard: Tier 1 ships period-over-
+                  period deltas, gross profit / margin, Health
+                  Badge, and collapsible heatmap to all users;
+                  Tier 2 (off-by-default Advanced Analytics
+                  toggle) adds monthly revenue goal, cashflow
+                  snapshot, inventory health, CSV + PDF export.
+                  Backed by /api/analytics/profit and
+                  /api/analytics/inventory-health, plus prior-
+                  window comparison on /api/analytics/kpis.
+                  Zero DB schema changes.
     • QA fixes — accessibility, step counts, celebration modal,
                  finance.html CSS link
 ================================================================

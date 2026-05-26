@@ -339,7 +339,10 @@
 
           <!-- Advanced Analytics Card -->
           <section class="settings-section" id="advanced-analytics">
-            <h2 class="settings-section-title">Advanced Analytics</h2>
+            <h2 class="settings-section-title">
+              Advanced Analytics
+              <span class="beta-badge">BETA</span>
+            </h2>
             <div class="settings-card">
               <div class="settings-row">
                 <div class="settings-label-group">
@@ -348,6 +351,9 @@
                     Adds inventory health, cashflow snapshot, monthly revenue goal,
                     and CSV/PDF export to the Analytics page. Off by default to keep
                     the page simple for everyday use.
+                    <em>These numbers are early estimates — projections use a simple
+                    daily pace and don't yet account for weekly patterns, paydays,
+                    or seasonality.</em>
                   </span>
                 </div>
                 <label class="toggle-switch">
@@ -360,7 +366,9 @@
                 <div class="settings-label-group">
                   <span class="settings-label">Monthly revenue goal</span>
                   <span class="settings-description">
-                    Set a target so the Analytics page shows your progress and a projected end-of-month total.
+                    Set a target so the Analytics page shows your progress against it.
+                    The end-of-month projection is a rough estimate based on your average
+                    daily revenue this month — treat it as a directional guide, not a forecast.
                     Leave blank to hide.
                   </span>
                 </div>
