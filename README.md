@@ -596,6 +596,22 @@
               } }
       daysOfStock is null when there's no movement.
 
+    GET    /projection         Auth required
+      One-stop endpoint for the Monthly Revenue Goal card.
+      Computes a server-side end-of-month projection using:
+        MTD revenue (1st of month → today)
+        + trailing-30-day daily average × days remaining in month
+      Frontend is flagged when history < 14 days (limitedData: true)
+      so it can caveat the estimate instead of presenting a confident
+      number.
+      → 200 { success, data: {
+                currentMonth: { from, to, revenue },
+                trailingDailyAvg, daysOfHistory,
+                daysRemaining, daysInMonth,
+                projection,
+                limitedData   // true when history < 14 days
+              } }
+
   ──────────────────────────────────────────────────────────────
   AI ASSISTANT  /api/ai          (Phase 4 COMPLETE)
   ──────────────────────────────────────────────────────────────
@@ -944,7 +960,7 @@
         popover on the dashboard Recent Transactions table
       - Advanced Analytics toggle (off by default): unlocks the
         Tier 2 section on the Analytics page (monthly revenue goal,
-        cashflow snapshot, inventory health, CSV + PDF export)
+        cashflow snapshot, inventory health)
       - Monthly revenue goal: optional numeric target used by the
         Tier 2 goal-tracking card on Analytics
       - Settings sync to the backend database — persist across
@@ -963,11 +979,18 @@
       - Applied before page paint to prevent flash
 
     Analytics Page
-      - Date range presets: Today, This Week, This Month, etc.
-      - Custom date range picker
-      - KPI cards: revenue, orders, avg order value, units sold
-      - Revenue trend chart, top products, category breakdown
-      - Sales activity heatmap (GitHub-style)
+      - Date range presets: Today, This Week, This Month, Last Month, Custom
+      - Custom date range picker (capped at today; labeled card panel on mobile)
+      - 8 KPI cards with period-over-period deltas:
+          Tier 1 (always visible): Total Revenue, Transactions, Avg Order Value,
+            Units Sold, Gross Profit, Profit Margin
+          Tier 1 static: Total Assets (inventory at cost), Potential Margin
+      - Health Badge: plain-English business health summary (Healthy /
+        Steady / Worth a Look / Needs Attention) computed from revenue
+        and margin deltas — shown on every page load
+      - Charts: Revenue Over Time, Top Products by Revenue, Top Products
+        by Quantity, Sales by Day of Week (busiest day highlighted)
+      - Sales activity heatmap (GitHub-style, always visible, last 12 months)
       - Pinnable charts to dashboard via toggle
 
     Dashboard Analytics Section
@@ -1033,11 +1056,18 @@
       - All endpoints JWT-protected
 
     Module 2.5 — Analytics API
-      - 6 aggregation functions in sale.model.js
+      - Multiple aggregation functions in sale.model.js (summary, heatmap,
+        kpis, charts, profit, profitByProduct, inventoryHealth, goalProjectionInputs)
       - GET /api/analytics/summary: revenue, orders, avg order, units
       - GET /api/analytics/heatmap: daily activity grid (GitHub-style)
-      - GET /api/analytics/kpis: KPI cards with period comparison
-      - GET /api/analytics/charts: revenue trend + category breakdown
+      - GET /api/analytics/kpis: KPI cards with prior-period comparison
+      - GET /api/analytics/charts: revenue trend, top by revenue, top by
+        quantity, revenue by day-of-week
+      - GET /api/analytics/profit: gross profit + margin with prior-period comparison
+      - GET /api/analytics/inventory-health: 90-day velocity buckets
+        (slow movers / dead stock / days-of-stock turnover)
+      - GET /api/analytics/projection: server-side goal projection —
+        MTD revenue + trailing-30-day daily avg × days remaining
       - Date-range filtering; zero-gap daily seeding for chart rendering
 
     Module 2.6 — Inventory API (Role-Protected)
@@ -1685,16 +1715,34 @@
                    data during onboarding tours, clean rollback)
     • Module 6.5 — Finance tour added (5 tours total)
     • Module 6.3 — Restart Onboarding button in Account Settings
-    • Analytics — Two-tier dashboard: Tier 1 ships period-over-
-                  period deltas, gross profit / margin, Health
-                  Badge, and collapsible heatmap to all users;
-                  Tier 2 (off-by-default Advanced Analytics
-                  toggle) adds monthly revenue goal, cashflow
-                  snapshot, inventory health, CSV + PDF export.
-                  Backed by /api/analytics/profit and
-                  /api/analytics/inventory-health, plus prior-
-                  window comparison on /api/analytics/kpis.
-                  Zero DB schema changes.
+    • Analytics — Two-tier dashboard:
+                  Tier 1 (all users): 8 KPI cards with period-over-
+                  period deltas, Gross Profit + Profit Margin KPIs,
+                  Health Badge (Healthy / Steady / Watch / Warning
+                  computed from revenue + margin trends), always-
+                  visible 12-month heatmap, Revenue / Top Products /
+                  Day-of-Week charts, Last Month preset replacing
+                  the prior Last 30 Days button.
+                  Tier 2 (Advanced Analytics toggle, off by default,
+                  BETA badge): Monthly Revenue Goal with inline
+                  editor (set + clear goal without leaving the page),
+                  server-side end-of-month projection via
+                  /api/analytics/projection (trailing-30-day daily
+                  avg × days remaining — no longer naive
+                  revenue÷dayOfMonth math), Cashflow Snapshot
+                  (Money Out / Net / Utang as primary headlines,
+                  Money In secondary, plain-English "what this
+                  means" hint), Inventory Health with 3 tabs
+                  (Slow Movers / Dead Stock / Days of Stock) each
+                  showing a plain-English insight banner above the
+                  table so owners see the "so what?" immediately.
+                  Backed by /api/analytics/profit,
+                  /api/analytics/inventory-health, and
+                  /api/analytics/projection. Zero DB schema changes.
+                  Note: CSV + PDF export was prototyped and fully
+                  removed — raw file exports were confusing to
+                  non-technical owners and duplicated data they
+                  already see on-screen.
     • QA fixes — accessibility, step counts, celebration modal,
                  finance.html CSS link
 ================================================================
