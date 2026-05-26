@@ -201,6 +201,11 @@ async function getFinanceSummary(filters = {}) {
   return apiCall('/finance/summary' + (query ? '?' + query : ''));
 }
 
+async function getFinanceProfit(filters = {}) {
+  const query = new URLSearchParams(filters).toString();
+  return apiCall('/finance/profit' + (query ? '?' + query : ''));
+}
+
 async function createFinanceEntry(data) {
   return apiCall('/finance', {
     method: 'POST',

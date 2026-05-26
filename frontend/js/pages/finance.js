@@ -59,12 +59,35 @@ function formatPeso(amount) {
 }
 
 
-function renderSummary(data) {
+function renderSummary(data, profitData) {
   var net         = Number(data.net);
   var debtBalance = Number(data.debtBalance || 0);
   var showDebt    = localStorage.getItem('financeDebtBalanceVisible') !== 'false';
   var debtClass   = debtBalance > 0 ? 'summary-card--debt summary-card--debt-active' : 'summary-card--debt';
   var debtTrend   = debtBalance > 0 ? 'Outstanding borrowed principal' : 'No outstanding debt';
+
+  var profitHtml = '';
+  if (profitData) {
+    var profit       = Number(profitData.profit);
+    var prevProfit   = Number(profitData.previous && profitData.previous.profit) || 0;
+    var delta        = profit - prevProfit;
+    var profitClass  = profit >= 0 ? 'summary-card--profit summary-card--profit-positive'
+                                    : 'summary-card--profit summary-card--profit-negative';
+    var deltaSign    = delta >= 0 ? '↑' : '↓';
+    var deltaText    = (prevProfit === 0 && profit === 0)
+      ? 'Walang benta pa ngayong buwan'
+      : deltaSign + ' ' + formatPeso(Math.abs(delta)) + ' vs last month';
+
+    profitHtml =
+      '<div class="summary-card ' + profitClass + '">' +
+        '<div class="summary-card-header">' +
+          '<span class="summary-label">Profit · Kita ngayong buwan</span>' +
+          '<div class="summary-icon"><i data-lucide="trending-up"></i></div>' +
+        '</div>' +
+        '<p class="summary-value">' + formatPeso(profit) + '</p>' +
+        '<p class="summary-trend">' + deltaText + '</p>' +
+      '</div>';
+  }
 
   if (showDebt) {
     financeSummaryEl.classList.remove('finance-summary--debt-hidden');
@@ -79,8 +102,9 @@ function renderSummary(data) {
         '<div class="summary-icon"><i data-lucide="wallet"></i></div>' +
       '</div>' +
       '<p class="summary-value">' + formatPeso(net) + '</p>' +
-      '<p class="summary-trend">All-time cash flow</p>' +
+      '<p class="summary-trend">Cash on hand · not the same as profit</p>' +
     '</div>' +
+    profitHtml +
     (showDebt
       ? '<div class="summary-card ' + debtClass + '">' +
           '<div class="summary-card-header">' +
@@ -468,18 +492,20 @@ async function loadData() {
     var fetches = [
       getFinanceMovements(filters),
       getFinanceSummary(filters),
+      getFinanceProfit(),
     ];
     if (hasFilter) fetches.push(getFinanceMovements({}));
 
-    var results   = await Promise.all(fetches);
-    var movResult = results[0];
-    var sumResult = results[1];
-    var allData   = hasFilter
-      ? ((results[2] && results[2].data) || [])
+    var results      = await Promise.all(fetches);
+    var movResult    = results[0];
+    var sumResult    = results[1];
+    var profitResult = results[2];
+    var allData      = hasFilter
+      ? ((results[3] && results[3].data) || [])
       : ((results[0] && results[0].data) || []);
 
     if (sumResult && sumResult.success) {
-      renderSummary(sumResult.data);
+      renderSummary(sumResult.data, profitResult && profitResult.success ? profitResult.data : null);
     }
 
     if (movResult && movResult.success) {

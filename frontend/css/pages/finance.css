@@ -24,6 +24,20 @@
   color: var(--color-danger, #dc2626);
 }
 
+.summary-card--profit {
+  flex: 0 0 240px;
+}
+
+.summary-card--profit-positive .summary-value,
+.summary-card--profit-positive .summary-icon {
+  color: var(--color-primary, #5a9e6f);
+}
+
+.summary-card--profit-negative .summary-value,
+.summary-card--profit-negative .summary-icon {
+  color: var(--color-danger, #dc2626);
+}
+
 .summary-card--chart {
   flex: 1 1 280px;
   min-width: 280px;
@@ -308,6 +322,23 @@ html[data-theme="dark"] #finance-date {
   }
 
   .summary-card--debt .summary-value {
+    font-size: clamp(20px, 5.5vw, 28px);
+    letter-spacing: -0.02em;
+  }
+
+  /* Profit — mirrors Net Balance / Debt Balance */
+  .summary-card--profit {
+    flex: none;
+    width: auto;
+    text-align: center;
+  }
+
+  .summary-card--profit .summary-card-header {
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .summary-card--profit .summary-value {
     font-size: clamp(20px, 5.5vw, 28px);
     letter-spacing: -0.02em;
   }

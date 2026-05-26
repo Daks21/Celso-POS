@@ -5,6 +5,7 @@ const { authMiddleware, adminMiddleware } = require('../middleware/auth.middlewa
 
 router.get('/',       authMiddleware,                controller.getAll);
 router.get('/summary', authMiddleware,               controller.getSummary);
+router.get('/profit',  authMiddleware,               controller.getProfit);
 router.post('/',      authMiddleware, adminMiddleware, controller.create);
 router.put('/:id',    authMiddleware, adminMiddleware, controller.update);
 router.delete('/:id', authMiddleware, adminMiddleware, controller.remove);

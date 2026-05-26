@@ -160,6 +160,32 @@ const getSummary = async (filters = {}) => {
   };
 };
 
+// Period expenses for the Profit card (revenue − COGS − these).
+// Excludes opex with category='restock' because restock cost is already
+// captured as COGS at the moment the item sells — counting it here would
+// double-charge the owner.
+//   - opex (non-restock)                : rent, utilities, supplies, etc.
+//   - owner_draw category='opex'        : "I paid the bill from my pocket"
+//   - capex                             : equipment in-period (no depreciation schema)
+const getPeriodOpex = async (from, to) => {
+  const [[row]] = await db.query(
+    `SELECT
+       COALESCE(SUM(CASE
+         WHEN type='opex' AND (category IS NULL OR category <> 'restock') THEN amount
+         WHEN type='owner_draw' AND category='opex'                       THEN amount
+         ELSE 0
+       END), 0) AS operatingExpense,
+       COALESCE(SUM(CASE WHEN type='capex' THEN amount ELSE 0 END), 0) AS capitalExpense
+     FROM cash_movements
+     WHERE is_active=1 AND occurred_at BETWEEN ? AND ?`,
+    [from, to]
+  );
+  return {
+    operatingExpense: Number(row.operatingExpense),
+    capitalExpense:   Number(row.capitalExpense),
+  };
+};
+
 module.exports = {
   VALID_TYPES,
   CATEGORY_BY_TYPE,
@@ -170,4 +196,5 @@ module.exports = {
   update,
   softDelete,
   getSummary,
+  getPeriodOpex,
 };
