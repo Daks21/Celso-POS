@@ -208,6 +208,21 @@ html[data-theme="dark"] #finance-date {
   font-size: 0.88em;
 }
 
+.entry-source-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--color-text-muted);
+  background: var(--color-border-subtle);
+  border-radius: var(--radius-full);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 /* ── Kebab menu ── */
 
 .kebab-wrapper {

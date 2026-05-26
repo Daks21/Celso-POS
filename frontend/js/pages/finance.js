@@ -501,6 +501,18 @@ function renderMovements(list) {
     var typeLabel = TYPE_LABELS[entry.type] || entry.type;
     var notesHtml, actionsHtml, descHtml;
 
+    // Visible source chip for rows the system created automatically, so
+    // owners can see at a glance why expenses they didn't enter show up.
+    // Grouped sales rows already say "Sales · N transactions" — no chip
+    // needed there.
+    var sourceChipHtml = '';
+    if (!entry._grouped && entry.source && entry.source !== 'manual') {
+      var chipText = entry.source === 'restock' ? 'from Restock'
+                   : entry.source === 'sale'    ? 'from POS'
+                   : 'auto';
+      sourceChipHtml = '<span class="entry-source-chip">' + chipText + '</span>';
+    }
+
     if (entry._grouped) {
       descHtml    = '<span class="type-label">' + typeLabel + '</span>';
       notesHtml   = '<span style="color:var(--color-text-muted);font-size:0.82em;">' + entry.count + ' transaction' + (entry.count !== 1 ? 's' : '') + '</span>';
@@ -508,28 +520,25 @@ function renderMovements(list) {
     } else {
       var catLabel = entry.category ? entry.category.replace(/_/g, ' ') : '';
       descHtml = '<span class="type-label">' + typeLabel + '</span>' +
-        (catLabel ? '<span class="cat-label"> · ' + catLabel + '</span>' : '');
+        (catLabel ? '<span class="cat-label"> · ' + catLabel + '</span>' : '') +
+        sourceChipHtml;
       notesHtml   = (entry.description || '—');
       actionsHtml = '<td class="actions-cell"></td>';
-      if (isAdmin()) {
-        if (entry.source !== 'manual') {
-          actionsHtml = '<td class="actions-cell" style="text-align:center;color:var(--color-text-muted);font-size:0.78em;">auto</td>';
-        } else {
-          actionsHtml =
-            '<td class="actions-cell">' +
-              '<div class="kebab-wrapper">' +
-                '<button type="button" class="kebab-btn finance-kebab-btn" data-id="' + entry.id + '" title="Options">' + SVG_DOTS + '</button>' +
-                '<div class="kebab-dropdown" id="fin-kd-' + entry.id + '">' +
-                  '<button type="button" class="kebab-item finance-edit-item" data-id="' + entry.id + '">' +
-                    '<i data-lucide="pencil"></i> Edit' +
-                  '</button>' +
-                  '<button type="button" class="kebab-item delete-item finance-delete-item" data-id="' + entry.id + '">' +
-                    '<i data-lucide="trash-2"></i> Delete' +
-                  '</button>' +
-                '</div>' +
+      if (isAdmin() && entry.source === 'manual') {
+        actionsHtml =
+          '<td class="actions-cell">' +
+            '<div class="kebab-wrapper">' +
+              '<button type="button" class="kebab-btn finance-kebab-btn" data-id="' + entry.id + '" title="Options">' + SVG_DOTS + '</button>' +
+              '<div class="kebab-dropdown" id="fin-kd-' + entry.id + '">' +
+                '<button type="button" class="kebab-item finance-edit-item" data-id="' + entry.id + '">' +
+                  '<i data-lucide="pencil"></i> Edit' +
+                '</button>' +
+                '<button type="button" class="kebab-item delete-item finance-delete-item" data-id="' + entry.id + '">' +
+                  '<i data-lucide="trash-2"></i> Delete' +
+                '</button>' +
               '</div>' +
-            '</td>';
-        }
+            '</div>' +
+          '</td>';
       }
     }
 
