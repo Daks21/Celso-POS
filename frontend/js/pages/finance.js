@@ -5,9 +5,19 @@ var currentUser = JSON.parse(localStorage.getItem('currentUser'));
 var financeSummaryEl   = document.getElementById('finance-summary');
 var financeTableBody   = document.getElementById('finance-table-body');
 var financeTypeSelect  = document.getElementById('finance-type-select');
-var financePeriodSelect = document.getElementById('finance-period-select');
 var addEntryButton     = document.getElementById('add-entry-button');
 var financeActionsCol  = document.getElementById('finance-actions-col');
+
+// Profit-card period selector options. The selector itself is rendered
+// inside the Profit card on every renderSummary() pass; this constant is
+// the source of truth for the option list.
+var PROFIT_PERIOD_OPTIONS = [
+  { value: 'all-time',      label: 'All Time'     },
+  { value: 'this-month',    label: 'This Month'   },
+  { value: 'last-month',    label: 'Last Month'   },
+  { value: 'last-3-months', label: 'Last 3 Months' },
+  { value: 'this-year',     label: 'This Year'    },
+];
 
 var financeModal      = document.getElementById('finance-modal');
 var closeFinanceModal = document.getElementById('close-finance-modal');
@@ -136,11 +146,18 @@ function renderSummary(data, profitData) {
       subtitle = deltaSign + ' ' + formatPeso(Math.abs(delta)) + ' vs prior period';
     }
 
+    var currentPeriodValue = localStorage.getItem('financePeriod') || 'all-time';
+    var periodSelectHtml = '<select class="profit-period-select" id="profit-period-select" aria-label="Profit period">' +
+      PROFIT_PERIOD_OPTIONS.map(function (o) {
+        return '<option value="' + o.value + '"' + (o.value === currentPeriodValue ? ' selected' : '') + '>' + o.label + '</option>';
+      }).join('') +
+    '</select>';
+
     profitHtml =
       '<div class="summary-card ' + profitClass + '">' +
         '<div class="summary-card-header">' +
           '<span class="summary-label">Profit</span>' +
-          '<div class="summary-icon"><i data-lucide="trending-up"></i></div>' +
+          periodSelectHtml +
         '</div>' +
         '<p class="summary-value">' + formatPeso(profit) + '</p>' +
         '<p class="summary-trend">' + subtitle + '</p>' +
@@ -189,6 +206,16 @@ function renderSummary(data, profitData) {
       '<div class="chart-body" id="cashflow-chart-body"></div>' +
     '</div>';
   if (window.lucide) lucide.createIcons();
+
+  // Wire the in-card Profit period selector. innerHTML replaces the prior
+  // <select> on every render, so the listener is attached fresh each time.
+  var profitPeriodEl = document.getElementById('profit-period-select');
+  if (profitPeriodEl) {
+    profitPeriodEl.addEventListener('change', function () {
+      localStorage.setItem('financePeriod', profitPeriodEl.value);
+      loadData();
+    });
+  }
 }
 
 // ── Cumulative Cash Position Chart ──
@@ -626,9 +653,10 @@ async function loadData() {
       getFinanceMovements(filters),
       getFinanceSummary(filters),
       getFinanceProfit({ from: period.from, to: period.to }),
-      // Chart fetch is always separate so it respects the period selector
-      // and is unaffected by the table's type filter.
-      getFinanceMovements({ from: period.from, to: period.to }),
+      // Chart fetch is always all-time so the period selector inside the
+      // Profit card is scoped to what it visually controls (Profit only).
+      // No type filter either — the chart is unaffected by the table filter.
+      getFinanceMovements({}),
     ];
 
     var results      = await Promise.all(fetches);
@@ -695,16 +723,6 @@ financeTypeSelect.addEventListener('change', function () {
   currentPage = 1;
   loadData();
 });
-
-// Restore the saved period selection, then reload when the user changes it.
-if (financePeriodSelect) {
-  var savedPeriod = localStorage.getItem('financePeriod') || 'all-time';
-  financePeriodSelect.value = savedPeriod;
-  financePeriodSelect.addEventListener('change', function () {
-    localStorage.setItem('financePeriod', financePeriodSelect.value);
-    loadData();
-  });
-}
 
 financeForm.addEventListener('submit', async function (e) {
   e.preventDefault();

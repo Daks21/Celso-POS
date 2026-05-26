@@ -1,21 +1,26 @@
-/* ── Period selector ── */
+/* ── Profit card period selector ── */
 
-.finance-period-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.finance-period-label {
-  font-size: 0.85rem;
+.profit-period-select {
+  font-family: inherit;
+  font-size: 11px;
   font-weight: 500;
   color: var(--color-text-muted);
+  background: var(--color-border-subtle);
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 3px 22px 3px 10px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 10px;
 }
 
-.finance-period-bar .filter-select {
-  min-width: 160px;
+.profit-period-select:focus-visible {
+  outline: 2px solid var(--color-primary, #5a9e6f);
+  outline-offset: 1px;
 }
 
 /* ── Finance Summary ── */
