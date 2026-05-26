@@ -1,4 +1,18 @@
 // frontend/js/pages/ai.js
+//
+// Os AI — Full View page.
+//
+// This is the distraction-free chat surface (linked from the docked
+// widget's header). All streaming + history persistence is delegated
+// to window.OsClient so this file stays UI-only.
+//
+// What lives here:
+//   • Disabled-state card (when osEnabled === false)
+//   • Initial onboarding step cards (first-time-Os-user tour)
+//   • Suggestion chips
+//   • Message rendering + auto-grow input
+//   • Tour re-trigger when the user types "show me around"
+
 (function () {
 
   // ── Onboarding steps (static — no AI calls, no tokens) ───────
@@ -26,8 +40,8 @@
       },
       {
         title:   'Step 3 — Ask Me Anything',
-        message: 'Click Os from the sidebar anytime. Try asking: ' +
-                 '"Magkano pa ang utang ko?" or "Ano best seller natin?"',
+        message: 'Click Os from the sidebar or tap the floating button on any ' +
+                 'page. Try: "Magkano pa ang utang ko?" or "Ano best seller natin?"',
         action:  'Got it — start using Celso POS'
       }
     ],
@@ -52,9 +66,6 @@
       }
     ]
   };
-
-  var chatHistory = [];
-  var isStreaming  = false;
 
   var messagesEl, inputEl, sendBtn, clearBtn, suggestionsEl;
   var disabledState, chatState;
@@ -95,7 +106,6 @@
   function setInputEnabled(enabled) {
     inputEl.disabled = !enabled;
     sendBtn.disabled = !enabled;
-    isStreaming = !enabled;
   }
 
   // ── Suggestions ───────────────────────────────────────────────
@@ -120,12 +130,13 @@
   // ── Clear conversation ────────────────────────────────────────
 
   function clearConversation() {
-    chatHistory = [];
-    sessionStorage.removeItem('osHistory');
+    if (window.OsClient && OsClient.isStreaming()) OsClient.cancel();
+    if (window.OsClient) OsClient.clearHistory();
     while (messagesEl.firstChild) {
       messagesEl.removeChild(messagesEl.firstChild);
     }
     if (suggestionsEl) suggestionsEl.style.display = '';
+    setInputEnabled(true);
   }
 
   // ── Onboarding ────────────────────────────────────────────────
@@ -204,15 +215,17 @@
     scrollToBottom();
   }
 
-  // ── Send message (streaming) ──────────────────────────────────
+  // ── Send message (delegates to OsClient) ──────────────────────
 
-  async function sendMessage() {
+  function sendMessage() {
     var message = inputEl.value.trim();
-    if (!message || isStreaming) return;
+    if (!message) return;
+    if (window.OsClient && OsClient.isStreaming()) return;
 
-    // Tour re-trigger
+    // Tour re-trigger (no AI call needed)
     var lower = message.toLowerCase();
-    if (lower.includes('show me around') || lower.includes('take the tour')) {
+    if (lower.indexOf('show me around') !== -1 ||
+        lower.indexOf('take the tour')   !== -1) {
       inputEl.value        = '';
       inputEl.style.height = 'auto';
       addMessage('user', message);
@@ -220,77 +233,30 @@
       return;
     }
 
-    var token = localStorage.getItem('token');
-    if (!token) return;
-
     hideSuggestions();
     addMessage('user', message);
     inputEl.value        = '';
     inputEl.style.height = 'auto';
     setInputEnabled(false);
 
-    // Keep last 10 turns to avoid token overflow
-    var safeHistory  = chatHistory.slice(-10);
-    var streamBubble = null;
+    var streamBubble = addMessage('assistant', '', true);
 
-    try {
-      const response = await fetch(BASE_URL + '/ai/chat/stream', {
-        method:  'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'Authorization': 'Bearer ' + token,
-        },
-        body: JSON.stringify({ message: message, history: safeHistory }),
-      });
-
-      if (!response.ok) {
-        addMessage('assistant', 'Os is unavailable right now. Please try again.');
-        return;
-      }
-
-      const reader  = response.body.getReader();
-      const decoder = new TextDecoder();
-      streamBubble  = addMessage('assistant', '', true);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
-        for (const line of lines) {
-          const raw = line.slice(6).trim();
-          if (raw === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed.text) {
-              streamBubble.textContent += parsed.text;
-              scrollToBottom();
-            }
-            if (parsed.done) {
-              chatHistory = parsed.history;
-              sessionStorage.setItem('osHistory', JSON.stringify(chatHistory));
-              streamBubble.classList.remove('is-streaming');
-            }
-            if (parsed.error) {
-              streamBubble.textContent = 'Os encountered an error. Please try again.';
-              streamBubble.classList.remove('is-streaming');
-            }
-          } catch (_) {}
-        }
-      }
-
-    } catch (err) {
-      var errMsg = 'Connection lost. Please check your network and try again.';
-      if (streamBubble) {
-        streamBubble.textContent = errMsg;
+    OsClient.sendMessage(message, {
+      onChunk: function (delta) {
+        streamBubble.textContent += delta;
+        scrollToBottom();
+      },
+      onDone: function () {
         streamBubble.classList.remove('is-streaming');
-      } else {
-        addMessage('assistant', errMsg);
-      }
-    } finally {
-      setInputEnabled(true);
-      inputEl.focus();
-    }
+        setInputEnabled(true);
+        inputEl.focus();
+      },
+      onError: function (msg) {
+        streamBubble.textContent = msg;
+        streamBubble.classList.remove('is-streaming');
+        setInputEnabled(true);
+      },
+    });
   }
 
   // ── Init ──────────────────────────────────────────────────────
@@ -315,24 +281,16 @@
     disabledState.style.display = 'none';
     chatState.style.display     = '';
 
-    // Restore conversation from this browser session
-    try {
-      var saved = sessionStorage.getItem('osHistory');
-      if (saved) {
-        chatHistory = JSON.parse(saved);
-        chatHistory.forEach(function (msg) {
-          addMessage(msg.role, msg.content, false);
-        });
-        if (chatHistory.length > 0) hideSuggestions();
-      }
-    } catch (_) { chatHistory = []; }
+    // Restore conversation from OsClient (sessionStorage-backed)
+    if (window.OsClient) {
+      var history = OsClient.getHistory();
+      history.forEach(function (m) { addMessage(m.role, m.content, false); });
+      if (history.length > 0) hideSuggestions();
+    }
 
     initSuggestions();
-
-    // Send button
     sendBtn.addEventListener('click', sendMessage);
 
-    // Enter to send, Shift+Enter for newline
     inputEl.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -340,18 +298,14 @@
       }
     });
 
-    // Auto-grow textarea up to max-height set in CSS
     inputEl.addEventListener('input', function () {
       inputEl.style.height = 'auto';
       inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
     });
 
-    // Clear button
     clearBtn.addEventListener('click', clearConversation);
-
     inputEl.focus();
 
-    // Fire onboarding on first Os enable
     if (!localStorage.getItem('osOnboardingDone')) {
       setTimeout(function () { showOnboardingStep(0); }, 600);
     }

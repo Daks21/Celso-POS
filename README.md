@@ -137,6 +137,10 @@
   │   ├── layout.css           ← App shell: sidebar, topbar, page body
   │   ├── components.css       ← Shared components: tables, badges,
   │   │                           buttons, inputs, modals, receipt
+  │   ├── onboarding.css       ← Onboarding visuals (welcome modal,
+  │   │                           checklist, spotlight tour, empty states)
+  │   ├── os.widget.css        ← Os AI docked chat panel (overlay on
+  │   │                           desktop, bottom sheet on mobile)
   │   └── pages/               ← Page-specific styles (one per page)
   │       ├── dashboard.css
   │       ├── products.css
@@ -163,8 +167,14 @@
   │   ├── components/          ← Reusable UI pieces (not page-specific)
   │   │   ├── sidebar.js       ← Active nav link, user initials, nav prefs
   │   │   ├── receipt.js       ← Shared receipt modal logic
-  │   │   └── os.js            ← Os FAB: mounts/unmounts floating button,
-  │   │                           reads osEnabled pref, navigates to ai.html
+  │   │   ├── os.client.js     ← Pure chat client (no DOM): SSE streaming,
+  │   │   │                       sessionStorage history, AbortController
+  │   │   ├── os.widget.js     ← Docked Os chat panel (Messenger-style):
+  │   │   │                       desktop bottom-right overlay + mobile
+  │   │   │                       full-screen bottom sheet, lazy-mount DOM
+  │   │   └── os.js            ← Os FAB bootstrapper: mounts the floating
+  │   │                           button on every page, toggles OsWidget,
+  │   │                           rewires sidebar "Os AI" link to open panel
   │   │
   │   └── pages/               ← One script per page
   │       ├── dashboard.js     ← Summary stats, charts, heatmap
@@ -1143,10 +1153,17 @@
     backend/routes/ai.routes.js       ← 6 endpoints (chat, stream, summary,
                                           restock, forecast, profit)
     backend/controllers/ai.controller.js
-    frontend/pages/ai.html            ← Os chat UI with SSE streaming
-    frontend/css/pages/ai.css
-    frontend/js/pages/ai.js           ← Chat, onboarding tour, session history
-    frontend/js/components/os.js      ← Os floating action button (FAB)
+    frontend/pages/ai.html            ← Os Full View (distraction-free chat)
+    frontend/css/pages/ai.css         ← Full View page styles
+    frontend/css/os.widget.css        ← Docked widget panel (overlay + sheet)
+    frontend/js/pages/ai.js           ← Full View shell — delegates streaming
+                                          to OsClient, owns onboarding cards
+    frontend/js/components/os.client.js  ← Pure chat client (no DOM): SSE
+                                              streaming, sessionStorage history,
+                                              AbortController cancellation
+    frontend/js/components/os.widget.js  ← Messenger-style docked chat panel
+                                              (desktop overlay, mobile sheet)
+    frontend/js/components/os.js      ← FAB bootstrapper + sidebar link wiring
 
   MODULES:
     Module 4.1 — Groq + DeepSeek Providers                [COMPLETE]
@@ -1182,13 +1199,17 @@
       - GET  /api/ai/profit:      margin insights → { insights[], summary }
 
     Module 4.5 — Chat UI + Os FAB                          [COMPLETE]
-      - frontend/pages/ai.html: full chat interface with SSE streaming
+      - frontend/pages/ai.html: Full View chat page (deep-link / no-JS
+        fallback / "Open in full view" target from the docked widget)
       - Suggestion chips (6 quick questions in Taglish)
       - Session history restored from sessionStorage on page load
       - "Clear conversation" button resets both UI and sessionStorage
       - frontend/js/components/os.js: floating "Os" button on all 9 app
         pages; respects osEnabled pref; toggled live from Account Settings
       - Os AI nav link in all page sidebars (between Analytics and History)
+      - Note (Module 4.7): the FAB now toggles a docked chat panel instead
+        of navigating. The sidebar "Os AI" link does the same. Full View
+        (ai.html) remains as a focused deep-link mode.
 
     Module 4.6 — Onboarding Tour + Dashboard Widgets       [COMPLETE]
       - Role-aware onboarding: 4-step admin tour, 3-step cashier tour
@@ -1197,6 +1218,88 @@
         (auto-loads when osEnabled; hidden otherwise)
       - Os Restock Advisor widget on Inventory page: AI-ranked priority list
         (urgent / soon / monitor), loaded when osEnabled
+
+    Module 4.7 — Docked Os Widget (Messenger-style)        [COMPLETE]
+
+      The full-page-only chat was reworked into a docked floating panel
+      that overlays the host page — same surface MSME owners already
+      know from FB Messenger / GCash chat. Owner can ask "magkano utang
+      ko?" while standing on the Inventory page without losing context.
+
+      ARCHITECTURE — three-layer split:
+        os.client.js  ← pure JS, no DOM. Owns streaming, history,
+                        cancellation. Reused by both the widget and
+                        the Full View page. Also the canonical surface
+                        for the upcoming React Native / Capacitor app.
+        os.widget.js  ← the UI shell. Lazy-mounts DOM on first open;
+                        manages open/close/toggle, focus, scroll lock.
+        os.js         ← bootstrapper. Mounts the FAB, wires the sidebar
+                        "Os AI" link to OsWidget.toggle(), hides itself
+                        on ai.html (where Full View IS the chat).
+
+      RESPONSIVE LAYOUT — one widget, two surfaces:
+        Desktop / tablet (≥769px):
+          380px × min(620px, calc(100vh − 100px)) panel docked
+          bottom-right; no backdrop; host page stays interactive.
+          FAB fades out via .os-widget-open body class while open.
+        Mobile (≤768px):
+          Full-screen bottom sheet (height: 92dvh) — `dvh` so the
+          mobile keyboard doesn't push the layout. Drag handle at
+          the top, backdrop tap closes, body scroll + touch-action
+          locked while open.
+
+      PERSISTENCE:
+        sessionStorage.osHistory      — conversation (owned by OsClient)
+        sessionStorage.osPanelOpen    — open state across page nav.
+        If the panel was open on Dashboard and the user clicks into
+        Inventory, the panel auto-reopens with the same history.
+        Onboarding guard: if the welcome modal or spotlight tour is
+        mounted, auto-restore defers — the user reopens via FAB.
+
+      ACCESSIBILITY:
+        - role="dialog"; aria-modal switches: true on mobile (sheet
+          dims the page), false on desktop (panel is non-modal overlay)
+        - aria-live="polite" on the messages region so screen readers
+          announce streamed text fragments as they arrive
+        - ESC closes; focus trap activates only on mobile; focus is
+          restored to the prior element on close
+        - All assistant text inserted via textContent — never innerHTML
+          (same XSS posture as the legacy chat page)
+
+      INTERACTION DETAILS:
+        - FAB click → OsWidget.toggle(); sidebar "Os AI" link does the
+          same on plain click but still navigates to Full View on
+          Ctrl/Cmd/Shift/middle-click (open in new tab still works)
+        - "Open in full view ↗" link in panel header → ai.html
+        - Close button cancels any in-flight stream via AbortController
+          so we don't keep tokens streaming after the user leaves
+        - Suggestion chips (6 Taglish quick questions) hide on first
+          message and reappear after "Clear conversation"
+
+      Z-INDEX STACK (project-wide, lowest to highest):
+        FAB ........................... 40
+        sidebar / topbar / modals ..... 90 – 500
+        Os panel ...................... 8500
+        Os mobile backdrop ............ 8400
+        onboarding spotlight + tooltip  9000 / 9001
+        onboarding welcome modal ...... 9999
+
+      MOBILE-APP READINESS:
+        os.client.js has zero DOM dependencies — it can be ported
+        verbatim into a React Native screen, or its SSE protocol can
+        be re-implemented in any client. Web + native end up sharing
+        the same chat semantics (rate limits, history shape, prompt
+        assembly, provider fallback) without server changes.
+
+      WIDGET LIFECYCLE FILES:
+        frontend/css/os.widget.css            ← panel + sheet styles
+        frontend/js/components/os.client.js   ← chat client
+        frontend/js/components/os.widget.js   ← panel UI shell
+        frontend/js/components/os.js          ← FAB + sidebar wiring
+        All 9 app HTML pages updated to load os.widget.css and the
+        three JS files in correct order (os.client → os.widget → os).
+        ai.html loads os.client.js only — Full View consumes the chat
+        client directly and never mounts the docked panel on itself.
 
   ──────────────────────────────────────────────────────────────
   PHASE 5: FINANCE MODULE (Cashflow Log)            [COMPLETE]
@@ -1371,6 +1474,10 @@
       - Progress bar and sidebar pill show "N of 4 done"
       - X button dismisses permanently at any time
       - All items done → celebration message → auto-dismiss
+      - "Restart Onboarding" button on Account Settings page:
+        resets all onboarding localStorage state (welcome seen,
+        checklist progress, all tour-seen flags) and redirects
+        to the Dashboard so the full flow replays from the start
 
     Module 6.4 — Spotlight Tour Engine                 [COMPLETE]
       - Reusable engine: accepts a step array, runs the tour
@@ -1389,15 +1496,43 @@
         open — no overlap between layers on first login
       - Fires on first page visit only; never repeats after
         completion or skip
+      - mobileTarget field: resolves to an alternate selector
+        on viewports ≤768px — used on Order/POS so the cart
+        spotlight fits the mobile layout
+      - Auto-skip: if the resolved target is display:none or
+        absent from the DOM (e.g. no table rows, hidden admin
+        button), the step is silently skipped
+      - ARIA: tooltip rendered as role="dialog" aria-modal="true"
+        aria-labelledby / aria-describedby / aria-live="polite";
+        SVG overlay marked aria-hidden="true"
+      - Keyboard & focus trap: focus locked inside the tooltip
+        bubble while the tour is active; Escape key skips tour
+      - Last-step celebration: instead of "Next" on the final
+        step, the tooltip shows a confetti checkmark + "You're
+        all set!" then auto-dismisses after a short delay
+      - CSS animation fix: translate(-50%,-50%) placed inside
+        the celebration keyframe's final state so the animation
+        cascade cannot override the centering transform
 
     Module 6.5 — Tour Step Definitions                 [COMPLETE]
       - All step copy and selectors defined in one file
         (onboarding.tours.js) — engine reads, never hard-codes
-      - Pages covered: Products (3 steps), Inventory (3 steps),
-        Order/POS (3 steps), Dashboard (2 steps)
+      - Pages covered:
+          Products  (3 steps): add button, search bar, product table
+          Inventory (4 steps): summary cards, stock table,
+                               restock button, stock-dot legend
+          Order/POS (4 steps): product grid, cart panel,
+                               payment input, checkout button
+          Finance   (4 steps): net balance card, cash-flow chart,
+                               add-entry button, finance table
+          Dashboard (2 steps): summary cards, low-stock alerts
       - Targets use data-onb-id attributes and stable IDs so
         tours survive style refactors
       - Copy is plain English, one sentence per tooltip body
+      - bodyWhenEmpty field: each step that has preview data
+        carries a second body string used when example content
+        is injected — "these rows show what it'll look like"
+        rather than asserting data that isn't there yet
 
     Module 6.6 — Empty State Prompts                   [COMPLETE]
       - Replaces blank tables with a helpful card + CTA when
@@ -1425,6 +1560,9 @@
       - All onboarding visual styles in frontend/css/onboarding.css
       - Linked on all 9 app pages (dashboard, products, inventory,
         order, history, analytics, finance, ai, account)
+        Note: finance.html was missing the <link> at launch and
+        was fixed post-ship — the tour was rendering as unstyled
+        HTML until the link was added.
       - Onboarding JS scripts (core, welcome, checklist, tours,
         tour) added to all 9 app pages in correct load order
       - Uses only CSS variables from main.css — dark mode
@@ -1432,6 +1570,40 @@
       - 7 sections: shared utilities, welcome modal, checklist
         card, sidebar pill, spotlight tour, empty states,
         responsive (mobile bottom-sheet + touch targets)
+
+    Module 6.9 — Tour Preview Injection System         [COMPLETE]
+      - Brand-new users see illustrative PH-MSME sample data in
+        every empty card, table, and chart while the tour is
+        running — so the spotlight feels alive rather than blank.
+      - Step schema: each step may declare a `preview` field:
+          { selector, html, when }   (single injection point)
+          [ { ... }, { ... } ]       (multiple injection points)
+        selector — child of the tour target to inject into;
+                   omit to use the target itself
+        html     — replacement innerHTML
+        when     — 'empty' (inject only when element has no
+                   real data), 'always', or a function(el)
+      - "Example" badge (onb-preview-badge) is added to the
+        spotlight host when at least one injection fired — so
+        users can see at a glance that the numbers are illustrative.
+      - _injectedPreviews array tracks every injection (original
+        HTML + target reference); guaranteed rollback on
+        next / skip / finish — zero fake data ever persists in
+        real app state after the tour step exits.
+      - Preview data per tour:
+          Products  — 3 sample product rows (Pandesal, Coca-Cola,
+                      Lucky Me) with names, categories, prices
+          Inventory — 4 summary card values (142 items, 24 products,
+                      3 low, 1 out); 3 stock-table rows with
+                      color-coded stock dots
+          Order/POS — cart panel with 3 pre-filled cart lines
+                      (Pandesal ×5, Coca-Cola ×1, Pancit Canton ×2)
+          Finance   — net balance (₱12,450.00); animated SVG
+                      sparkline (gradient + polyline using CSS vars);
+                      3 cashflow table rows (sale, capital, withdrawal)
+          Dashboard — 4 summary card values (₱5,400.00 revenue,
+                      24 products, 3 low stock, 12 transactions);
+                      3 low-stock alert rows
       
   ──────────────────────────────────────────────────────────────
   PHASE 7: DEPLOYMENT
@@ -1465,5 +1637,17 @@
   NODE REQUIREMENT: >= 18.0.0
 
 ================================================================
-  END OF DOCUMENT — Version 7.0 (Phase 4 AI COMPLETE | Phase 5 Finance COMPLETE | Phase 6 Onboarding COMPLETE)
+  END OF DOCUMENT — Version 7.2
+  Phase 4 AI COMPLETE | Phase 5 Finance COMPLETE | Phase 6 Onboarding COMPLETE
+  Post-ship:
+    • Module 4.7 — Docked Os widget (Messenger-style overlay +
+                   mobile bottom sheet); chat client split into a
+                   pure-JS module (os.client.js) so the upcoming
+                   mobile app can share the same chat semantics
+    • Module 6.9 — Tour Preview Injection (illustrative example
+                   data during onboarding tours, clean rollback)
+    • Module 6.5 — Finance tour added (5 tours total)
+    • Module 6.3 — Restart Onboarding button in Account Settings
+    • QA fixes — accessibility, step counts, celebration modal,
+                 finance.html CSS link
 ================================================================
