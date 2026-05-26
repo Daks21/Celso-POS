@@ -108,6 +108,33 @@ CREATE TABLE IF NOT EXISTS cash_movements (
   FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- 7. AI Query Log (Phase 4 — observability + cost tracking)
+-- One row per inbound AI request. Lets us debug "Os gave a wrong answer"
+-- reports, attribute cost to specific users/endpoints, and watch the
+-- cache hit rate without instrumenting the assistant module itself.
+-- No FK on user_id — log rows must survive user deletion so we don't
+-- lose historical cost/debugging context. user_id is just a logged value.
+-- Indexes inlined so this works even if the runtime DB user lacks the
+-- standalone INDEX privilege (CREATE TABLE includes inline KEY clauses).
+CREATE TABLE IF NOT EXISTS ai_query_log (
+  id               INT AUTO_INCREMENT PRIMARY KEY,
+  user_id          INT          DEFAULT NULL,
+  endpoint         VARCHAR(20)  NOT NULL,         -- chat|stream|summary|restock|forecast|profit
+  question_preview VARCHAR(200) DEFAULT NULL,     -- first 200 chars of user input
+  question_hash    CHAR(32)     DEFAULT NULL,     -- MD5 of full question (group repeats)
+  response_length  INT          DEFAULT NULL,
+  tokens_used      INT          DEFAULT NULL,
+  provider         VARCHAR(20)  DEFAULT NULL,     -- groq|deepseek
+  latency_ms       INT          DEFAULT NULL,
+  cached           TINYINT(1)   DEFAULT 0,
+  lang             VARCHAR(10)  DEFAULT NULL,     -- auto|en|tl (or detected/forwarded)
+  error            VARCHAR(200) DEFAULT NULL,     -- non-null if the call failed
+  created_at       DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_ai_log_user     (user_id),
+  KEY idx_ai_log_created  (created_at),
+  KEY idx_ai_log_endpoint (endpoint)
+);
+
 -- Indexes for performance
 CREATE INDEX idx_products_name      ON products(name);
 CREATE INDEX idx_products_category  ON products(category);
@@ -121,3 +148,4 @@ CREATE INDEX idx_cash_type          ON cash_movements(type);
 CREATE INDEX idx_cash_category      ON cash_movements(category);
 CREATE INDEX idx_cash_occurred      ON cash_movements(occurred_at);
 CREATE INDEX idx_cash_source        ON cash_movements(source_id);
+-- ai_query_log indexes are inlined in its CREATE TABLE above.

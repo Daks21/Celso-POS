@@ -2,6 +2,7 @@
 const { fetchContext, buildContextText } = require('../../ai/context-builder');
 const { OS_SYSTEM_PROMPT }               = require('../../ai/prompts/system');
 const assistant                          = require('../../ai/assistant');
+const aiLog                              = require('../models/aiQueryLog.model');
 
 // ── Per-user rate limiter ──────────────────────────────────────
 const userLimits = new Map();
@@ -56,12 +57,25 @@ const chat = async (req, res, next) => {
       ? contextText + '\n\n' + directive + message
       : directive + message;
 
+    const t0 = Date.now();
     const result = await assistant.ask(OS_SYSTEM_PROMPT, history, userMessage,
       { userId: req.user.id });
     res.json({ success: true,
       data: { answer: result.text, cached: result.cached,
               tokensUsed: result.tokensUsed } });
-  } catch (err) { next(err); }
+    aiLog.log({
+      userId: req.user.id, endpoint: 'chat',
+      question: message, lang: lang || 'auto',
+      responseLength: result.text?.length, tokensUsed: result.tokensUsed,
+      provider: result.provider, latencyMs: Date.now() - t0,
+      cached: result.cached,
+    });
+  } catch (err) {
+    aiLog.log({ userId: req.user?.id, endpoint: 'chat',
+      question: req.body?.message, lang: req.body?.lang || 'auto',
+      error: err.message });
+    next(err);
+  }
 };
 
 // ── POST /api/ai/chat/stream (SSE streaming) ───────────────────
@@ -88,6 +102,7 @@ const chatStream = async (req, res, next) => {
       ? contextText + '\n\n' + directive + message
       : directive + message;
 
+    const t0 = Date.now();
     const response = await assistant.ask(
       OS_SYSTEM_PROMPT, history, userMessage, { stream: true }
     );
@@ -125,7 +140,21 @@ const chatStream = async (req, res, next) => {
     }) + '\n\n');
     res.end();
 
+    // Streaming path bypasses the cache; provider attribution is "groq"
+    // by primary-path assumption (quota fallback to deepseek can't be
+    // observed from the raw Response object).
+    aiLog.log({
+      userId: req.user.id, endpoint: 'stream',
+      question: message, lang: lang || 'auto',
+      responseLength: fullText.length, tokensUsed: null,
+      provider: 'groq', latencyMs: Date.now() - t0,
+      cached: false,
+    });
+
   } catch (err) {
+    aiLog.log({ userId: req.user?.id, endpoint: 'stream',
+      question: req.body?.message, lang: req.body?.lang || 'auto',
+      error: err.message });
     if (!res.headersSent) {
       res.status(500).json({ success: false, message: 'Os is unavailable.' });
     } else {
@@ -150,6 +179,7 @@ const dailySummary = async (req, res, next) => {
       '{ "summary": "...", "urgency": "low|medium|high", ' +
       '"tip": "..." }. ' +
       'Respond ONLY with the JSON object.';
+    const t0 = Date.now();
     const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question,
       { userId: req.user.id });
     let parsed;
@@ -161,7 +191,14 @@ const dailySummary = async (req, res, next) => {
     }
     res.json({ success: true,
       data: { ...parsed, cached: result.cached } });
-  } catch (err) { next(err); }
+    aiLog.log({ userId: req.user.id, endpoint: 'summary',
+      responseLength: result.text?.length, tokensUsed: result.tokensUsed,
+      provider: result.provider, latencyMs: Date.now() - t0,
+      cached: result.cached });
+  } catch (err) {
+    aiLog.log({ userId: req.user?.id, endpoint: 'summary', error: err.message });
+    next(err);
+  }
 };
 
 // ── GET /api/ai/restock ────────────────────────────────────────
@@ -178,6 +215,7 @@ const restockAdvice = async (req, res, next) => {
       '{ "items": [{ "name": "...", "stock": N, "priority": ' +
       '"urgent|soon|monitor", "reason": "..." }] }. ' +
       'Respond ONLY with the JSON object.';
+    const t0 = Date.now();
     const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question,
       { userId: req.user.id });
     let parsed;
@@ -189,7 +227,14 @@ const restockAdvice = async (req, res, next) => {
     }
     res.json({ success: true,
       data: { ...parsed, cached: result.cached } });
-  } catch (err) { next(err); }
+    aiLog.log({ userId: req.user.id, endpoint: 'restock',
+      responseLength: result.text?.length, tokensUsed: result.tokensUsed,
+      provider: result.provider, latencyMs: Date.now() - t0,
+      cached: result.cached });
+  } catch (err) {
+    aiLog.log({ userId: req.user?.id, endpoint: 'restock', error: err.message });
+    next(err);
+  }
 };
 
 // ── GET /api/ai/forecast ───────────────────────────────────────
@@ -211,6 +256,7 @@ const forecast = async (req, res, next) => {
       '{ "day": "' + dowName + '", "expectedRevenue": "₱X", ' +
       '"confidence": "low|medium|high", "note": "..." }. ' +
       'Respond ONLY with the JSON object.';
+    const t0 = Date.now();
     const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question,
       { userId: req.user.id });
     let parsed;
@@ -222,7 +268,14 @@ const forecast = async (req, res, next) => {
     }
     res.json({ success: true,
       data: { ...parsed, cached: result.cached } });
-  } catch (err) { next(err); }
+    aiLog.log({ userId: req.user.id, endpoint: 'forecast',
+      responseLength: result.text?.length, tokensUsed: result.tokensUsed,
+      provider: result.provider, latencyMs: Date.now() - t0,
+      cached: result.cached });
+  } catch (err) {
+    aiLog.log({ userId: req.user?.id, endpoint: 'forecast', error: err.message });
+    next(err);
+  }
 };
 
 // ── GET /api/ai/profit ─────────────────────────────────────────
@@ -239,6 +292,7 @@ const profitCoaching = async (req, res, next) => {
       '{ "insights": [{ "product": "...", "finding": "...", ' +
       '"action": "..." }], "summary": "..." }. ' +
       'Respond ONLY with the JSON object.';
+    const t0 = Date.now();
     const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question,
       { userId: req.user.id });
     let parsed;
@@ -250,7 +304,14 @@ const profitCoaching = async (req, res, next) => {
     }
     res.json({ success: true,
       data: { ...parsed, cached: result.cached } });
-  } catch (err) { next(err); }
+    aiLog.log({ userId: req.user.id, endpoint: 'profit',
+      responseLength: result.text?.length, tokensUsed: result.tokensUsed,
+      provider: result.provider, latencyMs: Date.now() - t0,
+      cached: result.cached });
+  } catch (err) {
+    aiLog.log({ userId: req.user?.id, endpoint: 'profit', error: err.message });
+    next(err);
+  }
 };
 
 module.exports = { chat, chatStream, dailySummary,

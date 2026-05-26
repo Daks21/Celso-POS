@@ -35,6 +35,7 @@ async function getCompletion(messages, options = {}) {
     text:         data.choices[0].message.content,
     tokensUsed:   data.usage?.total_tokens || 0,
     finishReason: data.choices[0].finish_reason,
+    provider:     'deepseek',
   };
 }
 

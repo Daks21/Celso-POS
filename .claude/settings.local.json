@@ -111,7 +111,10 @@
       "PowerShell(node C:\\\\tmp\\\\seed_augment.js)",
       "PowerShell(node C:\\\\tmp\\\\final_verify.js)",
       "PowerShell(node C:\\\\tmp\\\\lang_verify.js)",
-      "PowerShell(node C:\\\\tmp\\\\detect_verify.js)"
+      "PowerShell(node C:\\\\tmp\\\\detect_verify.js)",
+      "PowerShell(node C:\\\\tmp\\\\migrate_ai_log.js)",
+      "PowerShell(node C:\\\\tmp\\\\migrate_ai_log_root.js)",
+      "PowerShell(node C:\\\\tmp\\\\log_verify.js)"
     ]
   }
 }
