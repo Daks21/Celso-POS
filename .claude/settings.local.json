@@ -82,7 +82,18 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\" -Recurse | Where-Object { !$_.FullName.Contains\\('.git'\\) -and !$_.PSIsContainer } | Select-Object -ExpandProperty FullName | Sort-Object)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Sonsuman\\\\OneDrive\\\\Desktop\\\\Celso_pos\" -Recurse | Where-Object { !$_.FullName.Contains\\('.git'\\) -and !$_.FullName.Contains\\('node_modules'\\) -and !$_.PSIsContainer } | Select-Object -ExpandProperty FullName | Sort-Object)",
       "Bash(not exist *)",
-      "Bash(findstr LISTENING)"
+      "Bash(findstr LISTENING)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('scripts',{}\\)\\)\")",
+      "Bash(where npx *)",
+      "Bash(npx playwright *)",
+      "Bash(npx --yes playwright --version)",
+      "Bash(npx --prefix /tmp playwright install chromium)",
+      "Read(//tmp/node_modules/.bin/**)",
+      "Read(//tmp/node_modules/**)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('scripts',{}\\)\\)\")",
+      "PowerShell(Get-Content *)",
+      "PowerShell(npm install *)",
+      "PowerShell(npx playwright install chromium 2>&1 | Select-Object -Last 5)"
     ]
   }
 }

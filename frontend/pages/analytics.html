@@ -238,23 +238,20 @@
 
         </div>
 
-        <!-- Activity Heatmap (collapsible) -->
-        <div class="analytics-chart-card full-width heatmap-card is-collapsible" id="heatmap-card" style="margin-bottom:20px">
+        <!-- Activity Heatmap -->
+        <div class="analytics-chart-card full-width heatmap-card" id="heatmap-card" style="margin-bottom:20px">
           <div class="chart-card-header">
-            <button type="button" class="collapsible-toggle" id="heatmap-toggle" aria-expanded="false" aria-controls="heatmap-content">
-              <i data-lucide="chevron-right" class="collapsible-chevron"></i>
-              <div class="chart-card-title">
-                <h3>Sales Activity</h3>
-                <p>Daily revenue over the last 12 months</p>
-              </div>
-            </button>
+            <div class="chart-card-title">
+              <h3>Sales Activity</h3>
+              <p>Daily revenue over the last 12 months</p>
+            </div>
             <label class="pin-toggle-wrap">
               <input type="checkbox" class="widget-pin-checkbox" data-widget="activity-heatmap" />
               <span class="pin-toggle-track"><span class="pin-toggle-thumb"></span></span>
               <span class="pin-toggle-text">Pin to Dashboard</span>
             </label>
           </div>
-          <div class="heatmap-wrapper collapsible-content" id="heatmap-content" hidden>
+          <div class="heatmap-wrapper" id="heatmap-content">
             <div class="heatmap-main">
               <div class="heatmap-day-labels">
                 <span></span>
@@ -405,22 +402,22 @@
               </button>
             </div>
 
-            <!-- Inline goal editor — appears when the user clicks Edit goal,
-                 or by default when no goal is set yet. -->
+            <!-- Inline goal editor — single compact row. Empty + Save clears
+                 the goal, so no separate Clear button is needed. -->
             <div class="goal-editor" id="goal-editor" hidden>
-              <label for="goal-input-inline" class="goal-editor-label">Monthly revenue goal</label>
               <div class="goal-editor-row">
-                <span class="goal-editor-prefix">₱</span>
-                <input type="number" id="goal-input-inline" class="goal-editor-input"
-                       min="0" step="100" placeholder="e.g. 50000" />
-                <button type="button" class="secondary-button" id="goal-save-inline">Save</button>
-                <button type="button" class="link-button" id="goal-clear-inline" hidden>Clear</button>
-                <button type="button" class="link-button" id="goal-cancel-inline">Cancel</button>
+                <label class="goal-input-wrap" for="goal-input-inline">
+                  <span class="goal-editor-prefix" aria-hidden="true">₱</span>
+                  <input type="text" inputmode="decimal" id="goal-input-inline" class="goal-editor-input"
+                         placeholder="e.g. 50000"
+                         aria-label="Monthly revenue goal in pesos" />
+                </label>
+                <button type="button" class="secondary-button goal-editor-save" id="goal-save-inline">Save</button>
+                <button type="button" class="goal-editor-cancel" id="goal-cancel-inline" aria-label="Cancel">
+                  <i data-lucide="x"></i>
+                </button>
               </div>
-              <p class="goal-editor-hint">
-                Set a realistic target you'd like to hit by the end of this month.
-                We'll project where you'll land at your current pace.
-              </p>
+              <p class="goal-editor-hint">Leave empty &amp; Save to clear the goal.</p>
             </div>
 
             <div class="goal-content" id="goal-content">

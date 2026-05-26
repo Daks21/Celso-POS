@@ -873,31 +873,11 @@ var themeObserver = new MutationObserver(function () {
 });
 themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
-// ── Collapsible heatmap ──
-
-function initCollapsibleHeatmap() {
-  var toggle  = document.getElementById('heatmap-toggle');
-  var content = document.getElementById('heatmap-content');
-  if (!toggle || !content) return;
-
-  // First-visit default: collapsed. Otherwise honor user's last choice.
-  var stored = localStorage.getItem('analyticsHeatmapOpen');
-  var open   = stored === 'true'; // default false (collapsed) for new users
-  applyHeatmapState(open);
-
-  toggle.addEventListener('click', function () {
-    open = !open;
-    applyHeatmapState(open);
-    localStorage.setItem('analyticsHeatmapOpen', String(open));
-  });
-
-  function applyHeatmapState(isOpen) {
-    toggle.setAttribute('aria-expanded', String(isOpen));
-    content.hidden = !isOpen;
-    // Rotation is driven by CSS keyed to aria-expanded — see analytics.css.
-    // (Inline style would be wiped when lucide.createIcons() replaces the <i> with <svg>.)
-  }
-}
+// ── Heatmap ──
+// Note: the heatmap was previously collapsible to save vertical space.
+// We removed the toggle because a single-tap-to-expand interaction on
+// a chart with no obvious affordance was more friction than benefit —
+// non-technical users were missing the data entirely.
 
 // ── Advanced Analytics gate ──
 
@@ -1275,14 +1255,10 @@ function renderGoalProgress(projection) {
 function openGoalEditor() {
   var editor = document.getElementById('goal-editor');
   var input  = document.getElementById('goal-input-inline');
-  var clear  = document.getElementById('goal-clear-inline');
   if (!editor || !input) return;
 
   var current = getMonthlyGoal();
   input.value = current != null ? current : '';
-
-  // The Clear button is only useful when a goal already exists.
-  if (clear) clear.hidden = current == null;
 
   editor.hidden = false;
   // Briefly defer focus so the field is fully painted before tab-trap.
@@ -1320,7 +1296,6 @@ function initGoalEditor() {
   var emptyBtn  = document.getElementById('goal-empty-set');
   var saveBtn   = document.getElementById('goal-save-inline');
   var cancelBtn = document.getElementById('goal-cancel-inline');
-  var clearBtn  = document.getElementById('goal-clear-inline');
   var retryBtn  = document.getElementById('goal-retry');
   var input     = document.getElementById('goal-input-inline');
 
@@ -1328,17 +1303,17 @@ function initGoalEditor() {
   if (emptyBtn)  emptyBtn.addEventListener('click',  openGoalEditor);
   if (saveBtn)   saveBtn.addEventListener('click',   commitGoalFromEditor);
   if (cancelBtn) cancelBtn.addEventListener('click', closeGoalEditor);
-  if (clearBtn)  clearBtn.addEventListener('click',  function () {
-    saveMonthlyGoal(null);
-    closeGoalEditor();
-    renderAll();
-  });
   if (retryBtn)  retryBtn.addEventListener('click',  renderAll);
 
   if (input) {
     input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter')   { e.preventDefault(); commitGoalFromEditor(); }
-      if (e.key === 'Escape')  { closeGoalEditor(); }
+      if (e.key === 'Enter')  { e.preventDefault(); commitGoalFromEditor(); return; }
+      if (e.key === 'Escape') { closeGoalEditor(); return; }
+      // Allow: digits, backspace/delete, arrows, tab, home/end, decimal point
+      var allowed = /^[0-9.]$/.test(e.key) ||
+        ['Backspace','Delete','ArrowLeft','ArrowRight','Home','End','Tab'].includes(e.key) ||
+        e.ctrlKey || e.metaKey;
+      if (!allowed) e.preventDefault();
     });
   }
 }
@@ -1355,7 +1330,6 @@ function initTier2Retries() {
 
 document.addEventListener('DOMContentLoaded', function () {
   initPinToggles();
-  initCollapsibleHeatmap();
   initInventoryHealthTabs();
   initGoalEditor();
   initTier2Retries();

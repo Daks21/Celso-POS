@@ -365,17 +365,6 @@
   display: none;
 }
 
-/* Show a thin scrollbar on hover for desktop users with a mouse —
-   touch users discover it through the fade gradient + horizontal pan. */
-@media (hover: hover) {
-  .heatmap-scroll-area:hover { scrollbar-width: thin; }
-  .heatmap-scroll-area:hover::-webkit-scrollbar { display: block; height: 6px; }
-  .heatmap-scroll-area:hover::-webkit-scrollbar-thumb {
-    background-color: var(--color-border);
-    border-radius: 999px;
-  }
-}
-
 .heatmap-months-container {
   display: flex;
   gap: 0;
@@ -657,41 +646,6 @@ html[data-theme="dark"] .analytics-kpi-card.kpi-card-accent {
   background: linear-gradient(180deg, rgba(107,179,128,0.10) 0%, var(--color-surface) 100%);
   border-color: rgba(107, 179, 128, 0.30);
 }
-
-/* ── Collapsible toggle (heatmap) ── */
-
-.collapsible-toggle {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  background: none;
-  border: 0;
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  flex: 1;
-  min-width: 0;
-}
-
-.collapsible-toggle:hover .chart-card-title h3 { color: var(--color-primary); }
-
-.collapsible-chevron {
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
-  color: var(--color-text-muted);
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-  transform: rotate(0deg);
-}
-
-.collapsible-toggle[aria-expanded="true"] .collapsible-chevron {
-  transform: rotate(90deg);
-}
-
-.collapsible-content[hidden] { display: none; }
 
 /* ── Advanced Analytics Section ── */
 
@@ -1119,26 +1073,21 @@ html[data-theme="dark"] .ih-headline {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Inline Goal Editor ── */
+/* ── Inline Goal Editor (compact) ──
+   Single-row layout — input grows to fill space between the two fixed
+   buttons. max-width keeps it compact on wide desktop cards.        */
 
 .goal-editor {
   margin-top: 8px;
-  margin-bottom: 16px;
-  padding: 14px 16px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  max-width: 380px;
   background-color: var(--color-background);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 
 .goal-editor[hidden] { display: none; }
-
-.goal-editor-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  margin-bottom: 6px;
-}
 
 .goal-editor-row {
   display: flex;
@@ -1147,35 +1096,88 @@ html[data-theme="dark"] .ih-headline {
   flex-wrap: wrap;
 }
 
+.goal-editor-row .goal-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  cursor: text;
+}
+
+.goal-editor-row .goal-input-wrap:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(90, 158, 111, 0.25);
+}
+
 .goal-editor-prefix {
-  font-size: 16px;
+  font-size: 15px;
   color: var(--color-text-muted);
+  flex-shrink: 0;
+  user-select: none;
 }
 
 .goal-editor-input {
-  flex: 1 1 160px;
+  flex: 1;
   min-width: 0;
-  padding: 8px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background-color: var(--color-surface);
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--color-text);
   font-family: var(--font-main);
-  font-size: 14px;
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  cursor: text;
 }
 
-.goal-editor-input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(90, 158, 111, 0.3);
+/* Save and Cancel: both 44px tall for comfortable touch targets. */
+.goal-editor-save {
+  flex-shrink: 0;
+  min-height: 44px;
+  min-width: 72px;
 }
+
+.goal-editor-cancel {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.goal-editor-cancel:hover {
+  background-color: var(--color-background);
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+.goal-editor-cancel svg { width: 18px; height: 18px; }
 
 .goal-editor-hint {
   margin-top: 8px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--color-text-muted);
+}
+
+/* Phones: enlarge touch targets; everything stays on one flex line.
+   width:auto overrides the global .secondary-button{width:100%} rule. */
+@media (max-width: 600px) {
+  .goal-editor-save   { width: auto; min-height: 48px; }
+  .goal-editor-cancel { width: 48px; height: 48px; }
 }
 
 .goal-caveat {
