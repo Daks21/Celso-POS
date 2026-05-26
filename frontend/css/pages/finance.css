@@ -58,6 +58,10 @@
   color: var(--color-danger, #dc2626);
 }
 
+.summary-card--capital {
+  flex: 0 0 240px;
+}
+
 .summary-card--chart {
   flex: 1 1 280px;
   min-width: 280px;
@@ -359,6 +363,23 @@ html[data-theme="dark"] #finance-date {
   }
 
   .summary-card--profit .summary-value {
+    font-size: clamp(20px, 5.5vw, 28px);
+    letter-spacing: -0.02em;
+  }
+
+  /* Total Capital — mirrors the other cards */
+  .summary-card--capital {
+    flex: none;
+    width: auto;
+    text-align: center;
+  }
+
+  .summary-card--capital .summary-card-header {
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .summary-card--capital .summary-value {
     font-size: clamp(20px, 5.5vw, 28px);
     letter-spacing: -0.02em;
   }

@@ -110,6 +110,12 @@ function renderSummary(data, profitData) {
   var debtClass   = debtBalance > 0 ? 'summary-card--debt summary-card--debt-active' : 'summary-card--debt';
   var debtTrend   = debtBalance > 0 ? 'Outstanding borrowed principal' : 'No outstanding debt';
 
+  // Total Capital Invested — lifetime, broken into Own / Borrowed. Reads the
+  // existing byType / byCategory aggregates from /summary; no extra fetch.
+  var capitalTotal    = Number((data.byType && data.byType.capital_in) || 0);
+  var capitalOwn      = Number((data.byCategory && data.byCategory.own) || 0);
+  var capitalBorrowed = Number((data.byCategory && data.byCategory.borrowed) || 0);
+
   var profitHtml = '';
   if (profitData) {
     var profit       = Number(profitData.profit);
@@ -160,6 +166,14 @@ function renderSummary(data, profitData) {
           '<p class="summary-trend">' + debtTrend + '</p>' +
         '</div>'
       : '') +
+    '<div class="summary-card summary-card--capital">' +
+      '<div class="summary-card-header">' +
+        '<span class="summary-label">Total Capital · Puhunan mo</span>' +
+        '<div class="summary-icon"><i data-lucide="piggy-bank"></i></div>' +
+      '</div>' +
+      '<p class="summary-value">' + formatPeso(capitalTotal) + '</p>' +
+      '<p class="summary-trend">Sarili ' + formatPeso(capitalOwn) + ' · Utang ' + formatPeso(capitalBorrowed) + '</p>' +
+    '</div>' +
     '<div class="summary-card summary-card--chart" id="cashflow-chart-card">' +
       '<div class="chart-card-header">' +
         '<span class="summary-label">Cash Flow</span>' +
