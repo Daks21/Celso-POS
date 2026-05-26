@@ -15,7 +15,8 @@ function peso(n) {
 async function fetchContext() {
   const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
   const now       = new Date();
-  const from30    = new Date(now.getTime() - 30 * 86400000);
+  // -29 days + BETWEEN inclusive = exactly 30 calendar days (today and the 29 prior).
+  const from30    = new Date(now.getTime() - 29 * 86400000);
   const nowStr    = manilaFmt.format(now);
   const fromStr   = manilaFmt.format(from30);
 
@@ -27,11 +28,12 @@ async function fetchContext() {
       saleModel.getKPIs(fromStr, nowStr),
       saleModel.getTopByRevenue(fromStr, nowStr, 5),
       saleModel.getTopByQty(fromStr, nowStr, 5),
-      saleModel.getByDayOfWeek(fromStr, nowStr),
+      saleModel.getDayOfWeekStats(fromStr, nowStr),
       cashflowModel.getSummary({}),  // all-time for utang balance
     ]);
 
-  const lowStock = allProducts.filter(p => p.stock > 0 && p.stock <= 50);
+  // Matches productModel.getLowStock semantics (< threshold, not <=).
+  const lowStock = allProducts.filter(p => p.stock > 0 && p.stock < 50);
   const outStock = allProducts.filter(p => p.stock === 0);
 
   return { today, allProducts, lowStock, outStock,
@@ -80,20 +82,26 @@ function buildContextText(ctx) {
   }
 
   if (ctx.lowStock.length) {
-    lines.push("\nLOW STOCK ALERTS (1–50 units):");
+    lines.push("\nLOW STOCK ALERTS (1–49 units):");
     ctx.lowStock.slice(0, 10).forEach(p =>
       lines.push('• ' + p.name + ': ' + p.stock + ' units')
     );
   }
 
-  // Busiest days — getByDayOfWeek returns a flat array totals[0..6]
+  // Avg revenue per day-of-week — uses getDayOfWeekStats so the ranking isn't
+  // biased by weekdays that happened to fall 5 vs 4 times in the 30-day window.
   if (ctx.byDow?.length) {
-    lines.push("\nBUSIEST DAYS OF WEEK (last 30 days):");
     const indexed = ctx.byDow
-      .map((revenue, i) => ({ day: DAYS[i], revenue }))
-      .filter(d => d.revenue > 0)
-      .sort((a, b) => b.revenue - a.revenue);
-    indexed.forEach(d => lines.push(d.day + ': ' + peso(d.revenue)));
+      .map((d, i) => ({ day: DAYS[i], avg: d.avgPerDay, n: d.distinctDays }))
+      .filter(d => d.n > 0)
+      .sort((a, b) => b.avg - a.avg);
+    if (indexed.length) {
+      lines.push("\nAVG REVENUE PER DAY-OF-WEEK (last 30 days):");
+      indexed.forEach(d =>
+        lines.push(d.day + ': ' + peso(d.avg) +
+                   ' (avg over ' + d.n + ' ' + (d.n === 1 ? 'day' : 'days') + ')')
+      );
+    }
   }
 
   // Financial summary — getSummary returns debtBalance, not utang

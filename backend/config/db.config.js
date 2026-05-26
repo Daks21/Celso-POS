@@ -9,7 +9,15 @@ const pool = mysql.createPool({
   connectionLimit:    process.env.DB_POOL_SIZE || 5,
   waitForConnections: true,
   queueLimit:         0,
-  timezone:           '+08:00',   // Pin all connections to Manila time (PH Standard Time)
+  timezone:           '+08:00',   // Driver-side: interpret DATETIME values as Manila when (de)serializing to JS Date
+});
+
+// Server-side: mysql2's `timezone` option above does NOT set @@session.time_zone —
+// it only affects JS<->DATETIME conversion. SQL functions (CURDATE, NOW, DATE,
+// DAYOFWEEK) use the server's session timezone, which defaults to SYSTEM (host
+// clock). Without this, deploying to a UTC host would shift "today" by 8 hours.
+pool.on('connection', (conn) => {
+  conn.query("SET time_zone = '+08:00'");
 });
 
 pool.getConnection((err, connection) => {

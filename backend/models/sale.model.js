@@ -246,6 +246,31 @@ const getByDayOfWeek = async (from, to) => {
   return totals;
 };
 
+// Same DOW breakdown as getByDayOfWeek, but also returns the count of distinct
+// calendar days that fell on each weekday within the window. Lets callers
+// compute avg-revenue-per-day instead of biased raw sums (a 30-day window has
+// 4 or 5 occurrences of each weekday, so raw SUM(total) inflates whichever
+// weekday happens to have 5 — misleading for "busiest day" rankings).
+const getDayOfWeekStats = async (from, to) => {
+  const [rows] = await db.query(
+    `SELECT (DAYOFWEEK(created_at) - 1)        AS dayIndex,
+            SUM(total)                          AS total,
+            COUNT(DISTINCT DATE(created_at))    AS distinctDays
+     FROM sales WHERE DATE(created_at) BETWEEN ? AND ?
+     GROUP BY (DAYOFWEEK(created_at) - 1) ORDER BY dayIndex ASC`, [from, to]
+  );
+  return [0, 1, 2, 3, 4, 5, 6].map(i => {
+    const r            = rows.find(row => row.dayIndex === i);
+    const total        = r ? parseFloat(r.total)   : 0;
+    const distinctDays = r ? Number(r.distinctDays) : 0;
+    return {
+      total,
+      distinctDays,
+      avgPerDay: distinctDays > 0 ? total / distinctDays : 0,
+    };
+  });
+};
+
 // ─── Realized profit (revenue − COGS) ─────────────────────────────────────
 // Pulls cost from the products table (current cost — snapshot would require a
 // schema change, and for MSME analytics today's cost is the closest signal we
@@ -437,7 +462,7 @@ const getGoalProjectionInputs = async (manilaToday) => {
 module.exports = {
   create, getAll, getById, getTodaySummary,
   getSummary, getDailyMap, getKPIs,
-  getTopByRevenue, getTopByQty, getByDayOfWeek,
+  getTopByRevenue, getTopByQty, getByDayOfWeek, getDayOfWeekStats,
   getProfit, getProfitByProduct, getInventoryHealth,
   getGoalProjectionInputs,
 };

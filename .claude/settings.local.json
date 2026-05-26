@@ -93,7 +93,11 @@
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('scripts',{}\\)\\)\")",
       "PowerShell(Get-Content *)",
       "PowerShell(npm install *)",
-      "PowerShell(npx playwright install chromium 2>&1 | Select-Object -Last 5)"
+      "PowerShell(npx playwright install chromium 2>&1 | Select-Object -Last 5)",
+      "PowerShell(New-Item *)",
+      "PowerShell(node C:\\\\tmp\\\\ai_audit_diag.js)",
+      "PowerShell(node C:\\\\tmp\\\\ai_audit_smoketest.js)",
+      "Bash(echo \"exit=$?\")"
     ]
   }
 }
