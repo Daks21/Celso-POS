@@ -110,7 +110,8 @@
       "PowerShell(node C:\\\\tmp\\\\seed_cleanup.js)",
       "PowerShell(node C:\\\\tmp\\\\seed_augment.js)",
       "PowerShell(node C:\\\\tmp\\\\final_verify.js)",
-      "PowerShell(node C:\\\\tmp\\\\lang_verify.js)"
+      "PowerShell(node C:\\\\tmp\\\\lang_verify.js)",
+      "PowerShell(node C:\\\\tmp\\\\detect_verify.js)"
     ]
   }
 }
