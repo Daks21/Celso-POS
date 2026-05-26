@@ -14,10 +14,24 @@ const CATEGORY_BY_TYPE = {
 function buildFilters(filters) {
   const conditions = ['is_active = 1'];
   const params = [];
-  if (filters.type && VALID_TYPES.includes(filters.type)) {
-    conditions.push('type = ?');
-    params.push(filters.type);
+
+  // Accepts either `type` (single) or `types` (array). Used by the frontend
+  // "Business Expense" filter to match opex+capex in one query without
+  // requiring two parallel fetches.
+  let types = [];
+  if (Array.isArray(filters.types)) {
+    types = filters.types.filter(t => VALID_TYPES.includes(t));
+  } else if (filters.type && VALID_TYPES.includes(filters.type)) {
+    types = [filters.type];
   }
+  if (types.length === 1) {
+    conditions.push('type = ?');
+    params.push(types[0]);
+  } else if (types.length > 1) {
+    conditions.push('type IN (' + types.map(() => '?').join(',') + ')');
+    params.push(...types);
+  }
+
   if (filters.category) { conditions.push('category = ?');      params.push(filters.category); }
   if (filters.from)     { conditions.push('occurred_at >= ?');  params.push(filters.from);     }
   if (filters.to)       { conditions.push('occurred_at <= ?');  params.push(filters.to);       }

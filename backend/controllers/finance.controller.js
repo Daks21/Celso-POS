@@ -1,7 +1,12 @@
 const Cashflow  = require('../models/cashflow.model');
 const saleModel = require('../models/sale.model');
 
-const DATE_RE = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/;
+const DATE_RE          = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/;
+const MAX_AMOUNT       = 10_000_000;   // ₱10M ceiling — well below DECIMAL(10,2) overflow
+const MAX_DESC_LEN     = 500;          // description text guard against runaway input
+const MAX_CATEGORY_LEN = 64;           // free-form categories (opex/capex)
+const FUTURE_DAYS_OK   = 365;          // accept up to 1 year ahead (typo tolerance)
+const PAST_YEARS_OK    = 10;           // accept up to 10 years behind
 
 // Manila local date in YYYY-MM-DD. Avoids server-TZ drift on Profit defaults.
 const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
@@ -23,10 +28,31 @@ function priorWindow(from, to) {
 
 function validateCategory(type, category) {
   const allowed = Cashflow.CATEGORY_BY_TYPE[type];
-  // null means free-form — any non-empty string is valid
-  if (allowed === null) return null;
+  // null means free-form (opex/capex) — any non-empty string is valid,
+  // but cap the length so a malformed client can't write 10 KB into the column.
+  if (allowed === null) {
+    if (category && String(category).length > MAX_CATEGORY_LEN)
+      return `category must be ${MAX_CATEGORY_LEN} characters or fewer`;
+    return null;
+  }
   if (category && !allowed.includes(category))
     return `category for '${type}' must be one of: ${allowed.join(', ')}`;
+  return null;
+}
+
+// Sanity-check the `occurred_at` date so a typo like '2099-05-27' or
+// '0023-05-27' can't poison aggregates and charts. Assumes the format
+// has already been validated by DATE_RE.
+function validateOccurredAt(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00Z');
+  if (Number.isNaN(d.getTime())) return 'occurred_at is not a valid calendar date';
+  const now    = Date.now();
+  const future = d.getTime() - now;
+  const past   = now - d.getTime();
+  if (future > FUTURE_DAYS_OK * 86400000)
+    return `occurred_at cannot be more than ${FUTURE_DAYS_OK} days in the future`;
+  if (past > PAST_YEARS_OK * 365 * 86400000)
+    return `occurred_at cannot be more than ${PAST_YEARS_OK} years in the past`;
   return null;
 }
 
@@ -34,7 +60,12 @@ const getAll = async (req, res, next) => {
   try {
     const { type, category, from, to } = req.query;
     const filters = {};
-    if (type && Cashflow.VALID_TYPES.includes(type)) filters.type = type;
+    if (type) {
+      // Accept comma-separated types (e.g. ?type=opex,capex for the
+      // Business Expense filter). Single value still works the same.
+      const types = type.split(',').map(t => t.trim()).filter(t => Cashflow.VALID_TYPES.includes(t));
+      if (types.length > 0) filters.types = types;
+    }
     if (category) filters.category = category;
     if (from)     filters.from     = from;
     if (to)       filters.to       = to;
@@ -71,8 +102,17 @@ const create = async (req, res, next) => {
     if (!amount || typeof amount !== 'number' || amount <= 0)
       return res.status(400).json({ success: false, message: 'amount must be a positive number' });
 
+    if (amount > MAX_AMOUNT)
+      return res.status(400).json({ success: false, message: `amount cannot exceed ₱${MAX_AMOUNT.toLocaleString('en-PH')}` });
+
     if (!occurred_at || !DATE_RE.test(occurred_at))
       return res.status(400).json({ success: false, message: 'occurred_at must be a valid date in YYYY-MM-DD format' });
+
+    const dateError = validateOccurredAt(occurred_at);
+    if (dateError) return res.status(400).json({ success: false, message: dateError });
+
+    if (description != null && String(description).length > MAX_DESC_LEN)
+      return res.status(400).json({ success: false, message: `description must be ${MAX_DESC_LEN} characters or fewer` });
 
     const catError = validateCategory(type, category);
     if (catError) return res.status(400).json({ success: false, message: catError });
@@ -110,8 +150,17 @@ const update = async (req, res, next) => {
     if (!amount || typeof amount !== 'number' || amount <= 0)
       return res.status(400).json({ success: false, message: 'amount must be a positive number' });
 
+    if (amount > MAX_AMOUNT)
+      return res.status(400).json({ success: false, message: `amount cannot exceed ₱${MAX_AMOUNT.toLocaleString('en-PH')}` });
+
     if (!occurred_at || !DATE_RE.test(occurred_at))
       return res.status(400).json({ success: false, message: 'occurred_at must be a valid date in YYYY-MM-DD format' });
+
+    const dateError = validateOccurredAt(occurred_at);
+    if (dateError) return res.status(400).json({ success: false, message: dateError });
+
+    if (description != null && String(description).length > MAX_DESC_LEN)
+      return res.status(400).json({ success: false, message: `description must be ${MAX_DESC_LEN} characters or fewer` });
 
     const catError = validateCategory(type, category);
     if (catError) return res.status(400).json({ success: false, message: catError });
