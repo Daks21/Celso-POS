@@ -16,14 +16,17 @@ async function fetchContext() {
   const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
   const now       = new Date();
   // -29 days + BETWEEN inclusive = exactly 30 calendar days (today and the 29 prior).
-  const from30    = new Date(now.getTime() - 29 * 86400000);
-  const nowStr    = manilaFmt.format(now);
-  const fromStr   = manilaFmt.format(from30);
+  const from30       = new Date(now.getTime() - 29 * 86400000);
+  const yesterday    = new Date(now.getTime() - 86400000);
+  const nowStr       = manilaFmt.format(now);
+  const fromStr      = manilaFmt.format(from30);
+  const yesterdayStr = manilaFmt.format(yesterday);
 
-  const [today, allProducts, kpis,
+  const [today, yest, allProducts, kpis,
          topRevenue, topQty, byDow, finance] =
     await Promise.all([
       saleModel.getTodaySummary(),
+      saleModel.getSummary(yesterdayStr),
       productModel.getAll(),
       saleModel.getKPIs(fromStr, nowStr),
       saleModel.getTopByRevenue(fromStr, nowStr, 5),
@@ -36,7 +39,8 @@ async function fetchContext() {
   const lowStock = allProducts.filter(p => p.stock > 0 && p.stock < 50);
   const outStock = allProducts.filter(p => p.stock === 0);
 
-  return { today, allProducts, lowStock, outStock,
+  return { today, yesterday: yest, yesterdayDate: yesterdayStr,
+           allProducts, lowStock, outStock,
            kpis, topRevenue, topQty, byDow, finance };
 }
 
@@ -49,6 +53,15 @@ function buildContextText(ctx) {
     'Revenue: ' + peso(ctx.today?.totalRevenue || 0) +
     ' | Transactions: ' + (ctx.today?.transactionCount || 0) +
     ' | Avg: ' + peso(ctx.today?.avgSaleValue || 0)
+  );
+
+  // Yesterday — same shape as today, indexed by Manila date so "yesterday"
+  // tracks the store's local calendar, not UTC.
+  lines.push("\nYESTERDAY (" + ctx.yesterdayDate + "):");
+  lines.push(
+    'Revenue: ' + peso(ctx.yesterday?.totalRevenue || 0) +
+    ' | Transactions: ' + (ctx.yesterday?.transactionCount || 0) +
+    ' | Avg: ' + peso(ctx.yesterday?.avgSaleValue || 0)
   );
 
   // 30-day KPIs

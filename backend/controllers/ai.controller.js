@@ -52,11 +52,12 @@ const chat = async (req, res, next) => {
       return res.status(429).json({ success: false,
         message: 'Too many requests. Wait a moment and try again.' });
 
-    const contextText = history.length === 0 ? await getContextMessage() : null;
+    // Attach fresh store data on every turn — without it, follow-up questions
+    // ("sales yesterday?", "net balance?") were going to the LLM with only the
+    // chat history and produced "I don't have access to the data" dodges.
+    const contextText = await getContextMessage();
     const directive   = langDirective(lang);
-    const userMessage = contextText
-      ? contextText + '\n\n' + directive + message
-      : directive + message;
+    const userMessage = contextText + '\n\n' + directive + message;
 
     const t0 = Date.now();
     const result = await assistant.ask(OS_SYSTEM_PROMPT, history, userMessage,
@@ -97,11 +98,9 @@ const chatStream = async (req, res, next) => {
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
-    const contextText = history.length === 0 ? await getContextMessage() : null;
+    const contextText = await getContextMessage();
     const directive   = langDirective(lang);
-    const userMessage = contextText
-      ? contextText + '\n\n' + directive + message
-      : directive + message;
+    const userMessage = contextText + '\n\n' + directive + message;
 
     const t0 = Date.now();
     const response = await assistant.ask(
