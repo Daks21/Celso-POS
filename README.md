@@ -392,12 +392,14 @@
     created_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 
   DERIVED VIEWS (computed, not stored):
-    Money In   = SUM(amount WHERE type='capital_in')
-                 + SUM(sales.total in period)
+    Money In   = SUM(amount WHERE type IN ('capital_in','sales_revenue'))
+                 -- Sales are recorded once in cash_movements (type=sales_revenue)
+                 -- by the POS create-sale transaction; never re-summed from sales.total.
     Money Out  = SUM(amount WHERE type IN ('owner_draw','opex','capex'))
     Net        = Money In − Money Out
-    Utang      = SUM(amount WHERE type='capital_in'  AND category='borrowed')
-               − SUM(amount WHERE type='owner_draw' AND category='debt_payment')
+    Utang      = MAX(0,
+                   SUM(amount WHERE type='capital_in'  AND category='borrowed')
+                 − SUM(amount WHERE type='owner_draw' AND category='debt_payment'))
 
   SCHEMA ALTERATIONS (Phase 5):
   ─────────────────────────────────────────────────────────────
@@ -660,15 +662,31 @@
       Active rows only, sorted newest first.
 
     GET    /summary        Auth required
-      Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (default: current month)
+      Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (default: all-time)
       → 200 { success, data: {
                 moneyIn, moneyOut, net, debtBalance,
                 byType: { capital_in, owner_draw, opex, capex, sales_revenue },
                 byCategory: { <category>: <total>, ... }
               } }
-      debtBalance = SUM(capital_in WHERE category='borrowed')
-                  − SUM(owner_draw WHERE category='debt_payment')
-      (period-independent — reflects current outstanding balance)
+      debtBalance = MAX(0, SUM(capital_in WHERE category='borrowed')
+                         − SUM(owner_draw WHERE category='debt_payment'))
+      (period-independent — reflects current outstanding balance; floored at 0)
+
+    GET    /profit         Auth required
+      Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (default: current calendar month
+              in Asia/Manila local time)
+      → 200 { success, data: {
+                revenue, cogs, grossProfit,
+                opex,           -- non-restock opex + owner_draw with category='opex'
+                capex,
+                profit,         -- grossProfit − opex − capex
+                margin,         -- profit / revenue × 100, 2dp
+                previous: { profit, range: { from, to } },
+                period:   { from, to }
+              } }
+      Restock opex is intentionally excluded from `opex` here because its
+      cost is already realized as COGS the moment each item is sold.
+      Including it would double-charge the owner against the same purchase.
 
     POST   /               Auth required
       Body: { type, category, amount, description?, occurred_at }
@@ -1407,7 +1425,7 @@
     (CARD MRI, ASA), cooperatives, 5-6 lenders, family, or pawn shops.
     Withdrawals are frequently loan-servicing, not personal spending.
     Subcategorizing capital_in (own vs borrowed) and owner_draw
-    (personal vs loan_payment vs reinvest) lets the app compute a
+    (personal vs debt_payment vs reinvest) lets the app compute a
     derived "Utang" balance — answering "magkano pa ba utang ko?" —
     without introducing a separate loans table.
 
@@ -1460,23 +1478,41 @@
 
     Module 5.3 — Finance Page UI                       [COMPLETE]
       - finance.html + css/pages/finance.css + js/pages/finance.js
-      - Top row: two summary cards
-          ┌──────────────────────┐ ┌────────────────────────┐
-          │  Net Balance (total) │ │  Cash Flow (sparkline) │
-          └──────────────────────┘ └────────────────────────┘
-        Net Balance: all-time running net (Money In − Money Out)
-        Cash Flow sparkline: live SVG line chart, auto-adapts
-        granularity (daily → weekly → monthly → annually) based
-        on card width via ResizeObserver; no external dependencies
+      - Top row: four summary cards + a cumulative-cash chart
+          ┌────────────┐ ┌────────┐ ┌─────────┐ ┌─────────┐ ┌──────────┐
+          │ Net Balance│ │ Profit │ │  Debt   │ │  Total  │ │ Cumulative│
+          │ Cash on    │ │ (in-   │ │ Balance │ │ Capital │ │   Cash    │
+          │ hand       │ │ card   │ │         │ │ Own/Debt│ │ Position  │
+          │            │ │ period │ │         │ │         │ │ chart     │
+          └────────────┘ └────────┘ └─────────┘ └─────────┘ └──────────┘
+        Net Balance:       all-time Money In − Money Out (cash on hand).
+        Profit:            revenue − COGS − opex − capex over a period
+                           controlled by an in-card dropdown
+                           (All Time / This Month / Last Month /
+                           Last 3 Months / This Year). In All Time mode
+                           the card shows Margin %; otherwise it shows
+                           the ↑/↓ delta vs the prior same-length window.
+        Debt Balance:      borrowed − debt_payment, floored at 0;
+                           toggleable via localStorage flag.
+        Total Capital:     lifetime SUM(capital_in), broken into
+                           Own / Debt below the headline.
+        Cumulative Cash:   live SVG line chart with min/max ₱ labels
+                           on the Y axis, first/last date labels on
+                           the X axis, and capital-injection markers
+                           on the curve. Granularity (daily → weekly
+                           → monthly → annually) adapts to card width
+                           via ResizeObserver; no external dependencies.
       - Filter dropdown: [All Types] [Daily Sales] [Capital In]
         [Withdrawal] — filters table rows; summary always shows totals
-      - Cash flow list (date, type + category, signed amount, notes)
-        paginated at 20 rows; daily sales grouped into single rows
+      - Cash flow list (date, type + category + source chip, signed
+        amount, notes) paginated at 20 rows; daily sales grouped into
+        single rows. Auto-created rows show a "from Restock" / "from
+        POS" pill in the description cell.
       - "+ Add Entry" button (admin only) → modal:
           • Type selector: Capital In | Withdrawal
           • Category selector swaps based on type
           • Amount, Date, Notes
-      - Auto-created entries (restock, sale) shown read-only;
+      - Auto-created entries (restock, sale) are read-only;
         manual entries show Edit / Delete kebab menu (admin only)
       - Pagination: 20 entries per page, shared pagination component
 

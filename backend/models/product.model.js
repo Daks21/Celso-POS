@@ -113,11 +113,15 @@ const adjustStock = async (id, qty, type, notes = null, userId = null, expenseDa
       const desc = expenseData.supplierName
         ? `Restock from ${expenseData.supplierName}: ${product.name}`
         : `Restock: ${product.name}`;
+      // Manila local YYYY-MM-DD. Avoids the day-drift that CURDATE() causes
+      // when the MySQL session timezone is UTC and an owner restocks in the
+      // evening Manila time — same defensive pattern as analytics.controller.
+      const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
       const [cmResult] = await conn.query(
         `INSERT INTO cash_movements
            (type, category, amount, description, occurred_at, source, source_id, recorded_by)
-         VALUES ('opex', 'restock', ?, ?, CURDATE(), 'restock', ?, ?)`,
-        [expenseData.totalPaid, desc, adjResult.insertId, userId]
+         VALUES ('opex', 'restock', ?, ?, ?, 'restock', ?, ?)`,
+        [expenseData.totalPaid, desc, manilaToday, adjResult.insertId, userId]
       );
       cashMovement = { id: cmResult.insertId, type: 'opex', category: 'restock', amount: expenseData.totalPaid };
     }
