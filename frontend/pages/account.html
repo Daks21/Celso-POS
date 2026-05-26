@@ -337,6 +337,50 @@
             </div>
           </section>
 
+          <!-- Advanced Analytics Card -->
+          <section class="settings-section" id="advanced-analytics">
+            <h2 class="settings-section-title">Advanced Analytics</h2>
+            <div class="settings-card">
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <span class="settings-label">Show advanced insights</span>
+                  <span class="settings-description">
+                    Adds inventory health, cashflow snapshot, monthly revenue goal,
+                    and CSV/PDF export to the Analytics page. Off by default to keep
+                    the page simple for everyday use.
+                  </span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="advanced-analytics-toggle">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div class="settings-row" id="monthly-goal-row">
+                <div class="settings-label-group">
+                  <span class="settings-label">Monthly revenue goal</span>
+                  <span class="settings-description">
+                    Set a target so the Analytics page shows your progress and a projected end-of-month total.
+                    Leave blank to hide.
+                  </span>
+                </div>
+                <div class="goal-input-wrap">
+                  <span class="goal-input-prefix">₱</span>
+                  <input
+                    type="number"
+                    id="monthly-goal-input"
+                    class="search-input no-spinner"
+                    min="0"
+                    step="100"
+                    placeholder="e.g. 50000"
+                    style="width:140px;"
+                  />
+                  <button type="button" class="secondary-button" id="monthly-goal-save">Save</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <!-- Dashboard Card -->
           <section class="page-section">
             <div class="products-header">

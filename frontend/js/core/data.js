@@ -91,6 +91,8 @@ function collectCurrentPreferences(userId) {
     showThemeToggle:          nav.showThemeToggle  === true,
     financeDebtBalanceVisible: localStorage.getItem('financeDebtBalanceVisible') !== 'false',
     osEnabled:                userPrefs.osEnabled === true,
+    advancedAnalytics:        userPrefs.advancedAnalytics === true,
+    monthlyRevenueGoal:       userPrefs.monthlyRevenueGoal != null ? userPrefs.monthlyRevenueGoal : null,
   };
 }
 

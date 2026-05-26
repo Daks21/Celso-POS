@@ -81,11 +81,84 @@ function getDateRange(rangeKey) {
 
 // ── KPI display ──
 
+// Compute % delta between current and previous, with sane handling of zero base.
+function pctDelta(current, previous) {
+  current  = Number(current)  || 0;
+  previous = Number(previous) || 0;
+  if (previous === 0) {
+    if (current === 0) return { pct: 0,         dir: 'flat', noBaseline: true };
+    return                     { pct: null,      dir: 'up',   noBaseline: true };
+  }
+  var pct = ((current - previous) / previous) * 100;
+  var dir = pct > 0.5 ? 'up' : pct < -0.5 ? 'down' : 'flat';
+  return { pct: pct, dir: dir, noBaseline: false };
+}
+
+// Renders the delta chip on a KPI card. `inverted = true` means "down is good"
+// (used for things like cost ratios; we don't have any yet but kept for clarity).
+function setDelta(elementId, delta, opts) {
+  var el = document.getElementById(elementId);
+  if (!el) return;
+  opts = opts || {};
+  var dir = delta.dir;
+  var label;
+
+  if (delta.noBaseline && delta.pct === null) {
+    label = 'new vs previous period';
+    dir   = 'up';
+  } else if (delta.noBaseline) {
+    label = 'no prior data';
+    dir   = 'flat';
+  } else if (Math.abs(delta.pct) < 0.5) {
+    label = 'flat vs previous period';
+    dir   = 'flat';
+  } else {
+    var arrow = dir === 'up' ? '▲' : '▼';
+    label = arrow + ' ' + Math.abs(delta.pct).toFixed(1) + '% vs previous period';
+  }
+
+  // Visual semantics flip if `inverted` is true.
+  var visualDir = opts.inverted && dir !== 'flat' ? (dir === 'up' ? 'down' : 'up') : dir;
+  el.dataset.dir = visualDir;
+  el.textContent = label;
+}
+
 function updateKPIs(kpis) {
   document.getElementById('kpi-revenue').textContent      = formatPeso(kpis.totalRevenue || 0);
   document.getElementById('kpi-transactions').textContent = kpis.transactionCount || 0;
   document.getElementById('kpi-avg-order').textContent    = formatPeso(kpis.avgOrderValue || 0);
   document.getElementById('kpi-units').textContent        = kpis.totalUnits || 0;
+
+  var prev = kpis.previous || {};
+  setDelta('kpi-revenue-delta',      pctDelta(kpis.totalRevenue,     prev.totalRevenue));
+  setDelta('kpi-transactions-delta', pctDelta(kpis.transactionCount, prev.transactionCount));
+  setDelta('kpi-avg-order-delta',    pctDelta(kpis.avgOrderValue,    prev.avgOrderValue));
+  setDelta('kpi-units-delta',        pctDelta(kpis.totalUnits,       prev.totalUnits));
+}
+
+function updateProfitKPIs(profit) {
+  var gpEl     = document.getElementById('kpi-gross-profit');
+  var marginEl = document.getElementById('kpi-margin');
+  if (gpEl)     gpEl.textContent     = formatPeso(profit.grossProfit || 0);
+  if (marginEl) marginEl.textContent = ((profit.margin || 0).toFixed(1)) + '%';
+
+  var prev = profit.previous || {};
+  setDelta('kpi-gross-profit-delta', pctDelta(profit.grossProfit, prev.grossProfit));
+  // Margin is a percentage already — show its absolute change in points.
+  var marginPts = (profit.margin || 0) - (prev.margin || 0);
+  var marginEl2 = document.getElementById('kpi-margin-delta');
+  if (marginEl2) {
+    if ((prev.margin == null || (prev.margin === 0 && (profit.margin || 0) === 0))) {
+      marginEl2.dataset.dir = 'flat';
+      marginEl2.textContent = 'no prior data';
+    } else if (Math.abs(marginPts) < 0.1) {
+      marginEl2.dataset.dir = 'flat';
+      marginEl2.textContent = 'flat vs previous period';
+    } else {
+      marginEl2.dataset.dir = marginPts > 0 ? 'up' : 'down';
+      marginEl2.textContent = (marginPts > 0 ? '▲ +' : '▼ ') + marginPts.toFixed(1) + ' pts vs previous period';
+    }
+  }
 }
 
 function updateInventoryKPIs(products) {
@@ -96,6 +169,84 @@ function updateInventoryKPIs(products) {
   var elProfit = document.getElementById('kpi-calc-profit');
   if (elAssets) elAssets.textContent = formatPeso(totalAssets);
   if (elProfit) elProfit.textContent = formatPeso(inventoryMargin);
+}
+
+// ── Health Badge ──
+// Plain-English health summary computed from the period deltas + margin trend.
+// Tiers: healthy / steady / watch / warning — picked by a simple rules engine.
+
+function renderHealthBadge(kpis, profit) {
+  var badge   = document.getElementById('health-badge');
+  var titleEl = document.getElementById('health-badge-title');
+  var detailEl = document.getElementById('health-badge-detail');
+  if (!badge || !titleEl || !detailEl) return;
+
+  var prevK = kpis.previous || {};
+  var prevP = profit && profit.previous ? profit.previous : {};
+
+  var revenueDelta = pctDelta(kpis.totalRevenue, prevK.totalRevenue);
+  var profitDelta  = profit ? pctDelta(profit.grossProfit, prevP.grossProfit) : { dir: 'flat' };
+  var marginPts    = profit ? (profit.margin || 0) - (prevP.margin || 0) : 0;
+
+  // No data yet for this period
+  if (!kpis.totalRevenue && !prevK.totalRevenue) {
+    badge.dataset.state = 'idle';
+    titleEl.textContent  = 'No sales yet in this period';
+    detailEl.textContent = 'Once you record sales, you\'ll see a quick health summary here.';
+    badge.hidden = false;
+    return;
+  }
+
+  var state, title, detail;
+
+  // Warning: revenue down >10% OR margin dropped >3 points
+  if ((!revenueDelta.noBaseline && revenueDelta.pct !== null && revenueDelta.pct <= -10)
+       || marginPts <= -3) {
+    state  = 'warning';
+    title  = 'Needs attention';
+    var reasons = [];
+    if (revenueDelta.pct !== null && revenueDelta.pct <= -10) reasons.push('sales down ' + Math.abs(revenueDelta.pct).toFixed(0) + '%');
+    if (marginPts <= -3) reasons.push('profit margin dropped ' + Math.abs(marginPts).toFixed(1) + ' pts');
+    detail = reasons.join(' and ') + ' vs previous period.';
+  }
+  // Watch: revenue down 3–10% OR margin down 1–3 points OR mixed signals
+  else if ((!revenueDelta.noBaseline && revenueDelta.pct !== null && revenueDelta.pct <= -3)
+            || marginPts <= -1
+            || (revenueDelta.dir === 'up' && profitDelta.dir === 'down')) {
+    state  = 'watch';
+    title  = 'Worth a look';
+    if (revenueDelta.dir === 'up' && profitDelta.dir === 'down') {
+      detail = 'Sales are up but profit isn\'t — costs or product mix may have shifted.';
+    } else if (marginPts <= -1) {
+      detail = 'Profit margin is slightly down (' + marginPts.toFixed(1) + ' pts vs previous period).';
+    } else {
+      detail = 'Sales are down ' + Math.abs(revenueDelta.pct).toFixed(0) + '% vs previous period.';
+    }
+  }
+  // Healthy: revenue up >5% AND profit not down
+  else if (!revenueDelta.noBaseline && revenueDelta.pct !== null && revenueDelta.pct >= 5
+            && profitDelta.dir !== 'down') {
+    state  = 'healthy';
+    title  = 'Healthy';
+    detail = 'Sales up ' + revenueDelta.pct.toFixed(0) + '%'
+           + (profit && profit.margin ? ', profit margin at ' + profit.margin.toFixed(1) + '%' : '')
+           + ' vs previous period.';
+  }
+  // Steady: everything close to flat
+  else {
+    state  = 'steady';
+    title  = 'Steady';
+    if (revenueDelta.noBaseline) {
+      detail = 'First period of data — keep recording sales to see trend comparisons.';
+    } else {
+      detail = 'Performance is roughly in line with the previous period.';
+    }
+  }
+
+  badge.dataset.state  = state;
+  titleEl.textContent  = title;
+  detailEl.textContent = detail;
+  badge.hidden = false;
 }
 
 // ── Chart rendering ──
@@ -463,29 +614,59 @@ function toManilaDate(d) { return _manilaFmt.format(d); }
 
 // ── Main render ──
 
+// Cached "current view" payloads — used by CSV/PDF export.
+var _lastSnapshot = {
+  range:        null,
+  kpis:         null,
+  profit:       null,
+  charts:       null,
+  cashflow:     null,
+  inventoryHealth: null,
+  products:     null,
+};
+
 async function renderAll() {
   var range   = getDateRange(currentRange);
   // Convert to Manila local date strings (YYYY-MM-DD) — never toISOString() which is UTC
   var fromStr = range.from ? toManilaDate(range.from) : null;
   var toStr   = range.to   ? toManilaDate(range.to)   : null;
 
+  _lastSnapshot.range = { from: fromStr, to: toStr, key: currentRange };
+
+  var advancedOn = isAdvancedEnabled();
+
   try {
-    var results = await Promise.all([
+    var calls = [
       getKPIs(fromStr, toStr),
       getCharts(fromStr, toStr),
       getHeatmap(),
-      getProducts()
-    ]);
+      getProducts(),
+      getProfit(fromStr, toStr),
+    ];
+    if (advancedOn) {
+      calls.push(getFinanceSummary({ from: fromStr, to: toStr }));
+      calls.push(getInventoryHealth());
+    }
 
-    var kpiResult      = results[0];
-    var chartResult    = results[1];
-    var heatmapResult  = results[2];
-    var productsResult = results[3];
+    var results = await Promise.all(calls);
+    var kpiResult       = results[0];
+    var chartResult     = results[1];
+    var heatmapResult   = results[2];
+    var productsResult  = results[3];
+    var profitResult    = results[4];
+    var financeResult   = advancedOn ? results[5] : null;
+    var inventoryResult = advancedOn ? results[6] : null;
 
     if (kpiResult && kpiResult.success) {
       updateKPIs(kpiResult.data);
+      _lastSnapshot.kpis = kpiResult.data;
     } else if (kpiResult && !kpiResult.success) {
       showApiError(kpiResult.message || 'Failed to load KPIs.');
+    }
+
+    if (profitResult && profitResult.success) {
+      updateProfitKPIs(profitResult.data);
+      _lastSnapshot.profit = profitResult.data;
     }
 
     if (heatmapResult && heatmapResult.success) {
@@ -498,12 +679,34 @@ async function renderAll() {
       renderTopRevenueChart(_toTopRevenue(cd.topByRevenue));
       renderTopQtyChart(_toTopQty(cd.topByQty));
       renderDayOfWeekChart(_toDayOfWeek(cd.byDayOfWeek));
+      _lastSnapshot.charts = cd;
     } else if (chartResult && !chartResult.success) {
       showApiError(chartResult.message || 'Failed to load chart data.');
     }
 
     if (productsResult && productsResult.success) {
       updateInventoryKPIs(productsResult.data || []);
+      _lastSnapshot.products = productsResult.data;
+    }
+
+    // Health badge needs both KPIs and profit
+    if (kpiResult && kpiResult.success) {
+      renderHealthBadge(
+        kpiResult.data,
+        profitResult && profitResult.success ? profitResult.data : null
+      );
+    }
+
+    if (advancedOn) {
+      if (financeResult && financeResult.success) {
+        renderCashflowPanel(financeResult.data);
+        _lastSnapshot.cashflow = financeResult.data;
+      }
+      if (inventoryResult && inventoryResult.success) {
+        renderInventoryHealth(inventoryResult.data);
+        _lastSnapshot.inventoryHealth = inventoryResult.data;
+      }
+      renderGoalProgress(kpiResult && kpiResult.success ? kpiResult.data : null);
     }
   } catch (err) {
     showApiError('Network error. Is the server running?');
@@ -581,10 +784,467 @@ var themeObserver = new MutationObserver(function () {
 });
 themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
+// ── Collapsible heatmap ──
+
+function initCollapsibleHeatmap() {
+  var toggle  = document.getElementById('heatmap-toggle');
+  var content = document.getElementById('heatmap-content');
+  if (!toggle || !content) return;
+
+  // First-visit default: collapsed. Otherwise honor user's last choice.
+  var stored = localStorage.getItem('analyticsHeatmapOpen');
+  var open   = stored === 'true'; // default false (collapsed) for new users
+  applyHeatmapState(open);
+
+  toggle.addEventListener('click', function () {
+    open = !open;
+    applyHeatmapState(open);
+    localStorage.setItem('analyticsHeatmapOpen', String(open));
+  });
+
+  function applyHeatmapState(isOpen) {
+    toggle.setAttribute('aria-expanded', String(isOpen));
+    content.hidden = !isOpen;
+    var chevron = toggle.querySelector('.collapsible-chevron');
+    if (chevron) chevron.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+  }
+}
+
+// ── Advanced Analytics gate ──
+
+function getCurrentUserId() {
+  try {
+    var u = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    return u && u.id ? String(u.id) : null;
+  } catch (_) { return null; }
+}
+
+function loadUserPrefsLocal() {
+  var uid = getCurrentUserId();
+  if (!uid) return {};
+  try { return JSON.parse(localStorage.getItem('prefs_' + uid) || '{}'); }
+  catch (_) { return {}; }
+}
+
+function isAdvancedEnabled() {
+  return loadUserPrefsLocal().advancedAnalytics === true;
+}
+
+function applyAdvancedMode() {
+  var on = isAdvancedEnabled();
+  document.querySelectorAll('.advanced-only').forEach(function (el) {
+    el.hidden = !on;
+  });
+}
+
+// ── Cashflow mini-panel ──
+
+function renderCashflowPanel(summary) {
+  var inEl    = document.getElementById('cf-money-in');
+  var outEl   = document.getElementById('cf-money-out');
+  var netEl   = document.getElementById('cf-net');
+  var barIn   = document.getElementById('cf-bar-in');
+  var barOut  = document.getElementById('cf-bar-out');
+  var emptyEl = document.getElementById('cashflow-empty');
+  if (!inEl || !outEl || !netEl) return;
+
+  var moneyIn  = Number(summary.moneyIn)  || 0;
+  var moneyOut = Number(summary.moneyOut) || 0;
+  var net      = Number(summary.net)      || (moneyIn - moneyOut);
+
+  inEl.textContent  = formatPeso(moneyIn);
+  outEl.textContent = formatPeso(moneyOut);
+  netEl.textContent = formatPeso(net);
+
+  var netParent = netEl.parentElement;
+  if (netParent) netParent.dataset.netSign = net >= 0 ? 'positive' : 'negative';
+
+  var total = moneyIn + moneyOut;
+  if (barIn && barOut) {
+    if (total === 0) {
+      barIn.style.width  = '0%';
+      barOut.style.width = '0%';
+    } else {
+      barIn.style.width  = ((moneyIn  / total) * 100).toFixed(2) + '%';
+      barOut.style.width = ((moneyOut / total) * 100).toFixed(2) + '%';
+    }
+  }
+
+  if (emptyEl) emptyEl.hidden = total > 0;
+}
+
+// ── Inventory Health widget ──
+
+var _ihData = null;
+var _ihActiveTab = 'slow';
+
+function renderInventoryHealth(data) {
+  _ihData = data;
+  paintInventoryHealthTab();
+}
+
+function paintInventoryHealthTab() {
+  if (!_ihData) return;
+  var tbody    = document.getElementById('ih-tbody');
+  var emptyEl  = document.getElementById('ih-empty');
+  var colMetric = document.getElementById('ih-col-metric');
+  if (!tbody) return;
+
+  var rows = [];
+  var metricLabel = 'Per week';
+  if (_ihActiveTab === 'slow') {
+    rows = _ihData.slowMovers || [];
+    metricLabel = 'Per week';
+  } else if (_ihActiveTab === 'dead') {
+    rows = _ihData.deadStock || [];
+    metricLabel = 'Tied-up cash';
+  } else if (_ihActiveTab === 'turnover') {
+    rows = (_ihData.turnover || []).slice().sort(function (a, b) {
+      return (b.daysOfStock || 0) - (a.daysOfStock || 0);
+    });
+    metricLabel = 'Days of stock';
+  }
+
+  if (colMetric) colMetric.textContent = metricLabel;
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '';
+    if (emptyEl) {
+      emptyEl.hidden = false;
+      emptyEl.textContent = _ihActiveTab === 'dead'
+        ? 'No dead stock — everything is moving.'
+        : _ihActiveTab === 'slow'
+        ? 'No slow-moving products. Nice.'
+        : 'Not enough sales history to estimate days of stock yet.';
+    }
+    document.getElementById('ih-table').hidden = true;
+    return;
+  }
+
+  if (emptyEl) emptyEl.hidden = true;
+  document.getElementById('ih-table').hidden = false;
+
+  var html = rows.map(function (r) {
+    var metricVal;
+    if (_ihActiveTab === 'slow') {
+      metricVal = (r.weeklyRate || 0).toFixed(1);
+    } else if (_ihActiveTab === 'dead') {
+      metricVal = formatPeso(r.tiedUpCapital || 0);
+    } else {
+      metricVal = r.daysOfStock != null ? r.daysOfStock + ' days' : '—';
+    }
+    return '<tr>'
+      + '<td class="ih-name">' + escapeHtml(r.name) + '</td>'
+      + '<td class="ih-num">' + metricVal + '</td>'
+      + '<td class="ih-num">' + r.stock + ' ' + escapeHtml(r.unit || '') + '</td>'
+      + '</tr>';
+  }).join('');
+  tbody.innerHTML = html;
+}
+
+function initInventoryHealthTabs() {
+  var tabs = document.querySelectorAll('.ih-tab');
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      tabs.forEach(function (t) {
+        t.classList.remove('is-active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      tab.classList.add('is-active');
+      tab.setAttribute('aria-selected', 'true');
+      _ihActiveTab = tab.dataset.tab;
+      paintInventoryHealthTab();
+    });
+  });
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ── Monthly Revenue Goal ──
+
+function getMonthlyGoal() {
+  var v = loadUserPrefsLocal().monthlyRevenueGoal;
+  v = parseFloat(v);
+  return isNaN(v) || v <= 0 ? null : v;
+}
+
+function renderGoalProgress(kpis) {
+  var card         = document.getElementById('goal-card');
+  var emptyEl      = document.getElementById('goal-empty');
+  var progressWrap = document.getElementById('goal-progress-wrap');
+  if (!card || !emptyEl || !progressWrap) return;
+
+  var goal = getMonthlyGoal();
+  if (!goal) {
+    emptyEl.hidden      = false;
+    progressWrap.hidden = true;
+    return;
+  }
+
+  // Compute this-month revenue regardless of the user's date range —
+  // the goal is always evaluated against the current calendar month.
+  loadMonthRevenue().then(function (revenue) {
+    var pct        = (revenue / goal) * 100;
+    var now        = new Date();
+    var daysInMo   = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    var dayOfMonth = now.getDate();
+    var dailyRate  = revenue / Math.max(1, dayOfMonth);
+    var projection = dailyRate * daysInMo;
+    var projPct    = (projection / goal) * 100;
+
+    document.getElementById('goal-achieved').textContent  = formatPeso(revenue);
+    document.getElementById('goal-target').textContent    = formatPeso(goal);
+    document.getElementById('goal-percent').textContent   = pct.toFixed(0) + '%';
+    document.getElementById('goal-projection').textContent = formatPeso(projection);
+
+    var bar = document.getElementById('goal-bar-fill');
+    bar.style.width = Math.min(100, Math.max(0, pct)).toFixed(2) + '%';
+    bar.dataset.state = pct >= 100 ? 'reached' : projPct >= 100 ? 'ontrack' : projPct >= 70 ? 'close' : 'behind';
+
+    var projMark = document.getElementById('goal-bar-projection');
+    if (projection > 0) {
+      projMark.hidden = false;
+      projMark.style.left = Math.min(100, projPct).toFixed(2) + '%';
+      projMark.title = 'Projected end-of-month: ' + formatPeso(projection);
+    }
+
+    var status = document.getElementById('goal-status');
+    if (pct >= 100) {
+      status.textContent = 'Goal reached! Anything beyond this is extra.';
+    } else if (projPct >= 100) {
+      status.textContent = 'On track — at the current pace, you\'ll hit your goal by end of month.';
+    } else if (projPct >= 70) {
+      status.textContent = 'Close — picking up the pace this week would get you across the line.';
+    } else {
+      status.textContent = 'Behind pace — projected to finish at ' + projPct.toFixed(0) + '% of the goal.';
+    }
+
+    emptyEl.hidden      = true;
+    progressWrap.hidden = false;
+  }).catch(function () { /* ignore — keep prior render */ });
+}
+
+function loadMonthRevenue() {
+  var now   = new Date();
+  var first = new Date(now.getFullYear(), now.getMonth(), 1);
+  var from  = toManilaDate(first);
+  var to    = toManilaDate(now);
+  return getKPIs(from, to).then(function (r) {
+    if (r && r.success) return Number(r.data.totalRevenue) || 0;
+    return 0;
+  });
+}
+
+// ── Export (CSV + PDF) ──
+
+function initExport() {
+  var csvBtn = document.getElementById('export-csv');
+  var pdfBtn = document.getElementById('export-pdf');
+  if (csvBtn) csvBtn.addEventListener('click', exportCSV);
+  if (pdfBtn) pdfBtn.addEventListener('click', exportPDF);
+}
+
+function exportCSV() {
+  var snap = _lastSnapshot;
+  if (!snap.kpis) { showApiError('Nothing to export yet.'); return; }
+
+  var lines = [];
+  var range = snap.range;
+  lines.push('Celso POS — Analytics Export');
+  lines.push('Period,' + (range.from || '') + ' to ' + (range.to || ''));
+  lines.push('Generated,' + new Date().toISOString());
+  lines.push('');
+  lines.push('KPI,Value,Previous,Change %');
+
+  function row(label, cur, prev) {
+    var d = pctDelta(cur, prev);
+    var changeStr = d.noBaseline ? 'N/A' : (d.pct == null ? 'N/A' : d.pct.toFixed(1) + '%');
+    lines.push([csvEscape(label), cur, prev == null ? '' : prev, changeStr].join(','));
+  }
+  var k = snap.kpis;
+  var pk = k.previous || {};
+  row('Total Revenue',     k.totalRevenue,     pk.totalRevenue);
+  row('Transactions',      k.transactionCount, pk.transactionCount);
+  row('Avg. Order Value',  k.avgOrderValue,    pk.avgOrderValue);
+  row('Units Sold',        k.totalUnits,       pk.totalUnits);
+  if (snap.profit) {
+    var p  = snap.profit;
+    var pp = p.previous || {};
+    row('Gross Profit',  p.grossProfit, pp.grossProfit);
+    row('Profit Margin %', p.margin,    pp.margin);
+    row('COGS',          p.cogs,        pp.cogs);
+  }
+
+  if (snap.charts && snap.charts.revenueByDay) {
+    lines.push('');
+    lines.push('Revenue by Day');
+    lines.push('Date,Revenue');
+    Object.keys(snap.charts.revenueByDay).sort().forEach(function (d) {
+      lines.push(d + ',' + snap.charts.revenueByDay[d]);
+    });
+  }
+
+  if (snap.charts && Array.isArray(snap.charts.topByRevenue)) {
+    lines.push('');
+    lines.push('Top Products by Revenue');
+    lines.push('Product,Revenue');
+    snap.charts.topByRevenue.forEach(function (r) {
+      lines.push(csvEscape(r.name) + ',' + r.revenue);
+    });
+  }
+
+  if (snap.cashflow) {
+    lines.push('');
+    lines.push('Cashflow');
+    lines.push('Money In,'  + snap.cashflow.moneyIn);
+    lines.push('Money Out,' + snap.cashflow.moneyOut);
+    lines.push('Net,'       + snap.cashflow.net);
+    lines.push('Debt Balance,' + snap.cashflow.debtBalance);
+  }
+
+  var blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  downloadBlob(blob, 'celso-analytics-' + (range.from || 'export') + '.csv');
+}
+
+function csvEscape(s) {
+  if (s == null) return '';
+  var str = String(s);
+  if (/[",\n\r]/.test(str)) return '"' + str.replace(/"/g, '""') + '"';
+  return str;
+}
+
+function downloadBlob(blob, filename) {
+  var url = URL.createObjectURL(blob);
+  var a   = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+}
+
+var _jspdfLoading = null;
+function loadJsPdf() {
+  if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  if (_jspdfLoading) return _jspdfLoading;
+  _jspdfLoading = new Promise(function (resolve, reject) {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+    s.onload  = function () { resolve(window.jspdf.jsPDF); };
+    s.onerror = function () { reject(new Error('Failed to load jsPDF')); };
+    document.head.appendChild(s);
+  });
+  return _jspdfLoading;
+}
+
+async function exportPDF() {
+  var snap = _lastSnapshot;
+  if (!snap.kpis) { showApiError('Nothing to export yet.'); return; }
+
+  try {
+    var jsPDF = await loadJsPdf();
+    var doc   = new jsPDF({ unit: 'pt', format: 'a4' });
+    var x     = 40;
+    var y     = 50;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('Celso POS — Analytics Report', x, y);
+    y += 22;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.text('Period: ' + (snap.range.from || '') + '  to  ' + (snap.range.to || ''), x, y);
+    y += 16;
+    doc.text('Generated: ' + new Date().toLocaleString('en-PH'), x, y);
+    y += 24;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('Key Metrics', x, y);
+    y += 6;
+    doc.setLineWidth(0.5);
+    doc.line(x, y, 555, y);
+    y += 16;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+
+    function pdfKV(label, value, prev) {
+      var d = pctDelta(value, prev);
+      var change = d.noBaseline ? '' : d.pct == null ? '' : (d.pct >= 0 ? '+' : '') + d.pct.toFixed(1) + '%';
+      doc.text(label,        x,       y);
+      doc.text(String(value), x + 220, y);
+      doc.text(change,       x + 340, y);
+      y += 18;
+    }
+
+    var k  = snap.kpis;
+    var pk = k.previous || {};
+    pdfKV('Total Revenue',    formatPeso(k.totalRevenue),     pk.totalRevenue == null     ? null : pk.totalRevenue);
+    pdfKV('Transactions',     String(k.transactionCount),     pk.transactionCount == null ? null : pk.transactionCount);
+    pdfKV('Avg. Order Value', formatPeso(k.avgOrderValue),    pk.avgOrderValue == null    ? null : pk.avgOrderValue);
+    pdfKV('Units Sold',       String(k.totalUnits),           pk.totalUnits == null       ? null : pk.totalUnits);
+
+    if (snap.profit) {
+      var p  = snap.profit;
+      var pp = p.previous || {};
+      pdfKV('Gross Profit',  formatPeso(p.grossProfit),       pp.grossProfit == null ? null : pp.grossProfit);
+      pdfKV('Profit Margin', p.margin.toFixed(1) + '%',       pp.margin == null      ? null : pp.margin);
+      pdfKV('COGS',          formatPeso(p.cogs),              pp.cogs == null        ? null : pp.cogs);
+    }
+
+    y += 10;
+    if (snap.charts && Array.isArray(snap.charts.topByRevenue) && snap.charts.topByRevenue.length) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.text('Top Products by Revenue', x, y);
+      y += 6;
+      doc.line(x, y, 555, y);
+      y += 16;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      snap.charts.topByRevenue.forEach(function (r) {
+        doc.text(r.name,              x,       y);
+        doc.text(formatPeso(r.revenue), x + 340, y);
+        y += 18;
+      });
+      y += 10;
+    }
+
+    if (snap.cashflow) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.text('Cashflow', x, y);
+      y += 6;
+      doc.line(x, y, 555, y);
+      y += 16;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.text('Money In',  x, y); doc.text(formatPeso(snap.cashflow.moneyIn),  x + 340, y); y += 18;
+      doc.text('Money Out', x, y); doc.text(formatPeso(snap.cashflow.moneyOut), x + 340, y); y += 18;
+      doc.text('Net',       x, y); doc.text(formatPeso(snap.cashflow.net),      x + 340, y); y += 18;
+    }
+
+    doc.save('celso-analytics-' + (snap.range.from || 'export') + '.pdf');
+  } catch (err) {
+    showApiError('Could not generate PDF. Check your connection.');
+  }
+}
+
 // ── Init ──
 
 document.addEventListener('DOMContentLoaded', function () {
   initPinToggles();
+  initCollapsibleHeatmap();
+  initInventoryHealthTabs();
+  initExport();
+  applyAdvancedMode();
   renderAll();
   attachDatePresetEvents();
+
+  // Goal-edit shortcut on the goal card jumps to Account Settings.
+  var editBtn = document.getElementById('goal-edit-btn');
+  if (editBtn) editBtn.addEventListener('click', function () { window.location.href = 'account.html#advanced-analytics'; });
 });

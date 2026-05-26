@@ -431,3 +431,463 @@ html[data-theme="dark"] .heatmap-cell[data-level="4"] { background-color: #6bb38
 
   .kpi-value { font-size: 16px; }
 }
+
+/* ── Date bar row (presets + export side-by-side on desktop) ── */
+
+.analytics-date-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.export-buttons[hidden] { display: none; }
+
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-main);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.export-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.export-btn svg { width: 14px; height: 14px; }
+
+/* ── Health Badge ── */
+
+.health-badge {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  animation: slideInUp 0.4s ease-out forwards;
+}
+
+.health-badge[hidden] { display: none; }
+
+.health-badge-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background-color: var(--color-text-muted);
+  box-shadow: 0 0 0 4px rgba(0,0,0,0.04);
+}
+
+.health-badge-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.health-badge-title  { font-size: 15px; font-weight: 600; color: var(--color-text); }
+.health-badge-detail { font-size: 13px; color: var(--color-text-muted); }
+
+.health-badge[data-state="healthy"] {
+  background-color: rgba(90, 158, 111, 0.08);
+  border-color: rgba(90, 158, 111, 0.35);
+}
+.health-badge[data-state="healthy"] .health-badge-dot {
+  background-color: #5a9e6f;
+  box-shadow: 0 0 0 4px rgba(90, 158, 111, 0.15);
+}
+
+.health-badge[data-state="steady"] .health-badge-dot { background-color: #6b7280; }
+
+.health-badge[data-state="watch"] {
+  background-color: rgba(234, 179, 8, 0.07);
+  border-color: rgba(234, 179, 8, 0.35);
+}
+.health-badge[data-state="watch"] .health-badge-dot {
+  background-color: #eab308;
+  box-shadow: 0 0 0 4px rgba(234, 179, 8, 0.15);
+}
+
+.health-badge[data-state="warning"] {
+  background-color: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.35);
+}
+.health-badge[data-state="warning"] .health-badge-dot {
+  background-color: #dc2626;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.15);
+}
+
+.health-badge[data-state="idle"]    .health-badge-dot { background-color: #9ca3af; }
+.health-badge[data-state="loading"] .health-badge-dot { background-color: #d1d5db; }
+
+/* ── KPI delta chips ── */
+
+.kpi-delta,
+.kpi-delta-static {
+  display: inline-block;
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
+.kpi-delta[data-dir="up"]   { color: #16a34a; }
+.kpi-delta[data-dir="down"] { color: #dc2626; }
+.kpi-delta[data-dir="flat"] { color: var(--color-text-muted); }
+
+.kpi-delta:empty { display: none; }
+
+/* Accent the new profit cards so they stand out from raw-sales KPIs */
+.analytics-kpi-card.kpi-card-accent {
+  background: linear-gradient(180deg, rgba(90,158,111,0.06) 0%, var(--color-surface) 100%);
+  border-color: rgba(90, 158, 111, 0.28);
+}
+
+html[data-theme="dark"] .analytics-kpi-card.kpi-card-accent {
+  background: linear-gradient(180deg, rgba(107,179,128,0.10) 0%, var(--color-surface) 100%);
+  border-color: rgba(107, 179, 128, 0.30);
+}
+
+/* ── Collapsible toggle (heatmap) ── */
+
+.collapsible-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  flex: 1;
+  min-width: 0;
+}
+
+.collapsible-toggle:hover .chart-card-title h3 { color: var(--color-primary); }
+
+.collapsible-chevron {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.collapsible-content[hidden] { display: none; }
+
+/* ── Advanced Analytics Section ── */
+
+.advanced-analytics-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.advanced-analytics-section[hidden] { display: none; }
+
+.advanced-section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.advanced-section-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 2px;
+}
+
+.advanced-section-header p {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.advanced-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  background-color: rgba(90, 158, 111, 0.12);
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+/* ── Monthly Goal card ── */
+
+.goal-card { margin-bottom: 20px; }
+
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--color-primary);
+  font-family: var(--font-main);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.link-button:hover { background-color: rgba(90, 158, 111, 0.10); }
+.link-button svg   { width: 14px; height: 14px; }
+
+.goal-empty {
+  text-align: center;
+  padding: 20px 12px;
+}
+
+.goal-empty p {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.goal-numbers {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.goal-num-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.goal-num-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.goal-num-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.goal-bar {
+  position: relative;
+  height: 14px;
+  background-color: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: visible;
+}
+
+.goal-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+  transition: width 0.6s ease;
+}
+
+.goal-bar-fill[data-state="reached"] { background-color: #16a34a; }
+.goal-bar-fill[data-state="ontrack"] { background-color: #5a9e6f; }
+.goal-bar-fill[data-state="close"]   { background-color: #eab308; }
+.goal-bar-fill[data-state="behind"]  { background-color: #dc2626; }
+
+.goal-bar-projection {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background-color: var(--color-text);
+  opacity: 0.6;
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+
+.goal-status {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.goal-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.goal-input-prefix {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+/* ── Cashflow Mini-Panel ── */
+
+.cashflow-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cashflow-numbers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.cashflow-num {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-background);
+}
+
+.cashflow-num-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.cashflow-num-label svg { width: 12px; height: 12px; }
+
+.cashflow-num-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.cashflow-num-net[data-net-sign="positive"] .cashflow-num-value { color: #16a34a; }
+.cashflow-num-net[data-net-sign="negative"] .cashflow-num-value { color: #dc2626; }
+
+.cashflow-bar {
+  display: flex;
+  width: 100%;
+  height: 10px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background-color: var(--color-border);
+}
+
+.cashflow-bar-in  { background-color: #5a9e6f; transition: width 0.4s ease; }
+.cashflow-bar-out { background-color: #dc2626; opacity: 0.85; transition: width 0.4s ease; }
+
+.cashflow-empty-msg {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* ── Inventory Health ── */
+
+.ih-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.ih-tab {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+  font-family: var(--font-main);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ih-tab:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.ih-tab.is-active {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.ih-content { min-height: 200px; }
+
+.ih-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.ih-table th {
+  text-align: left;
+  padding: 8px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ih-table td {
+  padding: 8px 6px;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ih-table tr:last-child td { border-bottom: 0; }
+
+.ih-num { text-align: right; }
+
+.ih-name { font-weight: 500; }
+
+.ih-empty {
+  text-align: center;
+  padding: 32px 12px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* ── Responsive overrides for advanced section ── */
+
+@media (max-width: 720px) {
+  .goal-numbers       { grid-template-columns: repeat(2, 1fr); }
+  .cashflow-numbers   { grid-template-columns: 1fr; }
+  .advanced-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 600px) {
+  .analytics-date-bar-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .export-buttons { justify-content: flex-end; }
+  .goal-num-value, .cashflow-num-value { font-size: 16px; }
+}

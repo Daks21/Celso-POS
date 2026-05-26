@@ -1,6 +1,30 @@
 const saleModel    = require('../models/sale.model');
 const productModel = require('../models/product.model');
 
+// ── Helpers ───────────────────────────────────────────────────────────────
+// Manila timezone date formatter — keep all dates user-local so YYYY-MM-DD
+// keys line up with sale rows and frontend display alike.
+const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
+
+// Returns the immediately-prior same-length window given a [from, to] pair.
+// Both inputs and outputs are YYYY-MM-DD strings. The prior window ends the
+// day before `from` and spans the same number of days.
+function priorWindow(from, to) {
+  const fromDate = new Date(from + 'T12:00:00Z');
+  const toDate   = new Date(to   + 'T12:00:00Z');
+  const days     = Math.round((toDate - fromDate) / 86400000) + 1;
+
+  const prevTo   = new Date(fromDate);
+  prevTo.setUTCDate(prevTo.getUTCDate() - 1);
+  const prevFrom = new Date(prevTo);
+  prevFrom.setUTCDate(prevFrom.getUTCDate() - (days - 1));
+
+  return {
+    from: prevFrom.toISOString().slice(0, 10),
+    to:   prevTo.toISOString().slice(0, 10),
+  };
+}
+
 const getSummary = async (req, res, next) => {
   try {
     const dateStr   = req.query.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
@@ -44,11 +68,66 @@ const getHeatmap = async (req, res, next) => {
 
 const getKPIs = async (req, res, next) => {
   try {
-    const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
     const from = req.query.from || manilaFmt.format(new Date(Date.now() - 30 * 86400000));
     const to   = req.query.to   || manilaFmt.format(new Date());
-    const kpis = await saleModel.getKPIs(from, to);
-    res.json({ success: true, data: kpis });
+
+    const prev = priorWindow(from, to);
+    const [current, previous] = await Promise.all([
+      saleModel.getKPIs(from, to),
+      saleModel.getKPIs(prev.from, prev.to),
+    ]);
+
+    // Keep current keys at the top level for backward compatibility,
+    // expose the prior-period snapshot under `previous`.
+    res.json({
+      success: true,
+      data: {
+        ...current,
+        previous,
+        previousRange: prev,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Profit ────────────────────────────────────────────────────────────────
+// Realized gross profit for the period:
+//   gross profit = SUM(line_total) − SUM(quantity × products.cost)
+// Compared against the immediately-prior same-length window.
+const getProfit = async (req, res, next) => {
+  try {
+    const from = req.query.from || manilaFmt.format(new Date(Date.now() - 30 * 86400000));
+    const to   = req.query.to   || manilaFmt.format(new Date());
+
+    const prev = priorWindow(from, to);
+    const [current, previous, byProduct] = await Promise.all([
+      saleModel.getProfit(from, to),
+      saleModel.getProfit(prev.from, prev.to),
+      saleModel.getProfitByProduct(from, to),
+    ]);
+
+    res.json({
+      success: true,
+      data: { ...current, previous, byProduct, previousRange: prev },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Inventory Health ──────────────────────────────────────────────────────
+// 90-day movement view across the catalog. Buckets:
+//   - slowMovers:   active, in-stock, ≤ 1 unit/week velocity
+//   - deadStock:    in-stock products with ZERO movement in the window
+//   - turnover:     days-of-stock remaining at current sell rate (high → low)
+const getInventoryHealth = async (req, res, next) => {
+  try {
+    const today  = manilaFmt.format(new Date());
+    const since  = manilaFmt.format(new Date(Date.now() - 90 * 86400000));
+    const data   = await saleModel.getInventoryHealth(since, today);
+    res.json({ success: true, data });
   } catch (err) {
     next(err);
   }
@@ -92,4 +171,4 @@ const getCharts = async (req, res, next) => {
   }
 };
 
-module.exports = { getSummary, getHeatmap, getKPIs, getCharts };
+module.exports = { getSummary, getHeatmap, getKPIs, getCharts, getProfit, getInventoryHealth };

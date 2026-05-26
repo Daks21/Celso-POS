@@ -16,6 +16,8 @@
   />
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- jspdf loaded lazily on first PDF export click; see analytics.js -->
+
   <link rel="stylesheet" href="../css/main.css">
   <link rel="stylesheet" href="../css/layout.css">
   <link rel="stylesheet" href="../css/components.css">
@@ -108,12 +110,24 @@
 
         <!-- Date Range Bar -->
         <div class="analytics-date-bar">
-          <div class="date-presets" id="date-presets">
-            <button type="button" class="date-preset-btn" data-range="today">Today</button>
-            <button type="button" class="date-preset-btn" data-range="this-week">This Week</button>
-            <button type="button" class="date-preset-btn is-active" data-range="this-month">This Month</button>
-            <button type="button" class="date-preset-btn" data-range="last-30">Last 30 Days</button>
-            <button type="button" class="date-preset-btn" data-range="custom">Custom</button>
+          <div class="analytics-date-bar-row">
+            <div class="date-presets" id="date-presets">
+              <button type="button" class="date-preset-btn" data-range="today">Today</button>
+              <button type="button" class="date-preset-btn" data-range="this-week">This Week</button>
+              <button type="button" class="date-preset-btn is-active" data-range="this-month">This Month</button>
+              <button type="button" class="date-preset-btn" data-range="last-30">Last 30 Days</button>
+              <button type="button" class="date-preset-btn" data-range="custom">Custom</button>
+            </div>
+            <div class="export-buttons advanced-only" id="export-buttons" hidden>
+              <button type="button" class="export-btn" id="export-csv" title="Download data as CSV">
+                <i data-lucide="file-spreadsheet"></i>
+                <span>CSV</span>
+              </button>
+              <button type="button" class="export-btn" id="export-pdf" title="Download report as PDF">
+                <i data-lucide="file-down"></i>
+                <span>PDF</span>
+              </button>
+            </div>
           </div>
           <div class="date-custom-row" id="custom-date-row">
             <input type="date" id="analytics-from" class="date-range-input" />
@@ -121,6 +135,15 @@
             <input type="date" id="analytics-to" class="date-range-input" />
             <button type="button" class="secondary-button" id="apply-custom-range">Apply</button>
             <span class="date-range-error" id="custom-date-error"></span>
+          </div>
+        </div>
+
+        <!-- Health Badge -->
+        <div class="health-badge" id="health-badge" data-state="loading" hidden>
+          <span class="health-badge-dot" aria-hidden="true"></span>
+          <div class="health-badge-body">
+            <strong class="health-badge-title" id="health-badge-title">Checking your business health…</strong>
+            <span class="health-badge-detail" id="health-badge-detail"></span>
           </div>
         </div>
 
@@ -134,6 +157,7 @@
             <div class="kpi-body">
               <p class="kpi-label">Total Revenue</p>
               <p class="kpi-value" id="kpi-revenue">₱0.00</p>
+              <span class="kpi-delta" id="kpi-revenue-delta" data-dir="flat"></span>
             </div>
           </div>
 
@@ -144,6 +168,7 @@
             <div class="kpi-body">
               <p class="kpi-label">Transactions</p>
               <p class="kpi-value" id="kpi-transactions">0</p>
+              <span class="kpi-delta" id="kpi-transactions-delta" data-dir="flat"></span>
             </div>
           </div>
 
@@ -154,6 +179,7 @@
             <div class="kpi-body">
               <p class="kpi-label">Avg. Order Value</p>
               <p class="kpi-value" id="kpi-avg-order">₱0.00</p>
+              <span class="kpi-delta" id="kpi-avg-order-delta" data-dir="flat"></span>
             </div>
           </div>
 
@@ -164,6 +190,29 @@
             <div class="kpi-body">
               <p class="kpi-label">Units Sold</p>
               <p class="kpi-value" id="kpi-units">0</p>
+              <span class="kpi-delta" id="kpi-units-delta" data-dir="flat"></span>
+            </div>
+          </div>
+
+          <div class="analytics-kpi-card kpi-card-accent">
+            <div class="kpi-icon-wrap">
+              <i data-lucide="badge-dollar-sign"></i>
+            </div>
+            <div class="kpi-body">
+              <p class="kpi-label">Gross Profit</p>
+              <p class="kpi-value" id="kpi-gross-profit">₱0.00</p>
+              <span class="kpi-delta" id="kpi-gross-profit-delta" data-dir="flat"></span>
+            </div>
+          </div>
+
+          <div class="analytics-kpi-card kpi-card-accent">
+            <div class="kpi-icon-wrap">
+              <i data-lucide="percent"></i>
+            </div>
+            <div class="kpi-body">
+              <p class="kpi-label">Profit Margin</p>
+              <p class="kpi-value" id="kpi-margin">0.0%</p>
+              <span class="kpi-delta" id="kpi-margin-delta" data-dir="flat"></span>
             </div>
           </div>
 
@@ -174,6 +223,7 @@
             <div class="kpi-body">
               <p class="kpi-label">Total Assets (Cost)</p>
               <p class="kpi-value" id="kpi-total-assets">₱0.00</p>
+              <span class="kpi-delta-static">Inventory at cost</span>
             </div>
           </div>
 
@@ -182,27 +232,31 @@
               <i data-lucide="banknote"></i>
             </div>
             <div class="kpi-body">
-              <p class="kpi-label">Inventory Margin</p>
+              <p class="kpi-label">Potential Margin</p>
               <p class="kpi-value" id="kpi-calc-profit">₱0.00</p>
+              <span class="kpi-delta-static">If all stock sold at price</span>
             </div>
           </div>
 
         </div>
 
-        <!-- Activity Heatmap -->
-        <div class="analytics-chart-card full-width heatmap-card" style="margin-bottom:20px">
+        <!-- Activity Heatmap (collapsible) -->
+        <div class="analytics-chart-card full-width heatmap-card is-collapsible" id="heatmap-card" style="margin-bottom:20px">
           <div class="chart-card-header">
-            <div class="chart-card-title">
-              <h3>Sales Activity</h3>
-              <p>Daily revenue over the last 12 months</p>
-            </div>
+            <button type="button" class="collapsible-toggle" id="heatmap-toggle" aria-expanded="false" aria-controls="heatmap-content">
+              <i data-lucide="chevron-right" class="collapsible-chevron"></i>
+              <div class="chart-card-title">
+                <h3>Sales Activity</h3>
+                <p>Daily revenue over the last 12 months</p>
+              </div>
+            </button>
             <label class="pin-toggle-wrap">
               <input type="checkbox" class="widget-pin-checkbox" data-widget="activity-heatmap" />
               <span class="pin-toggle-track"><span class="pin-toggle-thumb"></span></span>
               <span class="pin-toggle-text">Pin to Dashboard</span>
             </label>
           </div>
-          <div class="heatmap-wrapper">
+          <div class="heatmap-wrapper collapsible-content" id="heatmap-content" hidden>
             <div class="heatmap-main">
               <div class="heatmap-day-labels">
                 <span></span>
@@ -322,6 +376,137 @@
           </div>
 
         </div>
+
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <!-- ADVANCED ANALYTICS — opt-in section (off by default).         -->
+        <!-- Toggled via "Advanced Analytics" in Account Settings.         -->
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <section class="advanced-analytics-section advanced-only" id="advanced-section" hidden>
+
+          <div class="advanced-section-header">
+            <div>
+              <h2>Advanced Insights</h2>
+              <p>Deeper signals for owners who want more detail. You can hide this in Account Settings.</p>
+            </div>
+            <span class="advanced-badge">Advanced</span>
+          </div>
+
+          <!-- Monthly Revenue Goal -->
+          <div class="analytics-chart-card full-width goal-card" id="goal-card">
+            <div class="chart-card-header">
+              <div class="chart-card-title">
+                <h3>Monthly Revenue Goal</h3>
+                <p id="goal-card-subtitle">Track your progress for this month</p>
+              </div>
+              <button type="button" class="link-button" id="goal-edit-btn">
+                <i data-lucide="settings-2"></i>
+                <span>Set goal</span>
+              </button>
+            </div>
+            <div class="goal-content" id="goal-content">
+              <div class="goal-empty" id="goal-empty">
+                <p>You haven't set a monthly revenue goal yet.</p>
+                <a href="account.html#advanced-analytics" class="secondary-button">Set a goal in Account Settings</a>
+              </div>
+              <div class="goal-progress-wrap" id="goal-progress-wrap" hidden>
+                <div class="goal-numbers">
+                  <div class="goal-num-block">
+                    <span class="goal-num-label">Achieved</span>
+                    <strong class="goal-num-value" id="goal-achieved">₱0.00</strong>
+                  </div>
+                  <div class="goal-num-block">
+                    <span class="goal-num-label">Goal</span>
+                    <strong class="goal-num-value" id="goal-target">₱0.00</strong>
+                  </div>
+                  <div class="goal-num-block">
+                    <span class="goal-num-label">% of goal</span>
+                    <strong class="goal-num-value" id="goal-percent">0%</strong>
+                  </div>
+                  <div class="goal-num-block">
+                    <span class="goal-num-label">Projected end-of-month</span>
+                    <strong class="goal-num-value" id="goal-projection">₱0.00</strong>
+                  </div>
+                </div>
+                <div class="goal-bar">
+                  <div class="goal-bar-fill" id="goal-bar-fill" style="width: 0%"></div>
+                  <div class="goal-bar-projection" id="goal-bar-projection" hidden></div>
+                </div>
+                <p class="goal-status" id="goal-status"></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cashflow Mini-Panel + Inventory Health (side by side on desktop) -->
+          <div class="analytics-charts-grid">
+
+            <div class="analytics-chart-card cashflow-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">
+                  <h3>Cashflow Snapshot</h3>
+                  <p>Money in vs money out for this period</p>
+                </div>
+              </div>
+              <div class="cashflow-body">
+                <div class="cashflow-numbers">
+                  <div class="cashflow-num">
+                    <span class="cashflow-num-label">
+                      <i data-lucide="arrow-down-to-line"></i> Money In
+                    </span>
+                    <strong class="cashflow-num-value" id="cf-money-in">₱0.00</strong>
+                  </div>
+                  <div class="cashflow-num">
+                    <span class="cashflow-num-label">
+                      <i data-lucide="arrow-up-from-line"></i> Money Out
+                    </span>
+                    <strong class="cashflow-num-value" id="cf-money-out">₱0.00</strong>
+                  </div>
+                  <div class="cashflow-num cashflow-num-net">
+                    <span class="cashflow-num-label">
+                      <i data-lucide="trending-up"></i> Net
+                    </span>
+                    <strong class="cashflow-num-value" id="cf-net">₱0.00</strong>
+                  </div>
+                </div>
+                <div class="cashflow-bar" id="cf-bar">
+                  <div class="cashflow-bar-in"  id="cf-bar-in"></div>
+                  <div class="cashflow-bar-out" id="cf-bar-out"></div>
+                </div>
+                <p class="cashflow-empty-msg" id="cashflow-empty" hidden>
+                  No cashflow movements recorded yet — visit the Finance page to start tracking.
+                </p>
+              </div>
+            </div>
+
+            <div class="analytics-chart-card inventory-health-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">
+                  <h3>Inventory Health</h3>
+                  <p>How your stock is moving over the last 90 days</p>
+                </div>
+              </div>
+              <div class="ih-tabs" id="ih-tabs" role="tablist">
+                <button type="button" class="ih-tab is-active" data-tab="slow"     role="tab" aria-selected="true">Slow Movers</button>
+                <button type="button" class="ih-tab"           data-tab="dead"     role="tab" aria-selected="false">Dead Stock</button>
+                <button type="button" class="ih-tab"           data-tab="turnover" role="tab" aria-selected="false">Days of Stock</button>
+              </div>
+              <div class="ih-content" id="ih-content">
+                <p class="ih-empty" id="ih-empty" hidden>No data for this view.</p>
+                <table class="ih-table" id="ih-table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th class="ih-num" id="ih-col-metric">Per week</th>
+                      <th class="ih-num">Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ih-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+        </section>
 
       </main>
     </div>

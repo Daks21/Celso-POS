@@ -173,6 +173,18 @@ async function getCharts(from, to) {
   return apiCall('/analytics/charts' + (query ? '?' + query : ''));
 }
 
+async function getProfit(from, to) {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to)   params.set('to',   to);
+  const query = params.toString();
+  return apiCall('/analytics/profit' + (query ? '?' + query : ''));
+}
+
+async function getInventoryHealth() {
+  return apiCall('/analytics/inventory-health');
+}
+
 // --- Finance ---
 
 async function getFinanceMovements(filters = {}) {

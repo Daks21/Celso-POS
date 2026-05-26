@@ -246,8 +246,148 @@ const getByDayOfWeek = async (from, to) => {
   return totals;
 };
 
+// ─── Realized profit (revenue − COGS) ─────────────────────────────────────
+// Pulls cost from the products table (current cost — snapshot would require a
+// schema change, and for MSME analytics today's cost is the closest signal we
+// have to the original purchase cost).
+
+const getProfit = async (from, to) => {
+  const [rows] = await db.query(
+    `SELECT
+       COALESCE(SUM(si.line_total),                      0) AS revenue,
+       COALESCE(SUM(si.quantity * COALESCE(p.cost, 0)),  0) AS cogs
+     FROM sale_items si
+     INNER JOIN sales    s ON si.sale_id    = s.id
+     LEFT  JOIN products p ON si.product_id = p.id
+     WHERE DATE(s.created_at) BETWEEN ? AND ?`,
+    [from, to]
+  );
+  const revenue = parseFloat(rows[0].revenue);
+  const cogs    = parseFloat(rows[0].cogs);
+  const profit  = revenue - cogs;
+  const margin  = revenue > 0 ? (profit / revenue) * 100 : 0;
+  return {
+    revenue,
+    cogs,
+    grossProfit: profit,
+    margin: parseFloat(margin.toFixed(2)),
+  };
+};
+
+const getProfitByProduct = async (from, to, limit = 10) => {
+  const [rows] = await db.query(
+    `SELECT
+       si.product_name                                     AS name,
+       SUM(si.line_total)                                  AS revenue,
+       SUM(si.quantity * COALESCE(p.cost, 0))              AS cogs,
+       SUM(si.quantity)                                    AS units
+     FROM sale_items si
+     INNER JOIN sales    s ON si.sale_id    = s.id
+     LEFT  JOIN products p ON si.product_id = p.id
+     WHERE DATE(s.created_at) BETWEEN ? AND ?
+     GROUP BY si.product_name
+     ORDER BY (SUM(si.line_total) - SUM(si.quantity * COALESCE(p.cost, 0))) DESC
+     LIMIT ?`,
+    [from, to, limit]
+  );
+  return rows.map(r => {
+    const revenue = parseFloat(r.revenue);
+    const cogs    = parseFloat(r.cogs);
+    const profit  = revenue - cogs;
+    return {
+      name:    r.name,
+      revenue,
+      cogs,
+      profit,
+      units:   parseInt(r.units, 10),
+      margin:  revenue > 0 ? parseFloat(((profit / revenue) * 100).toFixed(2)) : 0,
+    };
+  });
+};
+
+// ─── Inventory health (last N days movement vs current stock) ─────────────
+
+const getInventoryHealth = async (from, to) => {
+  // Per-product unit velocity over the window
+  const [rows] = await db.query(
+    `SELECT
+       p.id,
+       p.name,
+       p.stock,
+       p.unit,
+       p.category,
+       p.price,
+       p.cost,
+       COALESCE(SUM(si.quantity), 0) AS units_sold
+     FROM products p
+     LEFT JOIN sale_items si
+            ON si.product_id = p.id
+     LEFT JOIN sales s
+            ON s.id = si.sale_id
+           AND DATE(s.created_at) BETWEEN ? AND ?
+     WHERE p.is_active = 1
+     GROUP BY p.id, p.name, p.stock, p.unit, p.category, p.price, p.cost`,
+    [from, to]
+  );
+
+  const windowDays = Math.max(1,
+    Math.round(
+      (new Date(to + 'T12:00:00Z') - new Date(from + 'T12:00:00Z')) / 86400000
+    ) + 1
+  );
+
+  const enriched = rows.map(r => {
+    const sold        = parseInt(r.units_sold, 10) || 0;
+    const stock       = parseInt(r.stock, 10) || 0;
+    const dailyRate   = sold / windowDays;
+    const weeklyRate  = dailyRate * 7;
+    // null = stock present but no movement (effectively "infinite" days)
+    const daysOfStock = dailyRate > 0 ? Math.round(stock / dailyRate) : null;
+    return {
+      id:          r.id,
+      name:        r.name,
+      stock,
+      unit:        r.unit,
+      category:    r.category,
+      price:       parseFloat(r.price) || 0,
+      cost:        parseFloat(r.cost)  || 0,
+      unitsSold:   sold,
+      dailyRate:   parseFloat(dailyRate.toFixed(3)),
+      weeklyRate:  parseFloat(weeklyRate.toFixed(2)),
+      daysOfStock,
+      tiedUpCapital: stock * (parseFloat(r.cost) || 0),
+    };
+  });
+
+  const deadStock = enriched
+    .filter(p => p.stock > 0 && p.unitsSold === 0)
+    .sort((a, b) => b.tiedUpCapital - a.tiedUpCapital);
+
+  const slowMovers = enriched
+    .filter(p => p.stock > 0 && p.unitsSold > 0 && p.weeklyRate <= 1)
+    .sort((a, b) => a.weeklyRate - b.weeklyRate);
+
+  const turnover = enriched
+    .filter(p => p.stock > 0 && p.daysOfStock !== null)
+    .sort((a, b) => b.daysOfStock - a.daysOfStock);
+
+  const fastMovers = enriched
+    .filter(p => p.weeklyRate >= 5)
+    .sort((a, b) => b.weeklyRate - a.weeklyRate)
+    .slice(0, 10);
+
+  return {
+    windowDays,
+    deadStock:   deadStock.slice(0, 20),
+    slowMovers:  slowMovers.slice(0, 20),
+    turnover:    turnover.slice(0, 20),
+    fastMovers,
+  };
+};
+
 module.exports = {
   create, getAll, getById, getTodaySummary,
   getSummary, getDailyMap, getKPIs,
   getTopByRevenue, getTopByQty, getByDayOfWeek,
+  getProfit, getProfitByProduct, getInventoryHealth,
 };
