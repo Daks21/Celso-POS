@@ -16,7 +16,6 @@
   />
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <!-- jspdf loaded lazily on first PDF export click; see analytics.js -->
 
   <link rel="stylesheet" href="../css/main.css">
   <link rel="stylesheet" href="../css/layout.css">
@@ -115,25 +114,24 @@
               <button type="button" class="date-preset-btn" data-range="today">Today</button>
               <button type="button" class="date-preset-btn" data-range="this-week">This Week</button>
               <button type="button" class="date-preset-btn is-active" data-range="this-month">This Month</button>
-              <button type="button" class="date-preset-btn" data-range="last-30">Last 30 Days</button>
+              <button type="button" class="date-preset-btn" data-range="last-month">Last Month</button>
               <button type="button" class="date-preset-btn" data-range="custom">Custom</button>
-            </div>
-            <div class="export-buttons advanced-only" id="export-buttons" hidden>
-              <button type="button" class="export-btn" id="export-csv" title="Download data as CSV">
-                <i data-lucide="file-spreadsheet"></i>
-                <span>CSV</span>
-              </button>
-              <button type="button" class="export-btn" id="export-pdf" title="Download report as PDF">
-                <i data-lucide="file-down"></i>
-                <span>PDF</span>
-              </button>
             </div>
           </div>
           <div class="date-custom-row" id="custom-date-row">
-            <input type="date" id="analytics-from" class="date-range-input" />
-            <span class="date-range-sep">to</span>
-            <input type="date" id="analytics-to" class="date-range-input" />
-            <button type="button" class="secondary-button" id="apply-custom-range">Apply</button>
+            <div class="date-custom-fields">
+              <div class="date-custom-field">
+                <label for="analytics-from" class="date-custom-label">From</label>
+                <input type="date" id="analytics-from" class="date-range-input" />
+              </div>
+              <div class="date-custom-field">
+                <label for="analytics-to" class="date-custom-label">To</label>
+                <input type="date" id="analytics-to" class="date-range-input" />
+              </div>
+            </div>
+            <div class="date-custom-actions">
+              <button type="button" class="secondary-button" id="apply-custom-range">Apply</button>
+            </div>
             <span class="date-range-error" id="custom-date-error"></span>
           </div>
         </div>

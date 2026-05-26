@@ -65,10 +65,13 @@ function getDateRange(rangeKey) {
     case 'this-month':
       return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: todayEnd() };
 
-    case 'last-30': {
-      var l30 = new Date(start);
-      l30.setDate(start.getDate() - 29);
-      return { from: l30, to: todayEnd() };
+    case 'last-month': {
+      // Previous calendar month: 1st of last month → last day of last month.
+      // More useful to MSME owners than a rolling 30-day window because it
+      // matches monthly rent / payroll / capital cycles.
+      var lmStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      var lmEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      return { from: lmStart, to: lmEnd };
     }
 
     case 'custom':
@@ -614,24 +617,11 @@ function toManilaDate(d) { return _manilaFmt.format(d); }
 
 // ── Main render ──
 
-// Cached "current view" payloads — used by CSV/PDF export.
-var _lastSnapshot = {
-  range:        null,
-  kpis:         null,
-  profit:       null,
-  charts:       null,
-  cashflow:     null,
-  inventoryHealth: null,
-  products:     null,
-};
-
 async function renderAll() {
   var range   = getDateRange(currentRange);
   // Convert to Manila local date strings (YYYY-MM-DD) — never toISOString() which is UTC
   var fromStr = range.from ? toManilaDate(range.from) : null;
   var toStr   = range.to   ? toManilaDate(range.to)   : null;
-
-  _lastSnapshot.range = { from: fromStr, to: toStr, key: currentRange };
 
   var advancedOn = isAdvancedEnabled();
 
@@ -659,14 +649,12 @@ async function renderAll() {
 
     if (kpiResult && kpiResult.success) {
       updateKPIs(kpiResult.data);
-      _lastSnapshot.kpis = kpiResult.data;
     } else if (kpiResult && !kpiResult.success) {
       showApiError(kpiResult.message || 'Failed to load KPIs.');
     }
 
     if (profitResult && profitResult.success) {
       updateProfitKPIs(profitResult.data);
-      _lastSnapshot.profit = profitResult.data;
     }
 
     if (heatmapResult && heatmapResult.success) {
@@ -679,14 +667,12 @@ async function renderAll() {
       renderTopRevenueChart(_toTopRevenue(cd.topByRevenue));
       renderTopQtyChart(_toTopQty(cd.topByQty));
       renderDayOfWeekChart(_toDayOfWeek(cd.byDayOfWeek));
-      _lastSnapshot.charts = cd;
     } else if (chartResult && !chartResult.success) {
       showApiError(chartResult.message || 'Failed to load chart data.');
     }
 
     if (productsResult && productsResult.success) {
       updateInventoryKPIs(productsResult.data || []);
-      _lastSnapshot.products = productsResult.data;
     }
 
     // Health badge needs both KPIs and profit
@@ -700,11 +686,9 @@ async function renderAll() {
     if (advancedOn) {
       if (financeResult && financeResult.success) {
         renderCashflowPanel(financeResult.data);
-        _lastSnapshot.cashflow = financeResult.data;
       }
       if (inventoryResult && inventoryResult.success) {
         renderInventoryHealth(inventoryResult.data);
-        _lastSnapshot.inventoryHealth = inventoryResult.data;
       }
       renderGoalProgress(kpiResult && kpiResult.success ? kpiResult.data : null);
     }
@@ -718,6 +702,14 @@ async function renderAll() {
 // ── Date preset buttons ──
 
 function attachDatePresetEvents() {
+  // Cap the custom date inputs at today — analytics for future dates
+  // makes no sense and would just return empty results.
+  var today    = toManilaDate(new Date());
+  var fromIn   = document.getElementById('analytics-from');
+  var toIn     = document.getElementById('analytics-to');
+  if (fromIn) fromIn.max = today;
+  if (toIn)   toIn.max   = today;
+
   document.querySelectorAll('.date-preset-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
       document.querySelectorAll('.date-preset-btn').forEach(function (b) {
@@ -1038,208 +1030,12 @@ function loadMonthRevenue() {
   });
 }
 
-// ── Export (CSV + PDF) ──
-
-function initExport() {
-  var csvBtn = document.getElementById('export-csv');
-  var pdfBtn = document.getElementById('export-pdf');
-  if (csvBtn) csvBtn.addEventListener('click', exportCSV);
-  if (pdfBtn) pdfBtn.addEventListener('click', exportPDF);
-}
-
-function exportCSV() {
-  var snap = _lastSnapshot;
-  if (!snap.kpis) { showApiError('Nothing to export yet.'); return; }
-
-  var lines = [];
-  var range = snap.range;
-  lines.push('Celso POS — Analytics Export');
-  lines.push('Period,' + (range.from || '') + ' to ' + (range.to || ''));
-  lines.push('Generated,' + new Date().toISOString());
-  lines.push('');
-  lines.push('KPI,Value,Previous,Change %');
-
-  function row(label, cur, prev) {
-    var d = pctDelta(cur, prev);
-    var changeStr = d.noBaseline ? 'N/A' : (d.pct == null ? 'N/A' : d.pct.toFixed(1) + '%');
-    lines.push([csvEscape(label), cur, prev == null ? '' : prev, changeStr].join(','));
-  }
-  var k = snap.kpis;
-  var pk = k.previous || {};
-  row('Total Revenue',     k.totalRevenue,     pk.totalRevenue);
-  row('Transactions',      k.transactionCount, pk.transactionCount);
-  row('Avg. Order Value',  k.avgOrderValue,    pk.avgOrderValue);
-  row('Units Sold',        k.totalUnits,       pk.totalUnits);
-  if (snap.profit) {
-    var p  = snap.profit;
-    var pp = p.previous || {};
-    row('Gross Profit',  p.grossProfit, pp.grossProfit);
-    row('Profit Margin %', p.margin,    pp.margin);
-    row('COGS',          p.cogs,        pp.cogs);
-  }
-
-  if (snap.charts && snap.charts.revenueByDay) {
-    lines.push('');
-    lines.push('Revenue by Day');
-    lines.push('Date,Revenue');
-    Object.keys(snap.charts.revenueByDay).sort().forEach(function (d) {
-      lines.push(d + ',' + snap.charts.revenueByDay[d]);
-    });
-  }
-
-  if (snap.charts && Array.isArray(snap.charts.topByRevenue)) {
-    lines.push('');
-    lines.push('Top Products by Revenue');
-    lines.push('Product,Revenue');
-    snap.charts.topByRevenue.forEach(function (r) {
-      lines.push(csvEscape(r.name) + ',' + r.revenue);
-    });
-  }
-
-  if (snap.cashflow) {
-    lines.push('');
-    lines.push('Cashflow');
-    lines.push('Money In,'  + snap.cashflow.moneyIn);
-    lines.push('Money Out,' + snap.cashflow.moneyOut);
-    lines.push('Net,'       + snap.cashflow.net);
-    lines.push('Debt Balance,' + snap.cashflow.debtBalance);
-  }
-
-  var blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
-  downloadBlob(blob, 'celso-analytics-' + (range.from || 'export') + '.csv');
-}
-
-function csvEscape(s) {
-  if (s == null) return '';
-  var str = String(s);
-  if (/[",\n\r]/.test(str)) return '"' + str.replace(/"/g, '""') + '"';
-  return str;
-}
-
-function downloadBlob(blob, filename) {
-  var url = URL.createObjectURL(blob);
-  var a   = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
-}
-
-var _jspdfLoading = null;
-function loadJsPdf() {
-  if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
-  if (_jspdfLoading) return _jspdfLoading;
-  _jspdfLoading = new Promise(function (resolve, reject) {
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
-    s.onload  = function () { resolve(window.jspdf.jsPDF); };
-    s.onerror = function () { reject(new Error('Failed to load jsPDF')); };
-    document.head.appendChild(s);
-  });
-  return _jspdfLoading;
-}
-
-async function exportPDF() {
-  var snap = _lastSnapshot;
-  if (!snap.kpis) { showApiError('Nothing to export yet.'); return; }
-
-  try {
-    var jsPDF = await loadJsPdf();
-    var doc   = new jsPDF({ unit: 'pt', format: 'a4' });
-    var x     = 40;
-    var y     = 50;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text('Celso POS — Analytics Report', x, y);
-    y += 22;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.text('Period: ' + (snap.range.from || '') + '  to  ' + (snap.range.to || ''), x, y);
-    y += 16;
-    doc.text('Generated: ' + new Date().toLocaleString('en-PH'), x, y);
-    y += 24;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.text('Key Metrics', x, y);
-    y += 6;
-    doc.setLineWidth(0.5);
-    doc.line(x, y, 555, y);
-    y += 16;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-
-    function pdfKV(label, value, prev) {
-      var d = pctDelta(value, prev);
-      var change = d.noBaseline ? '' : d.pct == null ? '' : (d.pct >= 0 ? '+' : '') + d.pct.toFixed(1) + '%';
-      doc.text(label,        x,       y);
-      doc.text(String(value), x + 220, y);
-      doc.text(change,       x + 340, y);
-      y += 18;
-    }
-
-    var k  = snap.kpis;
-    var pk = k.previous || {};
-    pdfKV('Total Revenue',    formatPeso(k.totalRevenue),     pk.totalRevenue == null     ? null : pk.totalRevenue);
-    pdfKV('Transactions',     String(k.transactionCount),     pk.transactionCount == null ? null : pk.transactionCount);
-    pdfKV('Avg. Order Value', formatPeso(k.avgOrderValue),    pk.avgOrderValue == null    ? null : pk.avgOrderValue);
-    pdfKV('Units Sold',       String(k.totalUnits),           pk.totalUnits == null       ? null : pk.totalUnits);
-
-    if (snap.profit) {
-      var p  = snap.profit;
-      var pp = p.previous || {};
-      pdfKV('Gross Profit',  formatPeso(p.grossProfit),       pp.grossProfit == null ? null : pp.grossProfit);
-      pdfKV('Profit Margin', p.margin.toFixed(1) + '%',       pp.margin == null      ? null : pp.margin);
-      pdfKV('COGS',          formatPeso(p.cogs),              pp.cogs == null        ? null : pp.cogs);
-    }
-
-    y += 10;
-    if (snap.charts && Array.isArray(snap.charts.topByRevenue) && snap.charts.topByRevenue.length) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.text('Top Products by Revenue', x, y);
-      y += 6;
-      doc.line(x, y, 555, y);
-      y += 16;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(11);
-      snap.charts.topByRevenue.forEach(function (r) {
-        doc.text(r.name,              x,       y);
-        doc.text(formatPeso(r.revenue), x + 340, y);
-        y += 18;
-      });
-      y += 10;
-    }
-
-    if (snap.cashflow) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.text('Cashflow', x, y);
-      y += 6;
-      doc.line(x, y, 555, y);
-      y += 16;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(11);
-      doc.text('Money In',  x, y); doc.text(formatPeso(snap.cashflow.moneyIn),  x + 340, y); y += 18;
-      doc.text('Money Out', x, y); doc.text(formatPeso(snap.cashflow.moneyOut), x + 340, y); y += 18;
-      doc.text('Net',       x, y); doc.text(formatPeso(snap.cashflow.net),      x + 340, y); y += 18;
-    }
-
-    doc.save('celso-analytics-' + (snap.range.from || 'export') + '.pdf');
-  } catch (err) {
-    showApiError('Could not generate PDF. Check your connection.');
-  }
-}
-
 // ── Init ──
 
 document.addEventListener('DOMContentLoaded', function () {
   initPinToggles();
   initCollapsibleHeatmap();
   initInventoryHealthTabs();
-  initExport();
   applyAdvancedMode();
   renderAll();
   attachDatePresetEvents();

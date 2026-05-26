@@ -39,23 +39,61 @@
   font-weight: 600;
 }
 
+/* Custom Range panel — revealed when the "Custom" preset is selected.
+   Visually presents as a contained card attached below the preset bar
+   so the relationship between trigger and reveal is obvious. */
 .date-custom-row {
-  display: none;
-  align-items: center;
-  gap: 10px;
+  display: none;          /* JS toggles to flex when "Custom" is clicked */
   flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 14px 16px;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.date-custom-fields {
+  display: flex;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.date-custom-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.date-custom-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.date-custom-actions {
+  display: flex;
+  align-items: flex-end;
+  flex-shrink: 0;
 }
 
 .date-range-input {
+  width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background-color: var(--color-background);
+  background-color: var(--color-surface);
   color: var(--color-text);
   font-family: var(--font-main);
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
+  /* Normalize native date-input height across browsers (esp. Safari) */
+  min-height: 38px;
 }
 
 .date-range-input:focus {
@@ -63,16 +101,10 @@
   box-shadow: 0 0 0 2px rgba(90, 158, 111, 0.3);
 }
 
-.date-range-sep {
-  color: var(--color-text-muted);
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
 .date-range-error {
+  flex-basis: 100%;
   font-size: 12px;
   color: var(--color-error);
-  flex-shrink: 0;
 }
 
 .date-range-error:empty {
@@ -83,7 +115,10 @@
 
 .analytics-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* 8 KPI cards — explicit step-down (4 → 3 → 2 → 1) keeps rows balanced
+     instead of producing orphan layouts that auto-fit can create at certain
+     viewports. See @media blocks below for the breakpoints. */
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -97,6 +132,9 @@
   align-items: center;
   gap: 16px;
   min-width: 0;
+  /* Prevent any child (like an extra-long currency value) from forcing the
+     card wider than its grid column. */
+  overflow: hidden;
   animation: slideInUp 0.4s ease-out forwards;
   opacity: 0;
 }
@@ -107,6 +145,8 @@
 .analytics-kpi-card:nth-child(4) { animation-delay: 0.2s; }
 .analytics-kpi-card:nth-child(5) { animation-delay: 0.25s; }
 .analytics-kpi-card:nth-child(6) { animation-delay: 0.3s; }
+.analytics-kpi-card:nth-child(7) { animation-delay: 0.35s; }
+.analytics-kpi-card:nth-child(8) { animation-delay: 0.4s; }
 
 .kpi-icon-wrap {
   width: 40px;
@@ -137,18 +177,32 @@
 }
 
 .kpi-value {
-  font-size: 22px;
+  /* Fluid sizing: scales between the responsive bounds without media-query
+     jumps. Final clamp produces ~22px on desktop, ~16-18px on phones. */
+  font-size: clamp(15px, 1.1vw + 11px, 22px);
   font-weight: 700;
   color: var(--color-text);
   line-height: 1.2;
-  word-break: break-word;
+  /* Currency must never break mid-digit. Keep amounts on one line and
+     align digits across cards. If a value is genuinely too long for its
+     column, the card hides the overflow rather than clip-mid-amount. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 /* ── Chart Cards ── */
 
 .analytics-charts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  /* Explicit 2-column grid (not auto-fit) so the half-width chart pair
+     stays at ~50/50 on desktop. auto-fit with a 280px min was creating
+     3-4 columns at 1200-1440px viewports, squeezing the Top Products
+     charts to ~280-345px instead of the intended ~700px. Full-width
+     cards still span both columns via `grid-column: 1 / -1`. */
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
 }
 
@@ -299,10 +353,27 @@
   scrollbar-width: none;
   flex: 1;
   min-width: 0;
+  /* Right-edge fade hints that there's more content to scroll to —
+     same pattern as GitHub's contribution graph. The gradient renders
+     even when content fits (a subtle no-op), so no JS overflow probe
+     is needed. */
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+          mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
 }
 
 .heatmap-scroll-area::-webkit-scrollbar {
   display: none;
+}
+
+/* Show a thin scrollbar on hover for desktop users with a mouse —
+   touch users discover it through the fade gradient + horizontal pan. */
+@media (hover: hover) {
+  .heatmap-scroll-area:hover { scrollbar-width: thin; }
+  .heatmap-scroll-area:hover::-webkit-scrollbar { display: block; height: 6px; }
+  .heatmap-scroll-area:hover::-webkit-scrollbar-thumb {
+    background-color: var(--color-border);
+    border-radius: 999px;
+  }
 }
 
 .heatmap-months-container {
@@ -389,17 +460,39 @@ html[data-theme="dark"] .heatmap-cell[data-level="4"] { background-color: #6bb38
 
 /* ── Responsive ── */
 
+/* Cap the analytics content width on ultrawide displays so KPI cards and
+   charts don't stretch into unreadable territory. Targets direct children
+   of .page-body (this file is only loaded on analytics.html so the cap is
+   scoped to this page even though .page-body is shared). */
+.page-body > * {
+  max-width: 1440px;
+  margin-inline: auto;
+}
+
+/* Respect device safe areas (iOS notch, curved Android edges) on top of
+   the layout's own horizontal padding. */
+.page-body {
+  padding-left:  max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
+}
+
+/* KPI grid step-down — 4 → 3 → 2 → 1 */
+@media (max-width: 1100px) {
+  .analytics-kpi-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Chart card header stacks the pin toggle below the title before they
+   start visually colliding. The header was previously stacking only at
+   600px — at 601-880px the title's description wraps to two lines while
+   the toggle floats right, producing an awkward unbalanced header. */
 @media (max-width: 900px) {
   .chart-canvas-wrapper { height: 240px; }
-}
 
-@media (max-width: 640px) {
-  .analytics-kpi-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
+  /* Stack chart cards to a single column — gives each chart the full body
+     width on tablets/small laptops, which is better for legibility than
+     two cramped ~400px Chart.js canvases side-by-side. */
+  .analytics-charts-grid { grid-template-columns: 1fr; }
 
-@media (max-width: 600px) {
   .chart-card-header {
     flex-direction: column;
     gap: 10px;
@@ -408,28 +501,60 @@ html[data-theme="dark"] .heatmap-cell[data-level="4"] { background-color: #6bb38
 
   .pin-toggle-wrap { width: 100%; }
 
-  .kpi-value { font-size: 18px; }
-
-  .chart-canvas-wrapper { height: 200px; }
-
-  .date-presets {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-bottom: 4px;
+  /* Single-column date bar at tablet widths — keeps the preset row clean
+     and gives the custom-range panel its own breathing room below. */
+  .analytics-date-bar-row {
+    flex-direction: column;
+    align-items: stretch;
   }
-
-  .date-presets::-webkit-scrollbar { display: none; }
-
-  .date-preset-btn { flex-shrink: 0; }
 }
 
-@media (max-width: 420px) {
-  .analytics-kpi-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 800px) {
+  .analytics-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .page-body {
+    padding-left:  max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+}
+
+@media (max-width: 600px) {
+  .chart-canvas-wrapper { height: 200px; }
+
+  /* Date presets wrap to multiple rows on mobile instead of horizontal
+     scroll. Hidden horizontal scroll (scrollbar-width: none) wasn't
+     discoverable for non-technical users, and the nowrap row was forcing
+     the parent flex column wider than the viewport — which caused the
+     last button ("Custom") to clip past the browser edge under
+     .page-body's overflow-x: hidden. Wrap mode shows all 5 buttons
+     across 2 rows, no scroll needed, no edge clipping. */
+  .date-presets {
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
-  .kpi-value { font-size: 16px; }
+  /* Distribute each button as a flex item that grows to fill its row.
+     Gives a clean, tab-like grid on phones instead of a ragged
+     left-aligned row that leaves dead space on the right. */
+  .date-preset-btn {
+    flex: 1 1 auto;
+    text-align: center;
+    padding: 7px 12px;
+  }
+
+  /* Custom range panel stacks fully on phones — From / To inputs sit
+     above each other so each gets full row width (native date pickers
+     are easier to operate when the input target is wider). The Apply
+     button spans full width as a clear primary action. */
+  .date-custom-fields {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .date-custom-actions { width: 100%; }
+  .date-custom-actions .secondary-button { width: 100%; }
+}
+
+@media (max-width: 480px) {
+  .analytics-kpi-grid { grid-template-columns: 1fr; }
 }
 
 /* ── Date bar row (presets + export side-by-side on desktop) ── */
@@ -441,36 +566,6 @@ html[data-theme="dark"] .heatmap-cell[data-level="4"] { background-color: #6bb38
   gap: 12px;
   flex-wrap: wrap;
 }
-
-.export-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.export-buttons[hidden] { display: none; }
-
-.export-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--color-border);
-  background-color: var(--color-surface);
-  color: var(--color-text);
-  font-family: var(--font-main);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.export-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.export-btn svg { width: 14px; height: 14px; }
 
 /* ── Health Badge ── */
 
@@ -878,6 +973,17 @@ html[data-theme="dark"] .analytics-kpi-card.kpi-card-accent {
 
 /* ── Responsive overrides for advanced section ── */
 
+/* Tier 2 (Cashflow Snapshot + Inventory Health) inherits the same 2-column
+   grid as Tier 1, so each card gets ~50% of the content width on desktop
+   and stacks to 1-col at ≤900px alongside the rest of the page. */
+
+/* Goal numbers step-down — 4 → 3 → 2 → 1 (was: 4 → 2 with no intermediate
+   step, so values like "Projected end-of-month ₱99,999" clipped at
+   720-1000px sidebar-open). */
+@media (max-width: 1100px) {
+  .goal-numbers { grid-template-columns: repeat(3, 1fr); }
+}
+
 @media (max-width: 720px) {
   .goal-numbers       { grid-template-columns: repeat(2, 1fr); }
   .cashflow-numbers   { grid-template-columns: 1fr; }
@@ -889,10 +995,14 @@ html[data-theme="dark"] .analytics-kpi-card.kpi-card-accent {
 }
 
 @media (max-width: 600px) {
-  .analytics-date-bar-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .export-buttons { justify-content: flex-end; }
   .goal-num-value, .cashflow-num-value { font-size: 16px; }
+}
+
+@media (max-width: 480px) {
+  .goal-numbers { grid-template-columns: 1fr; }
+
+  /* Health Badge mobile polish */
+  .health-badge { padding: 12px 14px; gap: 10px; }
+  .health-badge-title  { font-size: 14px; }
+  .health-badge-detail { font-size: 12px; }
 }
