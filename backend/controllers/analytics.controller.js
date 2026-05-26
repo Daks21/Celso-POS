@@ -171,4 +171,52 @@ const getCharts = async (req, res, next) => {
   }
 };
 
-module.exports = { getSummary, getHeatmap, getKPIs, getCharts, getProfit, getInventoryHealth };
+// ── Goal Projection ───────────────────────────────────────────────────────
+// One-stop endpoint for the Monthly Revenue Goal card. Returns
+// month-to-date + the inputs needed to draw an honest end-of-month
+// projection — without forcing the frontend to make a second /kpis call
+// for the calendar month, and without leaving projection math on the
+// client where it was previously naive.
+const getGoalProjection = async (req, res, next) => {
+  try {
+    const today = manilaFmt.format(new Date());
+
+    const { currentMonthRevenue, trailingDailyAvg, daysOfHistory } =
+      await saleModel.getGoalProjectionInputs(today);
+
+    // Days remaining in the current calendar month (inclusive of today).
+    const now      = new Date();
+    const daysInMo = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const todayDay = parseInt(today.slice(8, 10), 10);
+    const daysRemaining = Math.max(0, daysInMo - todayDay);
+
+    // Projected end-of-month = MTD + (avg daily × remaining days).
+    const projection = currentMonthRevenue + trailingDailyAvg * daysRemaining;
+
+    res.json({
+      success: true,
+      data: {
+        currentMonth: {
+          from:    today.slice(0, 7) + '-01',
+          to:      today,
+          revenue: currentMonthRevenue,
+        },
+        trailingDailyAvg,
+        daysOfHistory,
+        daysRemaining,
+        daysInMonth: daysInMo,
+        projection,
+        // Frontend treats <14 days of history as "limited" — caveat the
+        // projection rather than presenting a confident number.
+        limitedData: daysOfHistory < 14,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  getSummary, getHeatmap, getKPIs, getCharts,
+  getProfit, getInventoryHealth, getGoalProjection,
+};

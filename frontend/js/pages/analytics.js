@@ -617,6 +617,19 @@ function toManilaDate(d) { return _manilaFmt.format(d); }
 
 // ── Main render ──
 
+// Range-key label for the Cashflow card pill — keeps the user oriented
+// when they change the date filter.
+function cashflowWindowLabel(rangeKey) {
+  switch (rangeKey) {
+    case 'today':       return 'Today';
+    case 'this-week':   return 'This week';
+    case 'this-month':  return 'This month';
+    case 'last-month':  return 'Last month';
+    case 'custom':      return 'Custom range';
+    default:            return 'Selected period';
+  }
+}
+
 async function renderAll() {
   var range   = getDateRange(currentRange);
   // Convert to Manila local date strings (YYYY-MM-DD) — never toISOString() which is UTC
@@ -624,6 +637,17 @@ async function renderAll() {
   var toStr   = range.to   ? toManilaDate(range.to)   : null;
 
   var advancedOn = isAdvancedEnabled();
+
+  // Show skeletons for Tier 2 widgets while their data is in flight.
+  if (advancedOn) {
+    setCashflowState('loading');
+    setInventoryHealthState('loading');
+    setGoalState('loading');
+  }
+
+  // Update the cashflow window pill to match the current selection.
+  var cfPill = document.getElementById('cf-window-pill');
+  if (cfPill) cfPill.textContent = cashflowWindowLabel(currentRange);
 
   try {
     var calls = [
@@ -636,16 +660,18 @@ async function renderAll() {
     if (advancedOn) {
       calls.push(getFinanceSummary({ from: fromStr, to: toStr }));
       calls.push(getInventoryHealth());
+      calls.push(getGoalProjection());
     }
 
     var results = await Promise.all(calls);
-    var kpiResult       = results[0];
-    var chartResult     = results[1];
-    var heatmapResult   = results[2];
-    var productsResult  = results[3];
-    var profitResult    = results[4];
-    var financeResult   = advancedOn ? results[5] : null;
-    var inventoryResult = advancedOn ? results[6] : null;
+    var kpiResult        = results[0];
+    var chartResult      = results[1];
+    var heatmapResult    = results[2];
+    var productsResult   = results[3];
+    var profitResult     = results[4];
+    var financeResult    = advancedOn ? results[5] : null;
+    var inventoryResult  = advancedOn ? results[6] : null;
+    var projectionResult = advancedOn ? results[7] : null;
 
     if (kpiResult && kpiResult.success) {
       updateKPIs(kpiResult.data);
@@ -684,19 +710,90 @@ async function renderAll() {
     }
 
     if (advancedOn) {
+      // Cashflow
       if (financeResult && financeResult.success) {
         renderCashflowPanel(financeResult.data);
+        setCashflowState('ready');
+      } else {
+        setCashflowState('error');
       }
+      // Inventory Health
       if (inventoryResult && inventoryResult.success) {
         renderInventoryHealth(inventoryResult.data);
+        setInventoryHealthState('ready');
+      } else {
+        setInventoryHealthState('error');
       }
-      renderGoalProgress(kpiResult && kpiResult.success ? kpiResult.data : null);
+      // Goal projection
+      if (projectionResult && projectionResult.success) {
+        renderGoalProgress(projectionResult.data);
+        setGoalState('ready');
+      } else {
+        setGoalState('error');
+      }
     }
   } catch (err) {
     showApiError('Network error. Is the server running?');
+    if (advancedOn) {
+      setCashflowState('error');
+      setInventoryHealthState('error');
+      setGoalState('error');
+    }
   }
 
   if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ── Tier 2 loading / error state helpers ──
+// Each widget has three visible regions: skeleton, body, error.
+// The state setter flips the right region on, the rest off.
+
+function setCashflowState(state) {
+  var body  = document.getElementById('cashflow-body');
+  var skel  = document.getElementById('cashflow-skeleton');
+  var err   = document.getElementById('cashflow-error');
+  if (!body || !skel || !err) return;
+  body.hidden = state !== 'ready';
+  skel.hidden = state !== 'loading';
+  err.hidden  = state !== 'error';
+}
+
+function setInventoryHealthState(state) {
+  var content = document.getElementById('ih-content');
+  var headline = document.getElementById('ih-headline');
+  var skel    = document.getElementById('ih-skeleton');
+  var err     = document.getElementById('ih-error');
+  var tabs    = document.getElementById('ih-tabs');
+  if (!content || !skel || !err) return;
+  content.hidden  = state !== 'ready';
+  if (headline) headline.hidden = state !== 'ready';
+  skel.hidden     = state !== 'loading';
+  err.hidden      = state !== 'error';
+  if (tabs) tabs.hidden = state === 'error';
+}
+
+function setGoalState(state) {
+  var skel    = document.getElementById('goal-skeleton');
+  var empty   = document.getElementById('goal-empty');
+  var wrap    = document.getElementById('goal-progress-wrap');
+  var err     = document.getElementById('goal-error');
+  if (!skel || !err) return;
+
+  if (state === 'loading') {
+    skel.hidden  = false;
+    if (empty) empty.hidden = true;
+    if (wrap)  wrap.hidden  = true;
+    err.hidden   = true;
+  } else if (state === 'error') {
+    skel.hidden  = true;
+    if (empty) empty.hidden = true;
+    if (wrap)  wrap.hidden  = true;
+    err.hidden   = false;
+  } else {
+    // 'ready' — visibility of empty vs wrap is decided by renderGoalProgress
+    skel.hidden  = true;
+    err.hidden   = true;
+  }
 }
 
 // ── Date preset buttons ──
@@ -829,27 +926,43 @@ function applyAdvancedMode() {
   });
 }
 
-// ── Cashflow mini-panel ──
+// ── Cashflow Snapshot ──
+// Reframed to surface what a non-technical owner actually needs to see:
+//   primary line  →  Money Out, Net, Utang Balance
+//   secondary     →  Money In (duplicates the Total Revenue KPI most of
+//                    the time, so it sits below the headlines, not above)
+// A plain-English hint generated from the data tells the owner what to
+// do next — that's what turns analytics into a decision tool.
 
 function renderCashflowPanel(summary) {
-  var inEl    = document.getElementById('cf-money-in');
   var outEl   = document.getElementById('cf-money-out');
   var netEl   = document.getElementById('cf-net');
+  var debtEl  = document.getElementById('cf-debt');
+  var inEl    = document.getElementById('cf-money-in');
   var barIn   = document.getElementById('cf-bar-in');
   var barOut  = document.getElementById('cf-bar-out');
   var emptyEl = document.getElementById('cashflow-empty');
-  if (!inEl || !outEl || !netEl) return;
+  var hintEl  = document.getElementById('cashflow-hint');
+  if (!outEl || !netEl || !debtEl || !inEl) return;
 
-  var moneyIn  = Number(summary.moneyIn)  || 0;
-  var moneyOut = Number(summary.moneyOut) || 0;
-  var net      = Number(summary.net)      || (moneyIn - moneyOut);
+  var moneyIn  = Number(summary.moneyIn)     || 0;
+  var moneyOut = Number(summary.moneyOut)    || 0;
+  var net      = Number(summary.net);
+  if (isNaN(net)) net = moneyIn - moneyOut;
+  var debt     = Number(summary.debtBalance) || 0;
 
-  inEl.textContent  = formatPeso(moneyIn);
-  outEl.textContent = formatPeso(moneyOut);
-  netEl.textContent = formatPeso(net);
+  outEl.textContent  = formatPeso(moneyOut);
+  netEl.textContent  = formatPeso(net);
+  debtEl.textContent = formatPeso(debt);
+  inEl.textContent   = formatPeso(moneyIn);
 
+  // Tag the Net tile by sign so CSS can color the value red/green
   var netParent = netEl.parentElement;
   if (netParent) netParent.dataset.netSign = net >= 0 ? 'positive' : 'negative';
+
+  // Debt-balance tile: only visually emphasize when there's actual utang
+  var debtParent = debtEl.parentElement;
+  if (debtParent) debtParent.dataset.debtState = debt > 0 ? 'has-debt' : 'clear';
 
   var total = moneyIn + moneyOut;
   if (barIn && barOut) {
@@ -863,6 +976,31 @@ function renderCashflowPanel(summary) {
   }
 
   if (emptyEl) emptyEl.hidden = total > 0;
+
+  // ── Plain-English "what this means" ──
+  // Priority: warn about negative net first, then debt, then steady state.
+  if (hintEl) {
+    var hint = '';
+    if (total === 0) {
+      hint = '';   // empty state already shown above
+    } else if (net < 0) {
+      var shortBy = Math.abs(net);
+      hint = '⚠ You spent ' + formatPeso(shortBy) + ' more than you earned this period. '
+           + 'Check the Finance page to see where most of the money went.';
+    } else if (debt > 0 && net > 0 && net >= debt * 0.10) {
+      // Owner has profit AND outstanding utang ≥ 10x this period's net.
+      // Suggest paying down debt while they have headroom.
+      hint = 'You have ' + formatPeso(net) + ' net this period and ' + formatPeso(debt)
+           + ' in outstanding utang. Setting aside part of your earnings for a debt payment now '
+           + 'reduces what you owe.';
+    } else if (net > 0) {
+      hint = 'Net positive — you earned ' + formatPeso(net) + ' more than you spent this period.';
+    } else {
+      hint = 'Break-even period — money in matched money out.';
+    }
+    hintEl.textContent = hint;
+    hintEl.hidden      = hint === '';
+  }
 }
 
 // ── Inventory Health widget ──
@@ -875,11 +1013,70 @@ function renderInventoryHealth(data) {
   paintInventoryHealthTab();
 }
 
+// Generates the headline insight + suggested action for the active tab.
+// Returns { headline, tone } where tone is 'good' | 'warn' | 'info' so the
+// banner can be styled appropriately.
+function inventoryHealthHeadline(tab, data) {
+  if (!data) return null;
+
+  if (tab === 'slow') {
+    var slow = data.slowMovers || [];
+    if (slow.length === 0) {
+      return { headline: 'All your stock is moving steadily. Nothing flagged as slow.', tone: 'good' };
+    }
+    return {
+      headline: '<strong>' + slow.length + (slow.length === 1 ? ' product' : ' products')
+              + '</strong> selling less than 1 unit per week. '
+              + 'Consider promoting them, bundling with fast movers, or stop reordering.',
+      tone: 'info',
+    };
+  }
+
+  if (tab === 'dead') {
+    var dead = data.deadStock || [];
+    if (dead.length === 0) {
+      return { headline: 'No dead stock — every product made at least one sale in the last 90 days.', tone: 'good' };
+    }
+    var tied = dead.reduce(function (sum, p) { return sum + (Number(p.tiedUpCapital) || 0); }, 0);
+    return {
+      headline: '<strong>' + formatPeso(tied) + '</strong> in capital is tied up across '
+              + dead.length + (dead.length === 1 ? ' product' : ' products') + ' with no sales. '
+              + 'A clearance price often recovers more than holding forever.',
+      tone: 'warn',
+    };
+  }
+
+  // turnover tab — flag urgent restock (days < 7) and overstock (days > 90)
+  var turnover = data.turnover || [];
+  if (turnover.length === 0) {
+    return { headline: 'Not enough sales history yet to estimate days of stock for any product.', tone: 'info' };
+  }
+  var urgent = turnover.filter(function (p) { return p.daysOfStock != null && p.daysOfStock < 7; });
+  var overstock = turnover.filter(function (p) { return p.daysOfStock != null && p.daysOfStock > 90; });
+  var parts = [];
+  if (urgent.length > 0) {
+    parts.push('<strong>' + urgent.length + (urgent.length === 1 ? ' product' : ' products')
+             + '</strong> will run out within a week');
+  }
+  if (overstock.length > 0) {
+    parts.push('<strong>' + overstock.length + (overstock.length === 1 ? ' product' : ' products')
+             + '</strong> with more than 90 days of stock');
+  }
+  if (parts.length === 0) {
+    return { headline: 'Stock levels look balanced — no urgent restocks, no obvious overstocking.', tone: 'good' };
+  }
+  return {
+    headline: parts.join(' · ') + '. Restock the urgent ones; review whether the overstocked ones are tying up too much capital.',
+    tone: urgent.length > 0 ? 'warn' : 'info',
+  };
+}
+
 function paintInventoryHealthTab() {
   if (!_ihData) return;
   var tbody    = document.getElementById('ih-tbody');
   var emptyEl  = document.getElementById('ih-empty');
   var colMetric = document.getElementById('ih-col-metric');
+  var headlineEl = document.getElementById('ih-headline');
   if (!tbody) return;
 
   var rows = [];
@@ -898,6 +1095,18 @@ function paintInventoryHealthTab() {
   }
 
   if (colMetric) colMetric.textContent = metricLabel;
+
+  // Plain-English insight banner above the table — the "so what?".
+  if (headlineEl) {
+    var insight = inventoryHealthHeadline(_ihActiveTab, _ihData);
+    if (insight) {
+      headlineEl.innerHTML        = insight.headline;
+      headlineEl.dataset.tone     = insight.tone;
+      headlineEl.hidden           = false;
+    } else {
+      headlineEl.hidden = true;
+    }
+  }
 
   if (rows.length === 0) {
     tbody.innerHTML = '';
@@ -956,6 +1165,10 @@ function escapeHtml(s) {
 }
 
 // ── Monthly Revenue Goal ──
+// Goal progress + projection now uses /api/analytics/projection so the
+// end-of-month estimate is based on a trailing-30-day daily-average
+// baseline applied to the days remaining in the calendar month — far
+// more honest than the previous "revenue / dayOfMonth × daysInMo" hack.
 
 function getMonthlyGoal() {
   var v = loadUserPrefsLocal().monthlyRevenueGoal;
@@ -963,11 +1176,31 @@ function getMonthlyGoal() {
   return isNaN(v) || v <= 0 ? null : v;
 }
 
-function renderGoalProgress(kpis) {
-  var card         = document.getElementById('goal-card');
+function saveMonthlyGoal(amount) {
+  var uid = getCurrentUserId();
+  if (!uid) return;
+  var prefs;
+  try { prefs = JSON.parse(localStorage.getItem('prefs_' + uid) || '{}'); }
+  catch (_) { prefs = {}; }
+  if (amount == null || amount === '') {
+    delete prefs.monthlyRevenueGoal;
+  } else {
+    prefs.monthlyRevenueGoal = amount;
+  }
+  localStorage.setItem('prefs_' + uid, JSON.stringify(prefs));
+  // Best-effort sync to the backend so Account Settings + other devices
+  // see the new goal. If the request fails we still have the local cache
+  // — the next successful pref read will overwrite it from the server,
+  // but until then the user sees their own edits.
+  if (typeof savePreferences === 'function') {
+    savePreferences(prefs).catch(function () { /* offline-tolerant */ });
+  }
+}
+
+function renderGoalProgress(projection) {
   var emptyEl      = document.getElementById('goal-empty');
   var progressWrap = document.getElementById('goal-progress-wrap');
-  if (!card || !emptyEl || !progressWrap) return;
+  if (!emptyEl || !progressWrap || !projection) return;
 
   var goal = getMonthlyGoal();
   if (!goal) {
@@ -976,58 +1209,146 @@ function renderGoalProgress(kpis) {
     return;
   }
 
-  // Compute this-month revenue regardless of the user's date range —
-  // the goal is always evaluated against the current calendar month.
-  loadMonthRevenue().then(function (revenue) {
-    var pct        = (revenue / goal) * 100;
-    var now        = new Date();
-    var daysInMo   = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    var dayOfMonth = now.getDate();
-    var dailyRate  = revenue / Math.max(1, dayOfMonth);
-    var projection = dailyRate * daysInMo;
-    var projPct    = (projection / goal) * 100;
+  var revenue       = Number(projection.currentMonth && projection.currentMonth.revenue) || 0;
+  var projected     = Number(projection.projection) || 0;
+  var limitedData   = projection.limitedData === true;
+  var daysRemaining = Number(projection.daysRemaining) || 0;
 
-    document.getElementById('goal-achieved').textContent  = formatPeso(revenue);
-    document.getElementById('goal-target').textContent    = formatPeso(goal);
-    document.getElementById('goal-percent').textContent   = pct.toFixed(0) + '%';
-    document.getElementById('goal-projection').textContent = formatPeso(projection);
+  var pct     = (revenue   / goal) * 100;
+  var projPct = (projected / goal) * 100;
 
-    var bar = document.getElementById('goal-bar-fill');
-    bar.style.width = Math.min(100, Math.max(0, pct)).toFixed(2) + '%';
-    bar.dataset.state = pct >= 100 ? 'reached' : projPct >= 100 ? 'ontrack' : projPct >= 70 ? 'close' : 'behind';
+  document.getElementById('goal-achieved').textContent   = formatPeso(revenue);
+  document.getElementById('goal-target').textContent     = formatPeso(goal);
+  document.getElementById('goal-percent').textContent    = pct.toFixed(0) + '%';
+  document.getElementById('goal-projection').textContent = formatPeso(projected);
 
-    var projMark = document.getElementById('goal-bar-projection');
-    if (projection > 0) {
-      projMark.hidden = false;
-      projMark.style.left = Math.min(100, projPct).toFixed(2) + '%';
-      projMark.title = 'Projected end-of-month: ' + formatPeso(projection);
-    }
+  var bar = document.getElementById('goal-bar-fill');
+  bar.style.width = Math.min(100, Math.max(0, pct)).toFixed(2) + '%';
+  bar.dataset.state = pct >= 100 ? 'reached'
+                    : projPct >= 100 ? 'ontrack'
+                    : projPct >= 70  ? 'close'
+                    : 'behind';
 
-    var status = document.getElementById('goal-status');
-    if (pct >= 100) {
-      status.textContent = 'Goal reached! Anything beyond this is extra.';
-    } else if (projPct >= 100) {
-      status.textContent = 'On track — at the current pace, you\'ll hit your goal by end of month.';
-    } else if (projPct >= 70) {
-      status.textContent = 'Close — picking up the pace this week would get you across the line.';
+  var projMark = document.getElementById('goal-bar-projection');
+  if (projected > 0 && projMark) {
+    projMark.hidden = false;
+    projMark.style.left = Math.min(100, projPct).toFixed(2) + '%';
+    projMark.title = 'Projected end-of-month: ' + formatPeso(projected);
+  } else if (projMark) {
+    projMark.hidden = true;
+  }
+
+  var status = document.getElementById('goal-status');
+  if (pct >= 100) {
+    status.textContent = 'Goal reached! Anything beyond this is extra.';
+  } else if (projPct >= 100) {
+    status.textContent = 'On track — at your current pace, you\'ll hit your goal by end of month.';
+  } else if (projPct >= 70) {
+    status.textContent = 'Close — picking up the pace this week would get you across the line.';
+  } else if (daysRemaining === 0) {
+    status.textContent = 'Final results for the month — projection no longer applies.';
+  } else {
+    status.textContent = 'Behind pace — at the current rhythm, you\'ll finish at about '
+                       + projPct.toFixed(0) + '% of the goal.';
+  }
+
+  var caveat = document.getElementById('goal-caveat');
+  if (caveat) {
+    if (limitedData) {
+      caveat.textContent = 'Estimate based on limited sales history (less than 14 days). '
+                         + 'The projection will get more accurate as you keep recording sales.';
+      caveat.hidden      = false;
     } else {
-      status.textContent = 'Behind pace — projected to finish at ' + projPct.toFixed(0) + '% of the goal.';
+      caveat.hidden = true;
     }
+  }
 
-    emptyEl.hidden      = true;
-    progressWrap.hidden = false;
-  }).catch(function () { /* ignore — keep prior render */ });
+  emptyEl.hidden      = true;
+  progressWrap.hidden = false;
 }
 
-function loadMonthRevenue() {
-  var now   = new Date();
-  var first = new Date(now.getFullYear(), now.getMonth(), 1);
-  var from  = toManilaDate(first);
-  var to    = toManilaDate(now);
-  return getKPIs(from, to).then(function (r) {
-    if (r && r.success) return Number(r.data.totalRevenue) || 0;
-    return 0;
+// ── Inline Goal Editor ──
+// Replaces the previous "Set goal in Account Settings" cross-page nav.
+// The same preference is written, so Account Settings and the Analytics
+// page stay in sync.
+
+function openGoalEditor() {
+  var editor = document.getElementById('goal-editor');
+  var input  = document.getElementById('goal-input-inline');
+  var clear  = document.getElementById('goal-clear-inline');
+  if (!editor || !input) return;
+
+  var current = getMonthlyGoal();
+  input.value = current != null ? current : '';
+
+  // The Clear button is only useful when a goal already exists.
+  if (clear) clear.hidden = current == null;
+
+  editor.hidden = false;
+  // Briefly defer focus so the field is fully painted before tab-trap.
+  setTimeout(function () { input.focus(); input.select(); }, 0);
+}
+
+function closeGoalEditor() {
+  var editor = document.getElementById('goal-editor');
+  if (editor) editor.hidden = true;
+}
+
+function commitGoalFromEditor() {
+  var input = document.getElementById('goal-input-inline');
+  if (!input) return;
+
+  var raw = input.value.trim();
+  if (raw === '') {
+    saveMonthlyGoal(null);
+  } else {
+    var n = parseFloat(raw);
+    if (isNaN(n) || n < 0) { input.focus(); return; }
+    saveMonthlyGoal(n);
+  }
+  closeGoalEditor();
+
+  // Refresh the goal card with the new target — projection data hasn't
+  // changed, so we just re-call renderAll to re-fetch projection cheaply.
+  // (Re-rendering from a cached projection would also work; renderAll
+  // keeps cashflow + IH in sync if the user has been away for a while.)
+  renderAll();
+}
+
+function initGoalEditor() {
+  var openBtn   = document.getElementById('goal-edit-btn');
+  var emptyBtn  = document.getElementById('goal-empty-set');
+  var saveBtn   = document.getElementById('goal-save-inline');
+  var cancelBtn = document.getElementById('goal-cancel-inline');
+  var clearBtn  = document.getElementById('goal-clear-inline');
+  var retryBtn  = document.getElementById('goal-retry');
+  var input     = document.getElementById('goal-input-inline');
+
+  if (openBtn)   openBtn.addEventListener('click',   openGoalEditor);
+  if (emptyBtn)  emptyBtn.addEventListener('click',  openGoalEditor);
+  if (saveBtn)   saveBtn.addEventListener('click',   commitGoalFromEditor);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeGoalEditor);
+  if (clearBtn)  clearBtn.addEventListener('click',  function () {
+    saveMonthlyGoal(null);
+    closeGoalEditor();
+    renderAll();
   });
+  if (retryBtn)  retryBtn.addEventListener('click',  renderAll);
+
+  if (input) {
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter')   { e.preventDefault(); commitGoalFromEditor(); }
+      if (e.key === 'Escape')  { closeGoalEditor(); }
+    });
+  }
+}
+
+// Wire retry buttons on the other Tier 2 cards.
+function initTier2Retries() {
+  var cfRetry = document.getElementById('cashflow-retry');
+  var ihRetry = document.getElementById('ih-retry');
+  if (cfRetry) cfRetry.addEventListener('click', renderAll);
+  if (ihRetry) ihRetry.addEventListener('click', renderAll);
 }
 
 // ── Init ──
@@ -1036,11 +1357,9 @@ document.addEventListener('DOMContentLoaded', function () {
   initPinToggles();
   initCollapsibleHeatmap();
   initInventoryHealthTabs();
+  initGoalEditor();
+  initTier2Retries();
   applyAdvancedMode();
   renderAll();
   attachDatePresetEvents();
-
-  // Goal-edit shortcut on the goal card jumps to Account Settings.
-  var editBtn = document.getElementById('goal-edit-btn');
-  if (editBtn) editBtn.addEventListener('click', function () { window.location.href = 'account.html#advanced-analytics'; });
 });

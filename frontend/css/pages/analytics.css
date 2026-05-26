@@ -971,6 +971,220 @@ html[data-theme="dark"] .analytics-kpi-card.kpi-card-accent {
   color: var(--color-text-muted);
 }
 
+/* ── Tier 2 polish: window pill, hints, debt tile, skeletons, retry, editor ── */
+
+/* Small period/window indicator inside card subtitle text.
+   Keeps users oriented on which timeframe a card is showing. */
+.window-pill {
+  display: inline-block;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  background-color: rgba(90, 158, 111, 0.10);
+  border-radius: var(--radius-full);
+  vertical-align: middle;
+}
+
+.muted-divider {
+  margin: 0 6px;
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+/* Plain-English insight banner — what does this number MEAN for me. */
+.card-hint {
+  margin-top: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  border-radius: var(--radius-sm);
+  background-color: rgba(90, 158, 111, 0.06);
+  border-left: 3px solid var(--color-primary);
+  color: var(--color-text);
+}
+
+.card-hint[hidden] { display: none; }
+
+/* Inline error / retry state — replaces card body when a Tier 2 fetch
+   fails. Same pattern across all three Tier 2 widgets. */
+.card-error {
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.card-error p {
+  margin-bottom: 12px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.card-error[hidden] { display: none; }
+
+/* Skeleton loading state — subtle pulse on a neutral surface block. */
+.skeleton-block {
+  background-color: var(--color-border);
+  border-radius: var(--radius-sm);
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+  min-height: 160px;
+}
+
+.skeleton-block[hidden] { display: none; }
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 0.85; }
+}
+
+.goal-skeleton     { min-height: 180px; margin-top: 8px; }
+.cashflow-skeleton { min-height: 200px; }
+.ih-skeleton       { min-height: 200px; margin-top: 8px; }
+
+/* ── Inventory Health headline banner ── */
+
+.ih-headline {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  border-left: 3px solid var(--color-text-muted);
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.ih-headline[hidden] { display: none; }
+
+.ih-headline strong { font-weight: 700; }
+
+.ih-headline[data-tone="good"] {
+  border-left-color: #16a34a;
+  background-color: rgba(22, 163, 74, 0.06);
+}
+.ih-headline[data-tone="warn"] {
+  border-left-color: #dc2626;
+  background-color: rgba(220, 38, 38, 0.06);
+}
+.ih-headline[data-tone="info"] {
+  border-left-color: var(--color-primary);
+  background-color: rgba(90, 158, 111, 0.06);
+}
+
+html[data-theme="dark"] .ih-headline {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* ── Cashflow Snapshot — new 3-tile primary + secondary line ── */
+
+.cashflow-num-sub {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 1px;
+}
+
+/* Utang/debt tile — red accent when there's an outstanding balance,
+   neutral when clear. */
+.cashflow-num[data-debt-state="has-debt"] .cashflow-num-value {
+  color: #dc2626;
+}
+.cashflow-num[data-debt-state="has-debt"] .cashflow-num-label svg {
+  color: #dc2626;
+}
+
+.cashflow-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background-color: rgba(90, 158, 111, 0.05);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.cashflow-secondary-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-muted);
+}
+
+.cashflow-secondary-label svg { width: 13px; height: 13px; }
+
+.cashflow-secondary-value {
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Inline Goal Editor ── */
+
+.goal-editor {
+  margin-top: 8px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.goal-editor[hidden] { display: none; }
+
+.goal-editor-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+.goal-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.goal-editor-prefix {
+  font-size: 16px;
+  color: var(--color-text-muted);
+}
+
+.goal-editor-input {
+  flex: 1 1 160px;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-main);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.goal-editor-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(90, 158, 111, 0.3);
+}
+
+.goal-editor-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.goal-caveat {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 /* ── Responsive overrides for advanced section ── */
 
 /* Tier 2 (Cashflow Snapshot + Inventory Health) inherits the same 2-column

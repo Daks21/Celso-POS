@@ -397,26 +397,49 @@
             <div class="chart-card-header">
               <div class="chart-card-title">
                 <h3>Monthly Revenue Goal</h3>
-                <p id="goal-card-subtitle">Track your progress for this month</p>
+                <p id="goal-card-subtitle"><span class="window-pill">This calendar month</span></p>
               </div>
               <button type="button" class="link-button" id="goal-edit-btn">
                 <i data-lucide="settings-2"></i>
-                <span>Set goal</span>
+                <span>Edit goal</span>
               </button>
             </div>
+
+            <!-- Inline goal editor — appears when the user clicks Edit goal,
+                 or by default when no goal is set yet. -->
+            <div class="goal-editor" id="goal-editor" hidden>
+              <label for="goal-input-inline" class="goal-editor-label">Monthly revenue goal</label>
+              <div class="goal-editor-row">
+                <span class="goal-editor-prefix">₱</span>
+                <input type="number" id="goal-input-inline" class="goal-editor-input"
+                       min="0" step="100" placeholder="e.g. 50000" />
+                <button type="button" class="secondary-button" id="goal-save-inline">Save</button>
+                <button type="button" class="link-button" id="goal-clear-inline" hidden>Clear</button>
+                <button type="button" class="link-button" id="goal-cancel-inline">Cancel</button>
+              </div>
+              <p class="goal-editor-hint">
+                Set a realistic target you'd like to hit by the end of this month.
+                We'll project where you'll land at your current pace.
+              </p>
+            </div>
+
             <div class="goal-content" id="goal-content">
               <div class="goal-empty" id="goal-empty">
                 <p>You haven't set a monthly revenue goal yet.</p>
-                <a href="account.html#advanced-analytics" class="secondary-button">Set a goal in Account Settings</a>
+                <button type="button" class="secondary-button" id="goal-empty-set">Set a goal</button>
               </div>
+
+              <!-- Skeleton placeholder while projection is loading. -->
+              <div class="goal-skeleton skeleton-block" id="goal-skeleton" hidden></div>
+
               <div class="goal-progress-wrap" id="goal-progress-wrap" hidden>
                 <div class="goal-numbers">
                   <div class="goal-num-block">
-                    <span class="goal-num-label">Achieved</span>
+                    <span class="goal-num-label">Achieved so far</span>
                     <strong class="goal-num-value" id="goal-achieved">₱0.00</strong>
                   </div>
                   <div class="goal-num-block">
-                    <span class="goal-num-label">Goal</span>
+                    <span class="goal-num-label">Your goal</span>
                     <strong class="goal-num-value" id="goal-target">₱0.00</strong>
                   </div>
                   <div class="goal-num-block">
@@ -424,7 +447,7 @@
                     <strong class="goal-num-value" id="goal-percent">0%</strong>
                   </div>
                   <div class="goal-num-block">
-                    <span class="goal-num-label">Projected end-of-month</span>
+                    <span class="goal-num-label">Projected by end-of-month</span>
                     <strong class="goal-num-value" id="goal-projection">₱0.00</strong>
                   </div>
                 </div>
@@ -433,48 +456,85 @@
                   <div class="goal-bar-projection" id="goal-bar-projection" hidden></div>
                 </div>
                 <p class="goal-status" id="goal-status"></p>
+                <p class="goal-caveat" id="goal-caveat" hidden></p>
+              </div>
+
+              <!-- Inline error / retry — replaces content if projection fetch fails -->
+              <div class="card-error" id="goal-error" hidden>
+                <p>Couldn't load your goal progress.</p>
+                <button type="button" class="secondary-button" id="goal-retry">Try again</button>
               </div>
             </div>
           </div>
 
-          <!-- Cashflow Mini-Panel + Inventory Health (side by side on desktop) -->
+          <!-- Cashflow Snapshot + Inventory Health (side by side on desktop) -->
           <div class="analytics-charts-grid">
 
             <div class="analytics-chart-card cashflow-card">
               <div class="chart-card-header">
                 <div class="chart-card-title">
                   <h3>Cashflow Snapshot</h3>
-                  <p>Money in vs money out for this period</p>
+                  <p>
+                    <span class="window-pill" id="cf-window-pill">This month</span>
+                    <span class="muted-divider">·</span>
+                    Where your money is going
+                  </p>
                 </div>
               </div>
-              <div class="cashflow-body">
+
+              <!-- Skeleton while loading -->
+              <div class="cashflow-skeleton skeleton-block" id="cashflow-skeleton" hidden></div>
+
+              <div class="cashflow-body" id="cashflow-body">
+                <!-- Primary stats: 3 headlines a non-technical owner cares about -->
                 <div class="cashflow-numbers">
-                  <div class="cashflow-num">
-                    <span class="cashflow-num-label">
-                      <i data-lucide="arrow-down-to-line"></i> Money In
-                    </span>
-                    <strong class="cashflow-num-value" id="cf-money-in">₱0.00</strong>
-                  </div>
                   <div class="cashflow-num">
                     <span class="cashflow-num-label">
                       <i data-lucide="arrow-up-from-line"></i> Money Out
                     </span>
                     <strong class="cashflow-num-value" id="cf-money-out">₱0.00</strong>
+                    <span class="cashflow-num-sub">Expenses + withdrawals</span>
                   </div>
                   <div class="cashflow-num cashflow-num-net">
                     <span class="cashflow-num-label">
-                      <i data-lucide="trending-up"></i> Net
+                      <i data-lucide="scale"></i> Net
                     </span>
                     <strong class="cashflow-num-value" id="cf-net">₱0.00</strong>
+                    <span class="cashflow-num-sub">Money In − Money Out</span>
+                  </div>
+                  <div class="cashflow-num cashflow-num-debt">
+                    <span class="cashflow-num-label">
+                      <i data-lucide="alert-circle"></i> Utang Balance
+                    </span>
+                    <strong class="cashflow-num-value" id="cf-debt">₱0.00</strong>
+                    <span class="cashflow-num-sub">Borrowed − Paid back</span>
                   </div>
                 </div>
-                <div class="cashflow-bar" id="cf-bar">
+
+                <!-- Money In as a secondary line — not duplicated as a giant headline -->
+                <div class="cashflow-secondary">
+                  <span class="cashflow-secondary-label">
+                    <i data-lucide="arrow-down-to-line"></i> Money In (sales + capital)
+                  </span>
+                  <strong class="cashflow-secondary-value" id="cf-money-in">₱0.00</strong>
+                </div>
+
+                <div class="cashflow-bar" id="cf-bar" aria-hidden="true">
                   <div class="cashflow-bar-in"  id="cf-bar-in"></div>
                   <div class="cashflow-bar-out" id="cf-bar-out"></div>
                 </div>
+
+                <!-- Plain-English "what this means" — generated by JS -->
+                <p class="card-hint" id="cashflow-hint" hidden></p>
+
                 <p class="cashflow-empty-msg" id="cashflow-empty" hidden>
                   No cashflow movements recorded yet — visit the Finance page to start tracking.
                 </p>
+              </div>
+
+              <div class="card-error" id="cashflow-error" hidden>
+                <p>Couldn't load cashflow data.</p>
+                <button type="button" class="secondary-button" id="cashflow-retry">Try again</button>
               </div>
             </div>
 
@@ -482,7 +542,11 @@
               <div class="chart-card-header">
                 <div class="chart-card-title">
                   <h3>Inventory Health</h3>
-                  <p>How your stock is moving over the last 90 days</p>
+                  <p>
+                    <span class="window-pill">Last 90 days</span>
+                    <span class="muted-divider">·</span>
+                    How your stock is moving
+                  </p>
                 </div>
               </div>
               <div class="ih-tabs" id="ih-tabs" role="tablist">
@@ -490,6 +554,14 @@
                 <button type="button" class="ih-tab"           data-tab="dead"     role="tab" aria-selected="false">Dead Stock</button>
                 <button type="button" class="ih-tab"           data-tab="turnover" role="tab" aria-selected="false">Days of Stock</button>
               </div>
+
+              <!-- Headline insight — generated per tab so owners see the "so what?"
+                   above the table instead of having to interpret rows themselves. -->
+              <div class="ih-headline" id="ih-headline" hidden></div>
+
+              <!-- Skeleton while loading -->
+              <div class="ih-skeleton skeleton-block" id="ih-skeleton" hidden></div>
+
               <div class="ih-content" id="ih-content">
                 <p class="ih-empty" id="ih-empty" hidden>No data for this view.</p>
                 <table class="ih-table" id="ih-table">
@@ -502,6 +574,11 @@
                   </thead>
                   <tbody id="ih-tbody"></tbody>
                 </table>
+              </div>
+
+              <div class="card-error" id="ih-error" hidden>
+                <p>Couldn't load inventory health.</p>
+                <button type="button" class="secondary-button" id="ih-retry">Try again</button>
               </div>
             </div>
 

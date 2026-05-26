@@ -385,9 +385,59 @@ const getInventoryHealth = async (from, to) => {
   };
 };
 
+// ─── Goal projection ──────────────────────────────────────────────────────
+// Provides the inputs the frontend needs to draw an honest end-of-month
+// projection on the Monthly Revenue Goal card:
+//   - currentMonthRevenue : Calendar month-to-date revenue (Manila local).
+//   - trailingDailyAvg    : Avg daily revenue over the LAST 30 DAYS as of
+//                           today. Acts as the per-day baseline for the
+//                           days still remaining in the month — far more
+//                           robust than `revenue / dayOfMonth × daysInMo`.
+//   - daysOfHistory       : Distinct sales-day count in that 30-day window.
+//                           Frontend uses this to caveat "limited data"
+//                           when the store is brand new.
+const getGoalProjectionInputs = async (manilaToday) => {
+  // Calendar month-to-date revenue.
+  const firstOfMonth = manilaToday.slice(0, 7) + '-01';
+  const [[mtdRow]] = await db.query(
+    `SELECT COALESCE(SUM(total), 0) AS revenue
+     FROM sales
+     WHERE DATE(created_at) BETWEEN ? AND ?`,
+    [firstOfMonth, manilaToday]
+  );
+
+  // Trailing 30-day daily average. Window ends YESTERDAY (today is partial
+  // and would skew the baseline downwards in the morning, upwards in the
+  // evening). If the store is younger than 30 days, the SUM/COUNT just
+  // reflects what data we have — the daysOfHistory field tells the
+  // frontend how confident to be.
+  const [[trailRow]] = await db.query(
+    `SELECT
+       COALESCE(SUM(total), 0) AS revenue,
+       COUNT(DISTINCT DATE(created_at)) AS days_with_sales
+     FROM sales
+     WHERE DATE(created_at) >= DATE_SUB(?, INTERVAL 30 DAY)
+       AND DATE(created_at) <  ?`,
+    [manilaToday, manilaToday]
+  );
+  const trailingSum     = parseFloat(trailRow.revenue) || 0;
+  const daysOfHistory   = parseInt(trailRow.days_with_sales, 10) || 0;
+  // Divide by 30 (the window length), NOT by days_with_sales — closed days
+  // are still part of the rhythm. A store closed Sundays should project
+  // weeks that include Sundays.
+  const trailingDailyAvg = trailingSum / 30;
+
+  return {
+    currentMonthRevenue: parseFloat(mtdRow.revenue) || 0,
+    trailingDailyAvg,
+    daysOfHistory,
+  };
+};
+
 module.exports = {
   create, getAll, getById, getTodaySummary,
   getSummary, getDailyMap, getKPIs,
   getTopByRevenue, getTopByQty, getByDayOfWeek,
   getProfit, getProfitByProduct, getInventoryHealth,
+  getGoalProjectionInputs,
 };

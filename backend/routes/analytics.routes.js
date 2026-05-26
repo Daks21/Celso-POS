@@ -10,5 +10,6 @@ router.get('/kpis',             auth, controller.getKPIs);
 router.get('/charts',           auth, controller.getCharts);
 router.get('/profit',           auth, controller.getProfit);
 router.get('/inventory-health', auth, controller.getInventoryHealth);
+router.get('/projection',       auth, controller.getGoalProjection);
 
 module.exports = router;

@@ -185,6 +185,10 @@ async function getInventoryHealth() {
   return apiCall('/analytics/inventory-health');
 }
 
+async function getGoalProjection() {
+  return apiCall('/analytics/projection');
+}
+
 // --- Finance ---
 
 async function getFinanceMovements(filters = {}) {
