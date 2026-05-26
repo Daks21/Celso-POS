@@ -176,7 +176,7 @@ function renderSummary(data, profitData) {
     '</div>' +
     '<div class="summary-card summary-card--chart" id="cashflow-chart-card">' +
       '<div class="chart-card-header">' +
-        '<span class="summary-label">Cash Flow</span>' +
+        '<span class="summary-label">Cumulative Cash Position</span>' +
         '<span class="chart-period-badge" id="chart-period-badge"></span>' +
       '</div>' +
       '<div class="chart-body" id="cashflow-chart-body"></div>' +
@@ -184,7 +184,7 @@ function renderSummary(data, profitData) {
   if (window.lucide) lucide.createIcons();
 }
 
-// ── Cash Flow Sparkline ──
+// ── Cumulative Cash Position Chart ──
 
 var GRANULARITY_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', annually: 'Annually' };
 
@@ -195,8 +195,16 @@ function getGranularity(width) {
   return 'annually';
 }
 
+// Returns { points, keys, markers } where:
+//   points  = cumulative cash position after each bucket (the curve)
+//   keys    = bucket date label per point (used for the X-axis)
+//   markers = [{ index, date }] for buckets containing a capital_in event,
+//             rendered on the chart so owners can see "this is where I
+//             injected puhunan" without reading the table.
 function aggregateByGranularity(sortedEntries, granularity) {
-  var buckets = {};
+  var buckets        = {};
+  var capitalBuckets = {};
+
   sortedEntries.forEach(function (entry) {
     var date = entry.occurred_at ? String(entry.occurred_at).slice(0, 10) : null;
     if (!date) return;
@@ -216,15 +224,25 @@ function aggregateByGranularity(sortedEntries, granularity) {
     if (!buckets[key]) buckets[key] = 0;
     var isOut = entry.type === 'owner_draw' || entry.type === 'opex' || entry.type === 'capex';
     buckets[key] += isOut ? -Number(entry.amount) : Number(entry.amount);
+    if (entry.type === 'capital_in') capitalBuckets[key] = true;
   });
-  var keys = Object.keys(buckets).sort();
+
+  var keys    = Object.keys(buckets).sort();
+  var points  = [];
+  var markers = [];
   var running = 0;
-  return keys.map(function (k) { running += buckets[k]; return running; });
+  keys.forEach(function (k, i) {
+    running += buckets[k];
+    points.push(running);
+    if (capitalBuckets[k]) markers.push({ index: i, date: k });
+  });
+  return { points: points, keys: keys, markers: markers };
 }
 
-function buildSparklineSVG(points, color) {
+function buildChartSVG(agg, color) {
   var VW = 1000, VH = 100, pad = 8;
   var gradId = 'cf-grad-' + (++_chartDrawSeq);
+  var points = agg.points;
 
   if (points.length === 0) {
     return (
@@ -257,6 +275,21 @@ function buildSparklineSVG(points, color) {
   }
   var area = d + ' L' + VW + ' ' + VH + ' L0 ' + VH + ' Z';
 
+  // Capital-in markers: small filled circles on the curve at injection points.
+  // Skipped when points.length === 1 (degenerate single-bucket case).
+  var markersSvg = '';
+  if (points.length > 1) {
+    agg.markers.forEach(function (m) {
+      if (m.index >= 0 && m.index < coords.length) {
+        var c = coords[m.index];
+        markersSvg +=
+          '<circle cx="' + c.x.toFixed(1) + '" cy="' + c.y.toFixed(1) + '" r="6"' +
+          ' fill="' + color + '" stroke="var(--color-surface, #fff)" stroke-width="1.5">' +
+          '<title>Capital injection · ' + m.date + '</title></circle>';
+      }
+    });
+  }
+
   return (
     '<svg viewBox="0 0 ' + VW + ' ' + VH + '" preserveAspectRatio="none" width="100%">' +
       '<defs>' +
@@ -268,8 +301,18 @@ function buildSparklineSVG(points, color) {
       '<path d="' + area + '" fill="url(#' + gradId + ')" stroke="none"/>' +
       '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2.5"' +
         ' stroke-linecap="round" stroke-linejoin="round"/>' +
+      markersSvg +
     '</svg>'
   );
+}
+
+// Formats the Y-axis bound labels compactly so they fit in the narrow gutter.
+function formatAxisPeso(amount) {
+  var n = Number(amount);
+  var abs = Math.abs(n);
+  if (abs >= 1000000) return '₱' + (n / 1000000).toFixed(1) + 'M';
+  if (abs >= 1000)    return '₱' + Math.round(n / 1000) + 'K';
+  return '₱' + Math.round(n);
 }
 
 function drawChart(entries, cardContentWidth) {
@@ -285,15 +328,40 @@ function drawChart(entries, cardContentWidth) {
     return da < db ? -1 : da > db ? 1 : 0;
   });
 
-  var points       = aggregateByGranularity(sorted, granularity);
-  var finalBalance = points.length > 0 ? points[points.length - 1] : 0;
+  var agg          = aggregateByGranularity(sorted, granularity);
+  var finalBalance = agg.points.length > 0 ? agg.points[agg.points.length - 1] : 0;
 
   var cs    = getComputedStyle(document.documentElement);
   var color = finalBalance >= 0
     ? (cs.getPropertyValue('--color-primary').trim() || '#5a9e6f')
     : (cs.getPropertyValue('--color-danger').trim()  || '#dc2626');
 
-  body.innerHTML = buildSparklineSVG(points, color);
+  // Compose: y-axis label gutter | svg + x-axis label row
+  var yMaxLabel = '', yMinLabel = '', xStartLabel = '', xEndLabel = '';
+  if (agg.points.length > 0) {
+    var hi = Math.max.apply(null, agg.points);
+    var lo = Math.min.apply(null, agg.points);
+    yMaxLabel = formatAxisPeso(hi);
+    yMinLabel = formatAxisPeso(lo);
+    xStartLabel = agg.keys[0];
+    xEndLabel   = agg.keys[agg.keys.length - 1];
+  } else {
+    yMaxLabel = yMinLabel = '—';
+    xStartLabel = xEndLabel = '';
+  }
+
+  body.innerHTML =
+    '<div class="chart-y-axis">' +
+      '<span>' + yMaxLabel + '</span>' +
+      '<span>' + yMinLabel + '</span>' +
+    '</div>' +
+    '<div class="chart-main">' +
+      buildChartSVG(agg, color) +
+      '<div class="chart-x-axis">' +
+        '<span>' + xStartLabel + '</span>' +
+        '<span>' + xEndLabel   + '</span>' +
+      '</div>' +
+    '</div>';
 }
 
 function renderCashFlowChart(allEntries) {
@@ -545,24 +613,23 @@ function getFilters() {
 async function loadData() {
   showLoading('#finance-table-body');
   try {
-    var filters   = getFilters();
-    var hasFilter = Object.keys(filters).length > 0;
-
-    var period = getActivePeriod();
+    var filters = getFilters();
+    var period  = getActivePeriod();
     var fetches = [
       getFinanceMovements(filters),
       getFinanceSummary(filters),
       getFinanceProfit({ from: period.from, to: period.to }),
+      // Chart fetch is always separate so it respects the period selector
+      // and is unaffected by the table's type filter.
+      getFinanceMovements({ from: period.from, to: period.to }),
     ];
-    if (hasFilter) fetches.push(getFinanceMovements({}));
 
     var results      = await Promise.all(fetches);
     var movResult    = results[0];
     var sumResult    = results[1];
     var profitResult = results[2];
-    var allData      = hasFilter
-      ? ((results[3] && results[3].data) || [])
-      : ((results[0] && results[0].data) || []);
+    var chartResult  = results[3];
+    var allData      = (chartResult && chartResult.data) || [];
 
     if (sumResult && sumResult.success) {
       var profitForRender = profitResult && profitResult.success
