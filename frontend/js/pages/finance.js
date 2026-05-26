@@ -65,41 +65,40 @@ var _manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
 function manilaToday() { return _manilaFmt.format(new Date()); }
 function manilaFromUTC(d) { return _manilaFmt.format(d); }
 
-// Returns { from, to, label } for the currently selected period.
-// `from` / `to` are YYYY-MM-DD strings the backend Profit endpoint accepts.
-// `label` is the Taglish subtitle text rendered on the Profit card.
+// Returns { from, to } for the named period. `from` / `to` are YYYY-MM-DD
+// strings the backend Profit endpoint accepts. Default is 'all-time' so the
+// page opens as a lifetime ledger; per-period comparisons live on Analytics.
 function getPeriodRange(value) {
-  var today    = manilaToday();
-  var year     = parseInt(today.slice(0, 4), 10);
-  var month    = parseInt(today.slice(5, 7), 10);
+  var today = manilaToday();
+  var year  = parseInt(today.slice(0, 4), 10);
+  var month = parseInt(today.slice(5, 7), 10);
 
+  if (value === 'this-month') {
+    return { from: today.slice(0, 7) + '-01', to: today };
+  }
   if (value === 'last-month') {
     var prevY = month === 1 ? year - 1 : year;
     var prevM = month === 1 ? 12       : month - 1;
     var prevFirst = prevY + '-' + String(prevM).padStart(2, '0') + '-01';
     // Last day of previous month = day 0 of current month (UTC noon avoids DST).
     var lastDayDate = new Date(Date.UTC(year, month - 1, 0, 12));
-    var prevLast = manilaFromUTC(lastDayDate);
-    return { from: prevFirst, to: prevLast, label: 'Kita noong nakaraang buwan' };
+    return { from: prevFirst, to: manilaFromUTC(lastDayDate) };
   }
   if (value === 'last-3-months') {
     // First day of the month 2 months ago, inclusive → 3 calendar months total.
     var startDate = new Date(Date.UTC(year, month - 3, 1, 12));
-    return { from: manilaFromUTC(startDate), to: today, label: 'Kita sa nakaraang 3 buwan' };
+    return { from: manilaFromUTC(startDate), to: today };
   }
   if (value === 'this-year') {
-    return { from: year + '-01-01', to: today, label: 'Kita ngayong taon' };
+    return { from: year + '-01-01', to: today };
   }
-  if (value === 'all-time') {
-    return { from: '1970-01-01', to: today, label: 'Kabuuang kita' };
-  }
-  // Default: 'this-month'
-  return { from: today.slice(0, 7) + '-01', to: today, label: 'Kita ngayong buwan' };
+  // Default: 'all-time'
+  return { from: '1970-01-01', to: today };
 }
 
 function getActivePeriod() {
-  var stored = localStorage.getItem('financePeriod') || 'this-month';
-  return getPeriodRange(stored);
+  var stored = localStorage.getItem('financePeriod') || 'all-time';
+  return Object.assign({}, getPeriodRange(stored), { value: stored });
 }
 
 
@@ -118,25 +117,33 @@ function renderSummary(data, profitData) {
 
   var profitHtml = '';
   if (profitData) {
-    var profit       = Number(profitData.profit);
-    var prevProfit   = Number(profitData.previous && profitData.previous.profit) || 0;
-    var delta        = profit - prevProfit;
-    var profitClass  = profit >= 0 ? 'summary-card--profit summary-card--profit-positive'
-                                    : 'summary-card--profit summary-card--profit-negative';
-    var deltaSign    = delta >= 0 ? '↑' : '↓';
-    var deltaText    = (prevProfit === 0 && profit === 0)
-      ? 'Walang transaction sa period na ito'
-      : deltaSign + ' ' + formatPeso(Math.abs(delta)) + ' vs prior period';
+    var profit      = Number(profitData.profit);
+    var prevProfit  = Number(profitData.previous && profitData.previous.profit) || 0;
+    var revenue     = Number(profitData.revenue) || 0;
+    var margin      = Number(profitData.margin) || 0;
+    var isAllTime   = profitData._isAllTime === true;
+    var profitClass = profit >= 0 ? 'summary-card--profit summary-card--profit-positive'
+                                   : 'summary-card--profit summary-card--profit-negative';
 
-    var profitLabel = profitData._periodLabel || 'Kita ngayong buwan';
+    var subtitle;
+    if (revenue === 0 && profit === 0 && prevProfit === 0) {
+      subtitle = 'No transactions in this period';
+    } else if (isAllTime) {
+      subtitle = 'Margin: ' + margin.toFixed(1) + '%';
+    } else {
+      var delta     = profit - prevProfit;
+      var deltaSign = delta >= 0 ? '↑' : '↓';
+      subtitle = deltaSign + ' ' + formatPeso(Math.abs(delta)) + ' vs prior period';
+    }
+
     profitHtml =
       '<div class="summary-card ' + profitClass + '">' +
         '<div class="summary-card-header">' +
-          '<span class="summary-label">Profit · ' + profitLabel + '</span>' +
+          '<span class="summary-label">Profit</span>' +
           '<div class="summary-icon"><i data-lucide="trending-up"></i></div>' +
         '</div>' +
         '<p class="summary-value">' + formatPeso(profit) + '</p>' +
-        '<p class="summary-trend">' + deltaText + '</p>' +
+        '<p class="summary-trend">' + subtitle + '</p>' +
       '</div>';
   }
 
@@ -168,11 +175,11 @@ function renderSummary(data, profitData) {
       : '') +
     '<div class="summary-card summary-card--capital">' +
       '<div class="summary-card-header">' +
-        '<span class="summary-label">Total Capital · Puhunan mo</span>' +
+        '<span class="summary-label">Total Capital</span>' +
         '<div class="summary-icon"><i data-lucide="piggy-bank"></i></div>' +
       '</div>' +
       '<p class="summary-value">' + formatPeso(capitalTotal) + '</p>' +
-      '<p class="summary-trend">Sarili ' + formatPeso(capitalOwn) + ' · Utang ' + formatPeso(capitalBorrowed) + '</p>' +
+      '<p class="summary-trend">Own ' + formatPeso(capitalOwn) + ' · Debt ' + formatPeso(capitalBorrowed) + '</p>' +
     '</div>' +
     '<div class="summary-card summary-card--chart" id="cashflow-chart-card">' +
       '<div class="chart-card-header">' +
@@ -633,7 +640,7 @@ async function loadData() {
 
     if (sumResult && sumResult.success) {
       var profitForRender = profitResult && profitResult.success
-        ? Object.assign({}, profitResult.data, { _periodLabel: period.label })
+        ? Object.assign({}, profitResult.data, { _isAllTime: period.value === 'all-time' })
         : null;
       renderSummary(sumResult.data, profitForRender);
     }
@@ -691,7 +698,7 @@ financeTypeSelect.addEventListener('change', function () {
 
 // Restore the saved period selection, then reload when the user changes it.
 if (financePeriodSelect) {
-  var savedPeriod = localStorage.getItem('financePeriod') || 'this-month';
+  var savedPeriod = localStorage.getItem('financePeriod') || 'all-time';
   financePeriodSelect.value = savedPeriod;
   financePeriodSelect.addEventListener('change', function () {
     localStorage.setItem('financePeriod', financePeriodSelect.value);
