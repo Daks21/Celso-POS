@@ -223,6 +223,110 @@ html[data-theme="dark"] #finance-date {
   white-space: nowrap;
 }
 
+/* ── Empty state ── */
+
+.finance-empty-cell {
+  padding: 0 !important;
+  background: transparent;
+}
+
+.finance-empty-message {
+  text-align: center;
+  padding: 40px;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+}
+
+.finance-getstarted-panel {
+  max-width: 520px;
+  margin: 32px auto;
+  padding: 28px 24px;
+  text-align: left;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--color-surface);
+}
+
+.finance-getstarted-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 14px;
+  border-radius: var(--radius-full);
+  background: var(--color-border-subtle);
+  color: var(--color-primary, #5a9e6f);
+}
+
+.finance-getstarted-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.finance-getstarted-title {
+  margin: 0 0 6px;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.finance-getstarted-subtitle {
+  margin: 0 0 20px;
+  text-align: center;
+  font-size: 0.92rem;
+  color: var(--color-text-muted);
+}
+
+.finance-getstarted-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.finance-getstarted-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.finance-getstarted-step-num {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary, #5a9e6f);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.finance-getstarted-steps strong {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  margin-bottom: 2px;
+}
+
+.finance-getstarted-steps p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+#finance-getstarted-add {
+  display: block;
+  margin: 18px auto 0 !important;
+}
+
 /* ── Kebab menu ── */
 
 .kebab-wrapper {

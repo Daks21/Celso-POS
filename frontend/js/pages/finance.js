@@ -472,12 +472,61 @@ function renderFinancePagination(totalPages) {
   });
 }
 
+function renderFilteredEmptyHtml() {
+  return '<div class="finance-empty-message">No entries match this filter.</div>';
+}
+
+function renderGetStartedHtml() {
+  // First-run guidance for owners with zero entries yet. The CTA only
+  // renders for admins since cashiers cannot create cashflow entries.
+  var adminCta = isAdmin()
+    ? '<button type="button" class="submit-button" id="finance-getstarted-add" style="margin-top:18px;width:auto;">+ Add Your First Entry</button>'
+    : '';
+  return (
+    '<div class="finance-getstarted-panel">' +
+      '<div class="finance-getstarted-icon"><i data-lucide="wallet"></i></div>' +
+      '<h3 class="finance-getstarted-title">Welcome to Finance</h3>' +
+      '<p class="finance-getstarted-subtitle">Track your store\'s money in three steps:</p>' +
+      '<ol class="finance-getstarted-steps">' +
+        '<li>' +
+          '<span class="finance-getstarted-step-num">1</span>' +
+          '<div>' +
+            '<strong>Log your starting capital</strong>' +
+            '<p>Tap + Add Entry to record your puhunan — own or borrowed.</p>' +
+          '</div>' +
+        '</li>' +
+        '<li>' +
+          '<span class="finance-getstarted-step-num">2</span>' +
+          '<div>' +
+            '<strong>Record stock purchases via Inventory</strong>' +
+            '<p>Go to Inventory → Restock. Purchases auto-record here as Operating Expense.</p>' +
+          '</div>' +
+        '</li>' +
+        '<li>' +
+          '<span class="finance-getstarted-step-num">3</span>' +
+          '<div>' +
+            '<strong>Make sales on New Order</strong>' +
+            '<p>Daily sales totals will appear here automatically.</p>' +
+          '</div>' +
+        '</li>' +
+      '</ol>' +
+      adminCta +
+    '</div>'
+  );
+}
+
 function renderMovements(list) {
   if (!list || list.length === 0) {
-    financeTableBody.innerHTML =
-      '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--color-text-muted);">No entries found.</td></tr>';
+    var filterActive = financeTypeSelect.value !== '';
+    financeTableBody.innerHTML = '<tr><td colspan="5" class="finance-empty-cell">' +
+      (filterActive ? renderFilteredEmptyHtml() : renderGetStartedHtml()) +
+    '</td></tr>';
     var pager = document.getElementById('finance-pagination');
     if (pager) pager.innerHTML = '';
+    if (window.lucide) lucide.createIcons();
+    // Wire the Get Started panel's CTA to the same Add-Entry modal flow.
+    var startedBtn = document.getElementById('finance-getstarted-add');
+    if (startedBtn) startedBtn.addEventListener('click', openAddModal);
     return;
   }
 
