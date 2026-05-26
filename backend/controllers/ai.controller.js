@@ -39,7 +39,8 @@ const chat = async (req, res, next) => {
       ? contextText + '\n\n' + message
       : message;
 
-    const result = await assistant.ask(OS_SYSTEM_PROMPT, history, userMessage);
+    const result = await assistant.ask(OS_SYSTEM_PROMPT, history, userMessage,
+      { userId: req.user.id });
     res.json({ success: true,
       data: { answer: result.text, cached: result.cached,
               tokensUsed: result.tokensUsed } });
@@ -124,7 +125,8 @@ const dailySummary = async (req, res, next) => {
       '{ "summary": "...", "urgency": "low|medium|high", ' +
       '"tip": "..." }. ' +
       'Respond ONLY with the JSON object.';
-    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question);
+    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question,
+      { userId: req.user.id });
     let parsed;
     try {
       const jsonMatch = result.text.match(/\{[\s\S]*\}/);
@@ -147,7 +149,8 @@ const restockAdvice = async (req, res, next) => {
       '{ "items": [{ "name": "...", "stock": N, "priority": ' +
       '"urgent|soon|monitor", "reason": "..." }] }. ' +
       'Respond ONLY with the JSON object.';
-    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question);
+    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question,
+      { userId: req.user.id });
     let parsed;
     try {
       const jsonMatch = result.text.match(/\{[\s\S]*\}/);
@@ -175,7 +178,8 @@ const forecast = async (req, res, next) => {
       '{ "day": "' + dowName + '", "expectedRevenue": "₱X", ' +
       '"confidence": "low|medium|high", "note": "..." }. ' +
       'Respond ONLY with the JSON object.';
-    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question);
+    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question,
+      { userId: req.user.id });
     let parsed;
     try {
       const jsonMatch = result.text.match(/\{[\s\S]*\}/);
@@ -198,7 +202,8 @@ const profitCoaching = async (req, res, next) => {
       '{ "insights": [{ "product": "...", "finding": "...", ' +
       '"action": "..." }], "summary": "..." }. ' +
       'Respond ONLY with the JSON object.';
-    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question);
+    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question,
+      { userId: req.user.id });
     let parsed;
     try {
       const jsonMatch = result.text.match(/\{[\s\S]*\}/);

@@ -6,9 +6,14 @@ const deepseek = require('./providers/deepseek');
 const cache   = new Map();
 const TTL_MS  = (parseInt(process.env.AI_CACHE_TTL_SEC) || 300) * 1000;
 
-function cacheKey(question) {
-  const today = new Date().toISOString().slice(0, 10);
-  return crypto.createHash('md5').update(question + today).digest('hex');
+function cacheKey(userMessage, history, userId) {
+  const today    = new Date().toISOString().slice(0, 10);
+  const histHash = history && history.length
+    ? crypto.createHash('md5').update(JSON.stringify(history)).digest('hex').slice(0, 8)
+    : '0';
+  return crypto.createHash('md5')
+    .update(String(userId || 'anon') + '|' + histHash + '|' + userMessage + '|' + today)
+    .digest('hex');
 }
 
 function getCache(key) {
@@ -44,7 +49,7 @@ async function ask(systemPrompt, history, userMessage, options = {}) {
     return callProvider(messages, { ...options, stream: true });
   }
 
-  const key    = cacheKey(userMessage);
+  const key    = cacheKey(userMessage, history, options.userId);
   const cached = getCache(key);
   if (cached) return { ...cached, cached: true };
 
