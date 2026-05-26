@@ -308,7 +308,7 @@ function renderMovements(list) {
   var pageSlice = display.slice(start, start + PAGE_SIZE);
 
   financeTableBody.innerHTML = pageSlice.map(function (entry) {
-    var isOut     = ['owner_draw', 'opex'].includes(entry.type);
+    var isOut     = ['owner_draw', 'opex', 'capex'].includes(entry.type);
     var amountCls = 'finance-amount';
     var sign      = isOut ? '−' : '+';
     var dateStr   = entry.occurred_at ? String(entry.occurred_at).substring(0, 10) : '—';
