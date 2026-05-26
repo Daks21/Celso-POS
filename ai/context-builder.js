@@ -71,20 +71,23 @@ function buildContextText(ctx) {
   if (ctx.topQty?.length) {
     lines.push("\nTOP 5 PRODUCTS BY UNITS SOLD (last 30 days):");
     ctx.topQty.forEach((p, i) => {
-      lines.push((i + 1) + '. ' + p.name + ' — ' + p.qty + ' units');
+      lines.push((i + 1) + '. ' + p.name + ' — ' + p.qty +
+        (p.qty === 1 ? ' unit' : ' units'));
     });
   }
 
   // Inventory
   if (ctx.outStock.length) {
-    lines.push('\nOUT OF STOCK (' + ctx.outStock.length + ' items):');
+    lines.push('\nOUT OF STOCK (' + ctx.outStock.length +
+      (ctx.outStock.length === 1 ? ' item' : ' items') + '):');
     ctx.outStock.slice(0, 8).forEach(p => lines.push('• ' + p.name));
   }
 
   if (ctx.lowStock.length) {
     lines.push("\nLOW STOCK ALERTS (1–49 units):");
     ctx.lowStock.slice(0, 10).forEach(p =>
-      lines.push('• ' + p.name + ': ' + p.stock + ' units')
+      lines.push('• ' + p.name + ': ' + p.stock +
+        (p.stock === 1 ? ' unit' : ' units'))
     );
   }
 
