@@ -54,12 +54,12 @@
     }
   }
 
-  // sendMessage(text, { onChunk, onDone, onError })
-  //   onChunk(delta)         — called for each streamed text fragment
-  //   onDone(fullText, hist) — called once when stream completes cleanly
-  //   onError(message)       — called on network / server / abort errors
-  async function sendMessage(text, cb) {
-    cb = cb || {};
+  // sendMessage(text, { onChunk, onDone, onError }, opts)
+  //   opts.lang — 'en' | 'tl' | 'auto' (forwarded to backend so the
+  //               language pill can lock the reply language)
+  async function sendMessage(text, cb, opts) {
+    cb   = cb   || {};
+    opts = opts || {};
     var onChunk = cb.onChunk || function () {};
     var onDone  = cb.onDone  || function () {};
     var onError = cb.onError || function () {};
@@ -74,6 +74,7 @@
     var safeHistory = _history.slice(-MAX_HISTORY);
     _controller     = new AbortController();
     var fullText    = '';
+    var lang        = opts.lang || 'auto';
 
     try {
       var response = await fetch(BASE_URL + STREAM_ENDPOINT, {
@@ -82,7 +83,7 @@
           'Content-Type':  'application/json',
           'Authorization': 'Bearer ' + token,
         },
-        body:   JSON.stringify({ message: text, history: safeHistory }),
+        body:   JSON.stringify({ message: text, history: safeHistory, lang: lang }),
         signal: _controller.signal,
       });
 

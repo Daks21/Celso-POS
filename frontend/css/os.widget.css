@@ -162,6 +162,57 @@
   height: 16px;
 }
 
+/* ── Language pill (Reply in: Auto / EN / TL) ──────────────── */
+
+.os-widget-langbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 14px;
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.os-widget-langbar-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  letter-spacing: 0.2px;
+}
+
+.os-widget-langpill {
+  display: inline-flex;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 2px;
+  gap: 0;
+}
+
+.os-widget-langpill-btn {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  padding: 3px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.os-widget-langpill-btn:hover {
+  color: var(--color-text);
+}
+
+.os-widget-langpill-btn.is-active {
+  background-color: var(--color-primary);
+  color: #ffffff;
+}
+
 /* ── Messages ──────────────────────────────────────────────── */
 
 .os-widget-messages {

@@ -21,13 +21,15 @@
 
   var MOBILE_MAX_WIDTH   = 768;
   var STATE_KEY          = 'osPanelOpen';
+  // Bilingual mix on purpose — signals to a first-time user that both
+  // languages are welcome. Order alternates EN / TL so neither feels primary.
   var SUGGESTIONS = [
-    { label: 'Kumusta ngayon?',         q: 'Kumusta negosyo ngayon?' },
+    { label: "How's business today?",   q: 'How is my business doing today?' },
     { label: 'Kailangan i-restock?',    q: 'Ano ang kailangan ko i-restock?' },
+    { label: 'Best sellers?',           q: 'What are my best sellers this month?' },
     { label: 'Magkano utang ko?',       q: 'Magkano pa ang utang ko?' },
-    { label: 'Safe ba mag-kuha?',       q: 'Safe ba mag-kuha ngayon?' },
-    { label: 'Best sellers?',           q: 'Ano best seller natin this month?' },
-    { label: 'Kailan busiest?',         q: 'Kailan busiest ang tindahan?' },
+    { label: 'Busiest day?',            q: 'What day of the week is busiest?' },
+    { label: 'Safe mag-kuha?',          q: 'Safe ba mag-kuha ngayon?' },
   ];
 
   var _root              = null;   // .os-widget-panel
@@ -37,10 +39,36 @@
   var _inputEl           = null;
   var _sendBtn           = null;
   var _emptyStateEl      = null;
+  var _langPillEl        = null;   // .os-widget-langpill (segmented)
   var _isMounted         = false;
   var _isOpen            = false;
   var _previousFocus     = null;
   var _onKeydownBound    = null;
+  var _currentLang       = loadLang();    // 'auto' | 'en' | 'tl'
+
+  // ── Language preference (per-user, localStorage) ───────────────
+
+  function getPrefsKey() {
+    try {
+      var user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      return 'prefs_' + (user.id || 'guest');
+    } catch (_) { return 'prefs_guest'; }
+  }
+  function loadLang() {
+    try {
+      var prefs = JSON.parse(localStorage.getItem(getPrefsKey()) || '{}');
+      var v = prefs.osLang;
+      return (v === 'en' || v === 'tl') ? v : 'auto';
+    } catch (_) { return 'auto'; }
+  }
+  function saveLang(v) {
+    try {
+      var key   = getPrefsKey();
+      var prefs = JSON.parse(localStorage.getItem(key) || '{}');
+      prefs.osLang = v;
+      localStorage.setItem(key, JSON.stringify(prefs));
+    } catch (_) {}
+  }
 
   // ── Utility ─────────────────────────────────────────────────────
 
@@ -157,6 +185,41 @@
     header.appendChild(actions);
     _root.appendChild(header);
 
+    // Language pill strip — sits between header and messages.
+    // Controls the LLM's REPLY language (Auto = mirror user).
+    var langBar       = document.createElement('div');
+    langBar.className = 'os-widget-langbar';
+
+    var langLabel       = document.createElement('span');
+    langLabel.className = 'os-widget-langbar-label';
+    langLabel.textContent = 'Reply in:';
+    langBar.appendChild(langLabel);
+
+    _langPillEl = document.createElement('div');
+    _langPillEl.className = 'os-widget-langpill';
+    _langPillEl.setAttribute('role', 'group');
+    _langPillEl.setAttribute('aria-label', 'Reply language');
+    [
+      { v: 'auto', label: 'Auto', title: 'Match your language'   },
+      { v: 'en',   label: 'EN',   title: 'Reply in English'      },
+      { v: 'tl',   label: 'TL',   title: 'Reply in Tagalog/Taglish' },
+    ].forEach(function (o) {
+      var btn       = document.createElement('button');
+      btn.type      = 'button';
+      btn.className = 'os-widget-langpill-btn';
+      btn.setAttribute('data-lang', o.v);
+      btn.setAttribute('title', o.title);
+      btn.textContent = o.label;
+      btn.addEventListener('click', function () {
+        _currentLang = o.v;
+        saveLang(o.v);
+        updateLangPillState();
+      });
+      _langPillEl.appendChild(btn);
+    });
+    langBar.appendChild(_langPillEl);
+    _root.appendChild(langBar);
+
     // Messages
     _messagesEl = document.createElement('div');
     _messagesEl.className = 'os-widget-messages';
@@ -220,7 +283,19 @@
     document.body.appendChild(_root);
 
     _isMounted = true;
+    updateLangPillState();
     renderHistory();
+  }
+
+  // Reflect _currentLang on the segmented pill buttons.
+  function updateLangPillState() {
+    if (!_langPillEl) return;
+    var btns = _langPillEl.querySelectorAll('.os-widget-langpill-btn');
+    btns.forEach(function (b) {
+      var on = b.getAttribute('data-lang') === _currentLang;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
   }
 
   // ── Rendering ──────────────────────────────────────────────────
@@ -231,10 +306,12 @@
     _emptyStateEl.className = 'os-widget-empty';
     _emptyStateEl.innerHTML =
       '<div class="os-widget-empty-logo">Os</div>' +
-      '<h3 class="os-widget-empty-title">Kumusta! I\'m Os.</h3>' +
-      '<p class="os-widget-empty-body">Ask me about your sales, ' +
-      'inventory, utang, or anything about your store. ' +
-      'Try a suggestion below.</p>';
+      '<h3 class="os-widget-empty-title">Hi! I\'m Os. Kumusta!</h3>' +
+      '<p class="os-widget-empty-body">' +
+      'Ask me about your sales, inventory, utang, or anything ' +
+      'about your store — in English, Tagalog, or Taglish. ' +
+      'Mag-tanong ka lang kung anong gusto mong malaman.' +
+      '</p>';
     _messagesEl.appendChild(_emptyStateEl);
   }
 
@@ -337,7 +414,7 @@
         streamBubble.classList.remove('is-streaming');
         setBusy(false);
       },
-    });
+    }, { lang: _currentLang });
   }
 
   function onClearClick() {

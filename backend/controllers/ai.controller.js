@@ -12,6 +12,15 @@ const WINDOW_MS  = 15 * 60 * 1000;
 // limits how much hostile content a single message can smuggle in.
 const MAX_MESSAGE_LEN = 2000;
 
+// Per-request language override. Front-end sends 'en' | 'tl' | 'auto'
+// from the widget's language pill. When locked, we prepend a short
+// directive the system prompt knows how to honor.
+function langDirective(lang) {
+  if (lang === 'en') return '[Reply ONLY in English. Translate any Tagalog terms.]\n\n';
+  if (lang === 'tl') return '[Sumagot ka lamang sa Tagalog o Taglish.]\n\n';
+  return '';
+}
+
 function checkRateLimit(userId) {
   const now   = Date.now();
   const entry = userLimits.get(userId) || { count: 0, reset: now + WINDOW_MS };
@@ -31,7 +40,7 @@ async function getContextMessage() {
 // ── POST /api/ai/chat (non-streaming, cached) ──────────────────
 const chat = async (req, res, next) => {
   try {
-    const { message, history = [] } = req.body;
+    const { message, history = [], lang } = req.body;
     if (!message?.trim())
       return res.status(400).json({ success: false, message: 'message is required' });
     if (message.length > MAX_MESSAGE_LEN)
@@ -42,9 +51,10 @@ const chat = async (req, res, next) => {
         message: 'Too many requests. Wait a moment and try again.' });
 
     const contextText = history.length === 0 ? await getContextMessage() : null;
+    const directive   = langDirective(lang);
     const userMessage = contextText
-      ? contextText + '\n\n' + message
-      : message;
+      ? contextText + '\n\n' + directive + message
+      : directive + message;
 
     const result = await assistant.ask(OS_SYSTEM_PROMPT, history, userMessage,
       { userId: req.user.id });
@@ -57,7 +67,7 @@ const chat = async (req, res, next) => {
 // ── POST /api/ai/chat/stream (SSE streaming) ───────────────────
 const chatStream = async (req, res, next) => {
   try {
-    const { message, history = [] } = req.body;
+    const { message, history = [], lang } = req.body;
     if (!message?.trim())
       return res.status(400).json({ success: false, message: 'message is required' });
     if (message.length > MAX_MESSAGE_LEN)
@@ -73,9 +83,10 @@ const chatStream = async (req, res, next) => {
     res.flushHeaders();
 
     const contextText = history.length === 0 ? await getContextMessage() : null;
+    const directive   = langDirective(lang);
     const userMessage = contextText
-      ? contextText + '\n\n' + message
-      : message;
+      ? contextText + '\n\n' + directive + message
+      : directive + message;
 
     const response = await assistant.ask(
       OS_SYSTEM_PROMPT, history, userMessage, { stream: true }
