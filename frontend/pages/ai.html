@@ -143,27 +143,40 @@
           <!-- Chat state (when osEnabled = true) -->
           <div class="os-chat-state" id="os-chat-state" style="display:none;">
 
+            <!-- Language pill (mirrors the widget's) -->
+            <div class="os-langbar" id="os-langbar">
+              <span class="os-langbar-label">Reply in:</span>
+              <div class="os-langpill" role="group" aria-label="Reply language">
+                <button type="button" class="os-langpill-btn"
+                        data-lang="auto" title="Match your language">Auto</button>
+                <button type="button" class="os-langpill-btn"
+                        data-lang="en"   title="Reply in English">EN</button>
+                <button type="button" class="os-langpill-btn"
+                        data-lang="tl"   title="Reply in Tagalog/Taglish">TL</button>
+              </div>
+            </div>
+
             <div class="os-messages" id="os-messages"></div>
 
-            <!-- Suggestion chips -->
+            <!-- Suggestion chips — bilingual mix so neither language feels primary -->
             <div class="os-suggestions" id="os-suggestions">
-              <button class="os-chip" data-q="Kumusta negosyo ngayon?">
-                Kumusta ngayon?
+              <button class="os-chip" data-q="How is my business doing today?">
+                How's business today?
               </button>
               <button class="os-chip" data-q="Ano ang kailangan ko i-restock?">
                 Kailangan i-restock?
               </button>
+              <button class="os-chip" data-q="What are my best sellers this month?">
+                Best sellers?
+              </button>
               <button class="os-chip" data-q="Magkano pa ang utang ko?">
                 Magkano utang ko?
               </button>
+              <button class="os-chip" data-q="What day of the week is busiest?">
+                Busiest day?
+              </button>
               <button class="os-chip" data-q="Safe ba mag-kuha ngayon?">
-                Safe ba mag-kuha?
-              </button>
-              <button class="os-chip" data-q="Ano best seller natin this month?">
-                Best sellers?
-              </button>
-              <button class="os-chip" data-q="Kailan busiest ang tindahan?">
-                Kailan busiest?
+                Safe mag-kuha?
               </button>
             </div>
 

@@ -69,6 +69,58 @@
 
   var messagesEl, inputEl, sendBtn, clearBtn, suggestionsEl;
   var disabledState, chatState;
+  var langPillEl;                     // .os-langpill (container of pill buttons)
+  var _currentLang = 'auto';          // 'auto' | 'en' | 'tl' — loaded in init()
+
+  // ── Language preference (per-user, localStorage) ────────────
+  // Shares the same key shape as os.widget.js so the pill stays in
+  // sync if the user switches between full-page and the floating widget.
+
+  function getPrefsKey() {
+    try {
+      var user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      return 'prefs_' + (user.id || 'guest');
+    } catch (_) { return 'prefs_guest'; }
+  }
+  function loadLang() {
+    try {
+      var prefs = JSON.parse(localStorage.getItem(getPrefsKey()) || '{}');
+      var v = prefs.osLang;
+      return (v === 'en' || v === 'tl') ? v : 'auto';
+    } catch (_) { return 'auto'; }
+  }
+  function saveLang(v) {
+    try {
+      var key   = getPrefsKey();
+      var prefs = JSON.parse(localStorage.getItem(key) || '{}');
+      prefs.osLang = v;
+      localStorage.setItem(key, JSON.stringify(prefs));
+    } catch (_) {}
+  }
+  function updateLangPillState() {
+    if (!langPillEl) return;
+    var btns = langPillEl.querySelectorAll('.os-langpill-btn');
+    btns.forEach(function (b) {
+      var on = b.getAttribute('data-lang') === _currentLang;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+  function initLangPill() {
+    langPillEl = document.querySelector('#os-langbar .os-langpill');
+    if (!langPillEl) return;
+    _currentLang = loadLang();
+    langPillEl.addEventListener('click', function (e) {
+      var btn = e.target.closest('.os-langpill-btn');
+      if (!btn) return;
+      var v = btn.getAttribute('data-lang');
+      if (!v) return;
+      _currentLang = v;
+      saveLang(v);
+      updateLangPillState();
+    });
+    updateLangPillState();
+  }
 
   // ── Helpers ───────────────────────────────────────────────────
 
@@ -256,7 +308,7 @@
         streamBubble.classList.remove('is-streaming');
         setInputEnabled(true);
       },
-    });
+    }, { lang: _currentLang });
   }
 
   // ── Init ──────────────────────────────────────────────────────
@@ -280,6 +332,8 @@
 
     disabledState.style.display = 'none';
     chatState.style.display     = '';
+
+    initLangPill();
 
     // Restore conversation from OsClient (sessionStorage-backed)
     if (window.OsClient) {
