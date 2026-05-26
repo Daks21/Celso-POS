@@ -118,7 +118,11 @@ function buildContextText(ctx) {
     }
   }
 
-  return lines.join('\n');
+  // Wrap in clear delimiters so the system prompt can instruct the LLM to
+  // treat everything inside as untrusted data, never as instructions.
+  // (Product names are user-controlled — a malicious name could otherwise
+  //  smuggle imperatives into the prompt.)
+  return '<STORE_DATA>\n' + lines.join('\n') + '\n</STORE_DATA>';
 }
 
 module.exports = { fetchContext, buildContextText };

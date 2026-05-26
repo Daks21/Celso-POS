@@ -8,6 +8,10 @@ const userLimits = new Map();
 const RATE_LIMIT = 20;
 const WINDOW_MS  = 15 * 60 * 1000;
 
+// Hard cap on user-supplied chat input. Keeps prompt budget bounded and
+// limits how much hostile content a single message can smuggle in.
+const MAX_MESSAGE_LEN = 2000;
+
 function checkRateLimit(userId) {
   const now   = Date.now();
   const entry = userLimits.get(userId) || { count: 0, reset: now + WINDOW_MS };
@@ -30,6 +34,9 @@ const chat = async (req, res, next) => {
     const { message, history = [] } = req.body;
     if (!message?.trim())
       return res.status(400).json({ success: false, message: 'message is required' });
+    if (message.length > MAX_MESSAGE_LEN)
+      return res.status(400).json({ success: false,
+        message: 'Message too long (max ' + MAX_MESSAGE_LEN + ' characters).' });
     if (!checkRateLimit(req.user.id))
       return res.status(429).json({ success: false,
         message: 'Too many requests. Wait a moment and try again.' });
@@ -53,6 +60,9 @@ const chatStream = async (req, res, next) => {
     const { message, history = [] } = req.body;
     if (!message?.trim())
       return res.status(400).json({ success: false, message: 'message is required' });
+    if (message.length > MAX_MESSAGE_LEN)
+      return res.status(400).json({ success: false,
+        message: 'Message too long (max ' + MAX_MESSAGE_LEN + ' characters).' });
     if (!checkRateLimit(req.user.id))
       return res.status(429).json({ success: false });
 

@@ -2,6 +2,13 @@ const model = require('../models/product.model');
 
 const VALID_UNITS = ['piece', 'pack', 'bottle', 'can', 'sachet', 'box', 'kg', 'liter'];
 
+// Strip control chars + collapse whitespace. Defends the AI context (and the
+// receipt printer) from product names containing newlines, tabs, or other
+// non-printable characters that could be used to smuggle instructions into
+// the LLM prompt or break rendering.
+const sanitizeField = (s) =>
+  String(s).replace(/[\x00-\x1F\x7F]+/g, ' ').replace(/\s+/g, ' ').trim();
+
 const validate = (body) => {
   const { name, category, price, cost, unit } = body;
 
@@ -58,7 +65,11 @@ const create = async (req, res, next) => {
     }
 
     const { name, category, price, cost, unit } = req.body;
-    const product = await model.create({ name: name.trim(), category: category.trim(), price, cost, unit });
+    const product = await model.create({
+      name:     sanitizeField(name),
+      category: sanitizeField(category),
+      price, cost, unit,
+    });
 
     res.status(201).json({ success: true, data: product });
   } catch (err) {
@@ -83,7 +94,11 @@ const update = async (req, res, next) => {
     }
 
     const { name, category, price, cost, unit } = req.body;
-    const product = await model.update(id, { name: name.trim(), category: category.trim(), price, cost, unit });
+    const product = await model.update(id, {
+      name:     sanitizeField(name),
+      category: sanitizeField(category),
+      price, cost, unit,
+    });
 
     res.status(200).json({ success: true, data: product });
   } catch (err) {
