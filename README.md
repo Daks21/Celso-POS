@@ -98,8 +98,9 @@
   │
   ├── frontend/                ← Everything the user sees
   ├── backend/                 ← Server, routes, logic (Phase 2+3 COMPLETE)
-  ├── database/                ← SQL schema and seed data (Phase 3 COMPLETE)
+  ├── database/                ← SQL schema, seed, and migrations (Phase 3 COMPLETE)
   ├── ai/                      ← AI assistant (Phase 4 COMPLETE)
+  ├── scripts/                 ← Dev/deploy tooling (e.g. cache-busting)
   │
   ├── .gitignore               ← Files to exclude from Git
   └── README.md                ← This file
@@ -281,7 +282,16 @@
   ├── schema.sql               ← 6-table relational schema with indexes
   │                               and foreign keys (cash_movements
   │                               added in Phase 5)
-  └── seed.sql                 ← Sample products, users, and sales data
+  ├── seed.sql                 ← Sample products, users, and sales data
+  └── migrate_*.sql            ← One-off migrations for existing databases
+                                  (run as a privileged user; see Section 9)
+
+  ─────────────────────────────────────────────────────────────
+
+  scripts/
+  │
+  └── bust-cache.js            ← Stamps ?v=<version> on local frontend assets
+                                  so deploys serve fresh CSS/JS (no build step)
 
   ─────────────────────────────────────────────────────────────
 
@@ -948,6 +958,19 @@
     6. Verify the server is up
          GET http://localhost:3000/api/health
 
+  DATABASE MIGRATIONS (existing installs only)
+    schema.sql uses CREATE TABLE IF NOT EXISTS, so it never alters an
+    existing table. When a release adds columns, run the matching
+    database/migrate_*.sql once as a privileged user (the app DB user has
+    no DDL rights). Latest:
+         mysql -u root -p celsopos_db < database/migrate_loan_terms.sql
+
+  FRONTEND CACHE BUSTING (per deploy)
+    Static assets are referenced with a ?v=<version> query so browsers
+    re-fetch them after a release (there is no build pipeline). Bump it on
+    every deploy:
+         node scripts/bust-cache.js 2     (omit the arg for a timestamp)
+
   RUNNING TESTS
 
     Server must be running. Tests use a live MySQL database.
@@ -1475,8 +1498,8 @@
 
   KEY DESIGN PRINCIPLES:
     - One dedicated page, accessible from sidebar
-    - Add Entry modal: type-aware subcategory selectors
-      (5 fields max, sub-10-second entry)
+    - Add Entry modal: type-aware subcategory selectors (category
+      required), with borrowed-loan repayment terms; fast entry
     - Sales auto-log as sales_revenue (source='sale') so revenue
       appears inline with cashflow without double entry
     - Restocks auto-log as opex (type='opex', category='restock',
@@ -1515,9 +1538,9 @@
       No subcategory — auto-created only; source='sale'
 
   SCHEMA ADDITIONS:
-    New table: cash_movements (id, type, category, amount, description,
-                               occurred_at, source, source_id,
-                               recorded_by, is_active, created_at)
+    New table: cash_movements (id, type, category, amount, monthly_due,
+                               term_months, description, occurred_at, source,
+                               source_id, recorded_by, is_active, created_at)
     Altered:   inventory_adjustments (+ unit_cost, total_paid,
                                        payment_method, supplier_name)
     Altered:   products (initial stock locked to 0 on creation —
@@ -1548,7 +1571,7 @@
           ┌────────────┐ ┌────────┐ ┌─────────┐ ┌─────────┐ ┌──────────┐
           │ Net Balance│ │ Profit │ │  Debt   │ │  Total  │ │ Cumulative│
           │ Cash on    │ │ (in-   │ │ Balance │ │ Capital │ │   Cash    │
-          │ hand       │ │ card   │ │         │ │ Own/Debt│ │ Position  │
+          │ hand       │ │ card   │ │         │ │Own/Borr.│ │ Position  │
           │            │ │ period │ │         │ │         │ │ chart     │
           └────────────┘ └────────┘ └─────────┘ └─────────┘ └──────────┘
         Net Balance:       all-time Money In − Money Out (cash on hand).
@@ -1558,10 +1581,13 @@
                            Last 3 Months / This Year). In All Time mode
                            the card shows Margin %; otherwise it shows
                            the ↑/↓ delta vs the prior same-length window.
-        Debt Balance:      borrowed − debt_payment, floored at 0;
-                           toggleable via localStorage flag.
-        Total Capital:     lifetime SUM(capital_in), broken into
-                           Own / Debt below the headline.
+        Debt Balance:      total loan obligation − debt_payment, floored at 0
+                           (a loan's obligation = monthly_due × term_months
+                           when set, else its principal); toggleable via
+                           localStorage flag.
+        Total Capital:     lifetime SUM(capital_in), shown as Own / Borrowed
+                           where Own = Total − Borrowed, so the split always
+                           reconciles (uncategorized capital counts as Own).
         Cumulative Cash:   live SVG line chart with min/max ₱ labels
                            on the Y axis, first/last date labels on
                            the X axis, and capital-injection markers
@@ -1576,8 +1602,15 @@
         POS" pill in the description cell.
       - "+ Add Entry" button (admin only) → modal:
           • Type selector: Capital In | Withdrawal
-          • Category selector swaps based on type
-          • Amount, Date, Notes
+          • Category selector swaps based on type (required)
+          • Amount, Date, Notes — Amount/Notes stay disabled until both
+            Type and Category are chosen (no unclassified entries)
+          • Borrowed capital also reveals Monthly payment + Months to pay,
+            with a live "total to repay" readout; their product becomes the
+            loan's debt obligation
+      - Debt Balance card shows a "Pay Debt" shortcut (admin, when debt > 0)
+        that opens this modal prefilled to a debt payment for the
+        outstanding amount
       - Auto-created entries (restock, sale) are read-only;
         manual entries show Edit / Delete kebab menu (admin only)
       - Pagination: 20 entries per page, shared pagination component

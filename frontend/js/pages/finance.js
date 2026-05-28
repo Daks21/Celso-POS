@@ -691,6 +691,16 @@ function updateConditionalFields() {
 
   updateLoanReadout();
   updatePayHint();
+  updateFieldAccess();
+}
+
+// Gate Amount / Notes / loan-term inputs until BOTH Type and Category are
+// chosen, so nothing can be recorded without a classification.
+function updateFieldAccess() {
+  var ready = !!financeTypeInput.value && !!financeCatInput.value;
+  [financeAmountInput, financeNotesInput, financeMonthlyInput, financeTermInput].forEach(function (el) {
+    if (el) el.disabled = !ready;
+  });
 }
 
 // Live "Total to repay" line for a borrowed loan (monthly_due × term_months).
@@ -930,9 +940,10 @@ financeForm.addEventListener('submit', async function (e) {
   var term_months = null;
 
   var hasError = false;
-  if (!type)                  { showFieldError('finance-type-error',   'Type is required');              hasError = true; }
-  if (!occurred_at)           { showFieldError('finance-date-error',   'Date is required');              hasError = true; }
-  if (!amount || amount <= 0) { showFieldError('finance-amount-error', 'Amount must be greater than 0'); hasError = true; }
+  if (!type)                  { showFieldError('finance-type-error',     'Type is required');              hasError = true; }
+  if (!category)              { showFieldError('finance-category-error', 'Category is required');          hasError = true; }
+  if (!occurred_at)           { showFieldError('finance-date-error',     'Date is required');              hasError = true; }
+  if (!amount || amount <= 0) { showFieldError('finance-amount-error',   'Amount must be greater than 0'); hasError = true; }
 
   // Loan terms (optional, but both-or-neither) for borrowed capital.
   if (type === 'capital_in' && category === 'borrowed') {

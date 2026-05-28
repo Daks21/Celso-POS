@@ -469,6 +469,14 @@ html[data-theme="dark"] #finance-date {
   color: var(--color-danger, #dc2626);
 }
 
+/* Gated inputs — disabled until both Type and Category are chosen, so the
+   owner can't record an amount/notes without classifying the entry first. */
+#finance-form input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--color-border-subtle);
+}
+
 /* ── Responsive ── */
 
 
