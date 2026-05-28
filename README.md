@@ -1036,9 +1036,13 @@
   CROSS-CUTTING FEATURES (built across modules):
 
     Dark / Light Theme
-      - Instant toggle via topbar button or account settings
+      - Toggle via topbar button or account settings
+      - Smooth, synchronized fade: every element transitions colors
+        together over one shared duration (no staggered/laggy cards)
       - Persists across sessions (localStorage)
-      - Applied before page paint to prevent flash
+      - Applied before page paint to prevent flash; saved theme applies
+        instantly on load (the fade only runs on user toggle)
+      - Respects prefers-reduced-motion (instant snap, no fade)
       - Honored on the login and register screens too (survives logout)
 
     Analytics Page

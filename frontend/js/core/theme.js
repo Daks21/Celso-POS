@@ -23,8 +23,24 @@ function applyTheme(theme) {
   localStorage.setItem('theme', theme);
 }
 
+let themeTransitionTimer = null;
+
+// Arm a one-shot, synchronized color transition on the whole document,
+// then disarm it once the fade finishes. Kept off the initial page load
+// (applyTheme) so saved themes apply instantly with no fade-in flash.
+function enableThemeTransition() {
+  const html = document.documentElement;
+  html.classList.add('theme-transition');
+  if (themeTransitionTimer) clearTimeout(themeTransitionTimer);
+  themeTransitionTimer = setTimeout(function () {
+    html.classList.remove('theme-transition');
+    themeTransitionTimer = null;
+  }, 320);
+}
+
 function toggleTheme() {
   const newTheme = getCurrentTheme() === 'light' ? 'dark' : 'light';
+  enableThemeTransition();
   applyTheme(newTheme);
 }
 
