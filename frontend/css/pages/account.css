@@ -150,6 +150,15 @@
   color: var(--color-text-muted);
 }
 
+#tax-rate-input::-webkit-inner-spin-button,
+#tax-rate-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#tax-rate-input {
+  -moz-appearance: textfield;
+}
+
 #timezone-select {
   scrollbar-width: none;
   -ms-overflow-style: none;
