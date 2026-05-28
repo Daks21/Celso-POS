@@ -41,37 +41,39 @@
   flex: 0 0 220px;
 }
 
-/* Record Payment shortcut (Part A) — sits below the debt value/trend.
-   Inline-level so it left-aligns on desktop and auto-centers on mobile
-   (the mobile card sets text-align:center). */
+/* Pay Debt shortcut (Part A) — a quiet ghost pill that sits below the debt
+   value/trend without competing with it. Muted by default; picks up the
+   primary accent only on hover/focus. Inline-level so it left-aligns on
+   desktop and auto-centers on mobile (the mobile card sets text-align:center). */
 .debt-pay-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  margin-top: 14px;
-  padding: 7px 13px;
-  min-height: 36px;
+  margin-top: 12px;
+  padding: 5px 12px;
+  min-height: 30px;
   font-family: var(--font-main);
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: 0.78rem;
+  font-weight: 500;
   white-space: nowrap;
-  color: #fff;
-  background: var(--color-primary, #5a9e6f);
-  border: none;
-  border-radius: var(--radius-md, 8px);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full, 999px);
   cursor: pointer;
-  transition: filter 0.15s ease, transform 0.08s ease;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
-.debt-pay-btn:hover { filter: brightness(1.07); }
-.debt-pay-btn:active { transform: translateY(1px); }
+.debt-pay-btn:hover {
+  color: var(--color-primary, #5a9e6f);
+  border-color: var(--color-primary, #5a9e6f);
+  background: var(--color-border-subtle);
+}
+
 .debt-pay-btn:focus-visible {
   outline: 2px solid var(--color-primary, #5a9e6f);
   outline-offset: 2px;
 }
-
-.debt-pay-btn svg { width: 15px; height: 15px; }
 
 .summary-card--debt-active .summary-value {
   color: var(--color-danger, #dc2626);
@@ -625,18 +627,12 @@ html[data-theme="dark"] #finance-date {
     flex-shrink: 0;
   }
 
-  /* Debt-card payment button goes full-width inside the (now grid) card,
-     with a smaller label so it fits the narrow cell and stays tappable. */
+  /* Debt-card Pay Debt button — stays a compact, subtle pill, just sized
+     up slightly for touch and centered in the (now grid) card. */
   .debt-pay-btn {
-    display: flex;
-    width: 100%;
-    margin-top: 12px;
-    padding: 8px 10px;
-    min-height: 36px;
+    margin-top: 10px;
+    padding: 6px 14px;
+    min-height: 32px;
     font-size: 12px;
-    gap: 5px;
-    white-space: normal;
-    line-height: 1.2;
   }
-  .debt-pay-btn svg { width: 14px; height: 14px; }
 }

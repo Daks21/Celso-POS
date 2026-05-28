@@ -203,9 +203,7 @@ function renderSummary(data, profitData) {
           '<p class="summary-value">' + formatPeso(debtBalance) + '</p>' +
           '<p class="summary-trend">' + debtTrend + '</p>' +
           (debtBalance > 0 && isAdmin()
-            ? '<button type="button" class="debt-pay-btn" id="debt-pay-btn">' +
-                '<i data-lucide="hand-coins"></i> Record Payment' +
-              '</button>'
+            ? '<button type="button" class="debt-pay-btn" id="debt-pay-btn">Pay Debt</button>'
             : '') +
         '</div>'
       : '') +
