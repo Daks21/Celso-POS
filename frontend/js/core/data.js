@@ -81,7 +81,7 @@ function getStockStatus(stock) {
 var PREF_DEFAULTS = {
   theme:                    'light',
   taxEnabled:               false,
-  taxRate:                  '0.03',
+  taxRate:                  '0',
   taxDefaultOn:             false,
   lowStockThreshold:        50,
   stockColors:              { ok: '#5a9e6f', low: '#eab308', out: '#dc2626' },

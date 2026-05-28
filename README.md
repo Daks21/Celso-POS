@@ -186,7 +186,7 @@
   │       │                       (Money In / Out / Net / Utang)
   │       ├── ai.js            ← Chat interface, question submission
   │       ├── sales.js         ← Sales reports page (auth guard only)
-  │       └── account.js       ← Account dropdown, settings, tax rate
+  │       └── account.js       ← Account dropdown, settings, custom tax rate input
   │
   └── assets/
       ├── images/              ← Logos, product placeholder images
@@ -352,7 +352,7 @@
     subtotal    DECIMAL(10,2)
     tax         DECIMAL(10,2)
     tax_rate    DECIMAL(5,2)
-    cart_tax_on TINYINT(1)    0 = tax per unit | 1 = tax on cart total
+    cart_tax_on TINYINT(1)    0 = tax not applied to this sale | 1 = tax applied
     total       DECIMAL(10,2)
     payment     DECIMAL(10,2)
     change_given DECIMAL(10,2)
@@ -1004,7 +1004,7 @@
     Module 1.9 — Account Settings & Dropdown
       - Sidebar user card with popup dropdown
       - Account settings page: profile info, theme toggle,
-        tax rate selector, customizable stock status colors
+        custom tax rate input (any percentage, 0–100), customizable stock status colors
       - Dashboard row count controls: separate selectors for
         Low Stock Alerts rows and Recent Transactions rows
       - Items popover toggle: show or hide the transaction detail

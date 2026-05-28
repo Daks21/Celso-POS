@@ -467,7 +467,7 @@
             <div class="account-theme-row">
               <div class="account-theme-label">
                 <h3>Tax Feature</h3>
-                <p>Show tax row in New Order (optional — most small businesses in PH don't use this)</p>
+                <p>Show a tax row in New Order. Enable only if your business charges tax on sales.</p>
               </div>
               <button
                 type="button"
@@ -478,36 +478,38 @@
               ></button>
             </div>
 
-            <div class="account-theme-row">
-              <div class="account-theme-label">
-                <h3>Tax on by Default</h3>
-                <p>When enabled, the tax button in New Order starts active for each transaction</p>
+            <div id="tax-subprefs">
+              <div class="account-theme-row">
+                <div class="account-theme-label">
+                  <h3>Tax on by Default</h3>
+                  <p>When enabled, the tax button in New Order starts active for each transaction</p>
+                </div>
+                <button
+                  type="button"
+                  class="toggle-switch"
+                  id="tax-default-toggle"
+                  title="Toggle tax on by default"
+                  aria-pressed="false"
+                ></button>
               </div>
-              <button
-                type="button"
-                class="toggle-switch"
-                id="tax-default-toggle"
-                title="Toggle tax on by default"
-                aria-pressed="false"
-              ></button>
-            </div>
 
-            <div class="tax-rate-section">
-              <p class="tax-rate-heading">Tax Rate</p>
-              <div class="tax-rate-cards">
-
-                <button type="button" class="tax-rate-card" id="tax-rate-3" data-rate="0.03">
-                  <span class="tax-rate-card-rate">3%</span>
-                  <span class="tax-rate-card-name">Percentage Tax</span>
-                  <span class="tax-rate-card-desc">Gross sales ≤ ₱3M/year · Quarterly filing</span>
-                </button>
-
-                <button type="button" class="tax-rate-card" id="tax-rate-12" data-rate="0.12">
-                  <span class="tax-rate-card-rate">12%</span>
-                  <span class="tax-rate-card-name">Value-Added Tax</span>
-                  <span class="tax-rate-card-desc">Gross sales > ₱3M/year · Or voluntary VAT registration</span>
-                </button>
-
+              <div class="account-theme-row">
+                <div class="account-theme-label">
+                  <h3>Tax Rate</h3>
+                  <p>Percentage applied to the sale total when tax is active (e.g. 10 for 10%)</p>
+                </div>
+                <div class="tax-rate-input-row">
+                  <input
+                    type="number"
+                    id="tax-rate-input"
+                    class="tax-rate-input"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    placeholder="0"
+                  />
+                  <span class="tax-rate-pct-label">%</span>
+                </div>
               </div>
             </div>
 

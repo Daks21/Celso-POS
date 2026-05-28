@@ -24,7 +24,7 @@ let activeCategory = 'All';
 
 const taxEnabled = localStorage.getItem('taxEnabled') === 'true';
 const taxDefaultOn = localStorage.getItem('taxDefaultOn') === 'true';
-const taxRate = parseFloat(localStorage.getItem('taxRate') || '0.03');
+const taxRate = parseFloat(localStorage.getItem('taxRate') || '0');
 let cartTaxOn = taxDefaultOn;
 
 const cartTaxRow = document.getElementById('cart-tax-row');
@@ -510,6 +510,18 @@ function showReceipt(sale) {
   });
 
   receiptSubtotal.textContent = formatPeso(sale.subtotal);
+
+  const receiptTaxRow    = document.getElementById('receipt-tax-row');
+  const receiptTaxAmount = document.getElementById('receipt-tax-amount');
+  if (receiptTaxRow && receiptTaxAmount) {
+    if (sale.tax > 0) {
+      receiptTaxAmount.textContent = formatPeso(sale.tax);
+      receiptTaxRow.style.display  = '';
+    } else {
+      receiptTaxRow.style.display = 'none';
+    }
+  }
+
   receiptGrandTotal.textContent = formatPeso(sale.total);
   receiptPayment.textContent = formatPeso(sale.payment);
   receiptChange.textContent = formatPeso(sale.change);
@@ -589,6 +601,7 @@ function applyTaxRowVisibility() {
   if (cartTaxRow) cartTaxRow.style.display = show ? '' : 'none';
   if (cartSubtotalRow) cartSubtotalRow.style.display = show ? '' : 'none';
   if (cartTaxToggle) cartTaxToggle.classList.toggle('is-active', cartTaxOn);
+  updateCartDisplay();
 }
 
 if (cartTaxToggle && taxEnabled) {

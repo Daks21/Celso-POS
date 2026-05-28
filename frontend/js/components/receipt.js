@@ -53,6 +53,18 @@ function showReceipt(sale) {
   });
 
   receiptSubtotal.textContent = formatPeso(sale.subtotal);
+
+  const receiptTaxRow    = document.getElementById('receipt-tax-row');
+  const receiptTaxAmount = document.getElementById('receipt-tax-amount');
+  if (receiptTaxRow && receiptTaxAmount) {
+    if (sale.tax > 0) {
+      receiptTaxAmount.textContent = formatPeso(sale.tax);
+      receiptTaxRow.style.display  = '';
+    } else {
+      receiptTaxRow.style.display = 'none';
+    }
+  }
+
   receiptGrandTotal.textContent = formatPeso(sale.total);
   receiptPayment.textContent = formatPeso(sale.payment);
   receiptChange.textContent = formatPeso(sale.change);

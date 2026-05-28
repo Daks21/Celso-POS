@@ -162,7 +162,7 @@
                 <p>Review items before checkout</p>
               </div>
               <div class="cart-header-actions">
-                <button type="button" class="cart-inline-btn tax-btn is-active" id="cart-tax-toggle" style="display:none">Tax</button>
+                <button type="button" class="cart-inline-btn tax-btn" id="cart-tax-toggle" style="display:none">Tax</button>
                 <button type="button" class="cart-inline-btn clear-btn" id="clear-cart-button" style="display:none">Clear</button>
               </div>
             </div>
@@ -263,6 +263,11 @@
           <div class="receipt-row">
             <span>Subtotal</span>
             <strong id="receipt-subtotal">₱0.00</strong>
+          </div>
+
+          <div class="receipt-row" id="receipt-tax-row" style="display:none">
+            <span>Tax</span>
+            <strong id="receipt-tax-amount">₱0.00</strong>
           </div>
 
           <div class="receipt-row receipt-grand-total">

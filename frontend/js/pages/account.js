@@ -157,20 +157,31 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ── Preferences ──
-    const taxToggle     = document.getElementById('tax-feature-toggle');
+    const taxToggle        = document.getElementById('tax-feature-toggle');
     const taxDefaultToggle = document.getElementById('tax-default-toggle');
-    const savePrefsBtn  = document.getElementById('save-preferences');
+    const taxRateInput     = document.getElementById('tax-rate-input');
+    const savePrefsBtn     = document.getElementById('save-preferences');
+
+    function setTaxSubprefsState(enabled) {
+      var subprefs = document.getElementById('tax-subprefs');
+      if (!subprefs) return;
+      subprefs.style.opacity       = enabled ? '' : '0.45';
+      subprefs.style.pointerEvents = enabled ? '' : 'none';
+    }
 
     // Load current saved state into toggles (visual only)
     if (taxToggle) {
-      if (localStorage.getItem('taxEnabled') === 'true') {
+      var taxIsOn = localStorage.getItem('taxEnabled') === 'true';
+      if (taxIsOn) {
         taxToggle.classList.add('is-on');
         taxToggle.setAttribute('aria-pressed', 'true');
       }
+      setTaxSubprefsState(taxIsOn);
+
       taxToggle.addEventListener('click', function () {
         const isOn = taxToggle.classList.toggle('is-on');
         taxToggle.setAttribute('aria-pressed', String(isOn));
-        // Visual only — persisted on Save
+        setTaxSubprefsState(isOn);
       });
     }
 
@@ -182,22 +193,13 @@ document.addEventListener('DOMContentLoaded', function() {
       taxDefaultToggle.addEventListener('click', function () {
         const isOn = taxDefaultToggle.classList.toggle('is-on');
         taxDefaultToggle.setAttribute('aria-pressed', String(isOn));
-        // Visual only — persisted on Save
       });
     }
 
-    // Tax rate cards — visual selection only, persisted on Save
-    const taxRateCards = document.querySelectorAll('.tax-rate-card');
-    if (taxRateCards.length) {
-      const savedRate = localStorage.getItem('taxRate') || '0.03';
-      taxRateCards.forEach(function (card) {
-        if (card.dataset.rate === savedRate) card.classList.add('is-selected');
-        card.addEventListener('click', function () {
-          taxRateCards.forEach(function (c) { c.classList.remove('is-selected'); });
-          card.classList.add('is-selected');
-          // Visual only — persisted on Save
-        });
-      });
+    // Tax rate input — stored as decimal (0.1 = 10%), displayed as percentage
+    if (taxRateInput) {
+      var savedRate = parseFloat(localStorage.getItem('taxRate') || '0');
+      taxRateInput.value = savedRate > 0 ? parseFloat((savedRate * 100).toFixed(4)) : '';
     }
 
     if (savePrefsBtn) {
@@ -208,9 +210,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (taxDefaultToggle) {
           localStorage.setItem('taxDefaultOn', taxDefaultToggle.classList.contains('is-on') ? 'true' : 'false');
         }
-        const selectedRate = document.querySelector('.tax-rate-card.is-selected');
-        if (selectedRate) {
-          localStorage.setItem('taxRate', selectedRate.dataset.rate);
+        if (taxRateInput) {
+          var pct = parseFloat(taxRateInput.value);
+          if (!isNaN(pct) && pct >= 0 && pct <= 100) {
+            localStorage.setItem('taxRate', String(+(pct / 100).toFixed(6)));
+          }
         }
         syncToDb();
         flashSaved(savePrefsBtn);
