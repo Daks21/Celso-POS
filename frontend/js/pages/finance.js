@@ -135,9 +135,12 @@ function renderSummary(data, profitData) {
 
   // Total Capital Invested — lifetime, broken into Own / Borrowed. Reads the
   // existing byType / byCategory aggregates from /summary; no extra fetch.
+  // Own is derived as Total − Borrowed so the breakdown always reconciles to
+  // the total: any capital_in not explicitly tagged 'borrowed' (incl.
+  // uncategorized entries) counts as the owner's own money. Floored at 0.
   var capitalTotal    = Number((data.byType && data.byType.capital_in) || 0);
-  var capitalOwn      = Number((data.byCategory && data.byCategory.own) || 0);
   var capitalBorrowed = Number((data.byCategory && data.byCategory.borrowed) || 0);
+  var capitalOwn      = Math.max(0, capitalTotal - capitalBorrowed);
 
   var profitHtml = '';
   if (profitData) {
@@ -213,7 +216,7 @@ function renderSummary(data, profitData) {
         '<div class="summary-icon"><i data-lucide="piggy-bank"></i></div>' +
       '</div>' +
       '<p class="summary-value">' + formatPeso(capitalTotal) + '</p>' +
-      '<p class="summary-trend">Own ' + formatPeso(capitalOwn) + ' · Debt ' + formatPeso(capitalBorrowed) + '</p>' +
+      '<p class="summary-trend">Own ' + formatPeso(capitalOwn) + ' · Borrowed ' + formatPeso(capitalBorrowed) + '</p>' +
     '</div>' +
     '<div class="summary-card summary-card--chart" id="cashflow-chart-card">' +
       '<div class="chart-card-header">' +
