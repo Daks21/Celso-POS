@@ -592,9 +592,6 @@ async function initDashboard() {
     renderDashboardWidgets();
   }
 
-  // Os Daily Brief — after all regular data, never blocks other cards
-  loadOsBrief();
-
   // ── Onboarding hooks ──
   // init() returns true if it rendered the modal; if so, checklist + sidebar
   // are deferred to welcome.close() to avoid showing them behind the overlay.
@@ -633,61 +630,6 @@ async function refreshCards() {
 }
 
 setInterval(refreshCards, 60000);
-
-// ── Os Daily Brief ──
-
-async function loadOsBrief() {
-  var section = document.getElementById('os-brief-section');
-  if (!section) return;
-
-  try {
-    var user  = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    var prefs = JSON.parse(localStorage.getItem('prefs_' + (user.id || 'guest')) || '{}');
-    if (!prefs.osEnabled) return;
-    section.style.display = '';
-
-    var result = await getOsDailySummary();
-    var body   = document.getElementById('os-brief-body');
-    if (!body) return;
-
-    if (!result || !result.success) {
-      body.innerHTML = '';
-      var errEl = document.createElement('p');
-      errEl.className = 'os-brief-error';
-      errEl.textContent = 'Os is unavailable right now.';
-      body.appendChild(errEl);
-      return;
-    }
-    var d          = result.data;
-    var urgencyMap = { low: 'green', medium: 'orange', high: 'red' };
-    var color      = urgencyMap[d.urgency] || 'gray';
-
-    body.innerHTML = '';
-
-    var dot = document.createElement('span');
-    dot.className = 'os-urgency-dot';
-    dot.style.background = color;
-    body.appendChild(dot);
-
-    var summaryEl = document.createElement('p');
-    summaryEl.className = 'os-brief-text';
-    summaryEl.textContent = d.summary;
-    body.appendChild(summaryEl);
-
-    if (d.tip) {
-      var tipEl = document.createElement('p');
-      tipEl.className = 'os-brief-tip';
-      tipEl.textContent = '💡 ' + d.tip;
-      body.appendChild(tipEl);
-    }
-
-  } catch (_) {
-    // Dashboard still works — Os error is silently hidden
-  }
-}
-
-var refreshBtn = document.getElementById('os-brief-refresh');
-if (refreshBtn) refreshBtn.addEventListener('click', loadOsBrief);
 
 // ── Items popover ──
 

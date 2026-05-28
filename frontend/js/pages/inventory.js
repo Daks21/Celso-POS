@@ -267,7 +267,6 @@ async function refreshInventory() {
   renderCategorySelect();
   await renderSummary();
   applyFilters();
-  loadOsRestock(); // non-blocking — inventory table never waits for AI
 
   // Gate the inventory tour: only fire when the table has at least one product
   // with a stock row rendered. Otherwise the .action-btn / .stock-dot steps
@@ -277,72 +276,6 @@ async function refreshInventory() {
     if (hasInventoryRows) {
       OnboardingTour.start('inventory', OnboardingTours.inventory);
     }
-  }
-}
-
-// ── Os Restock Advice ──
-
-async function loadOsRestock() {
-  var section = document.getElementById('os-restock-section');
-  if (!section) return;
-
-  try {
-    var user  = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    var prefs = JSON.parse(localStorage.getItem('prefs_' + (user.id || 'guest')) || '{}');
-    if (!prefs.osEnabled) return;
-    section.style.display = '';
-
-    var result = await getOsRestockAdvice();
-    var body   = document.getElementById('os-restock-body');
-    if (!body) return;
-
-    body.innerHTML = '';
-
-    if (!result || !result.success || !result.data || !result.data.items || !result.data.items.length) {
-      var msgEl = document.createElement('p');
-      msgEl.className = 'os-brief-loading';
-      msgEl.textContent = (result && result.success) ? 'All stock levels look good!' : 'Os is unavailable right now.';
-      body.appendChild(msgEl);
-      return;
-    }
-
-    var priorityMap = { urgent: 'urgent', soon: 'soon', monitor: 'monitor' };
-    var listEl = document.createElement('div');
-    listEl.className = 'os-restock-list';
-
-    result.data.items.forEach(function (item) {
-      var priority = ((item.priority || 'monitor').toLowerCase());
-      var badgeKey = priorityMap[priority] || 'monitor';
-
-      var row = document.createElement('div');
-      row.className = 'os-restock-item';
-
-      var badge = document.createElement('span');
-      badge.className = 'os-priority-badge os-priority-badge--' + badgeKey;
-      badge.textContent = priority.toUpperCase();
-
-      var textWrap = document.createElement('div');
-
-      var nameEl = document.createElement('span');
-      nameEl.className = 'os-restock-item-name';
-      nameEl.textContent = item.name;
-      textWrap.appendChild(nameEl);
-
-      if (item.reason) {
-        var reasonEl = document.createElement('span');
-        reasonEl.className = 'os-restock-item-reason';
-        reasonEl.textContent = ' — ' + item.reason;
-        textWrap.appendChild(reasonEl);
-      }
-
-      row.appendChild(badge);
-      row.appendChild(textWrap);
-      listEl.appendChild(row);
-    });
-
-    body.appendChild(listEl);
-  } catch (_) {
-    // Inventory loads normally — Os error is silently hidden
   }
 }
 
