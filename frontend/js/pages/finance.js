@@ -19,6 +19,15 @@ var PROFIT_PERIOD_OPTIONS = [
   { value: 'this-year',     label: 'This Year'    },
 ];
 
+// Names the prior comparison window per period for the Profit trend subtitle.
+// (The backend compares against the immediately-preceding equal-length window.)
+var PROFIT_COMPARE_LABELS = {
+  'this-month':    'vs last month',
+  'last-month':    'vs the month before',
+  'last-3-months': 'vs the prior 3 months',
+  'this-year':     'vs last year',
+};
+
 var financeModal      = document.getElementById('finance-modal');
 var closeFinanceModal = document.getElementById('close-finance-modal');
 var financeForm       = document.getElementById('finance-form');
@@ -146,24 +155,32 @@ function renderSummary(data, profitData) {
   if (profitData) {
     var profit      = Number(profitData.profit);
     var prevProfit  = Number(profitData.previous && profitData.previous.profit) || 0;
+    var prevRevenue = Number(profitData.previous && profitData.previous.revenue) || 0;
     var revenue     = Number(profitData.revenue) || 0;
     var margin      = Number(profitData.margin) || 0;
     var isAllTime   = profitData._isAllTime === true;
+    var periodValue = localStorage.getItem('financePeriod') || 'all-time';
     var profitClass = profit >= 0 ? 'summary-card--profit summary-card--profit-positive'
                                    : 'summary-card--profit summary-card--profit-negative';
 
+    // Subtitle: margin always leads (it's meaningful in every period). For a
+    // bounded period whose prior window actually had activity, append a named
+    // ↑/↓ trend. Margin is undefined without revenue, so handle no-sales cases.
     var subtitle;
-    if (revenue === 0 && profit === 0 && prevProfit === 0) {
-      subtitle = 'No transactions in this period';
-    } else if (isAllTime) {
-      subtitle = 'Margin: ' + margin.toFixed(1) + '%';
+    if (revenue === 0) {
+      subtitle = profit === 0 ? 'No transactions in this period' : 'Expenses only — no sales';
     } else {
-      var delta     = profit - prevProfit;
-      var deltaSign = delta >= 0 ? '↑' : '↓';
-      subtitle = deltaSign + ' ' + formatPeso(Math.abs(delta)) + ' vs prior period';
+      subtitle = margin.toFixed(1) + '% margin';
+      var priorHasActivity = prevRevenue > 0 || prevProfit !== 0;
+      if (!isAllTime && priorHasActivity) {
+        var delta     = profit - prevProfit;
+        var deltaSign = delta >= 0 ? '↑' : '↓';
+        var cmpLabel  = PROFIT_COMPARE_LABELS[periodValue] || 'vs prior period';
+        subtitle += ' · ' + deltaSign + ' ' + formatPeso(Math.abs(delta)) + ' ' + cmpLabel;
+      }
     }
 
-    var currentPeriodValue = localStorage.getItem('financePeriod') || 'all-time';
+    var currentPeriodValue = periodValue;
     var periodSelectHtml = '<select class="profit-period-select" id="profit-period-select" aria-label="Profit period">' +
       PROFIT_PERIOD_OPTIONS.map(function (o) {
         return '<option value="' + o.value + '"' + (o.value === currentPeriodValue ? ' selected' : '') + '>' + o.label + '</option>';

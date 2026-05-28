@@ -274,7 +274,7 @@ const getProfit = async (req, res, next) => {
         capex:       currentExp.capitalExpense,
         profit,
         margin,
-        previous:      { profit: previousProfit, range: prev },
+        previous:      { profit: previousProfit, revenue: previous.revenue, range: prev },
         period:        { from, to },
       },
     });

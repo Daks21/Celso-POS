@@ -1578,9 +1578,11 @@
         Profit:            revenue − COGS − opex − capex over a period
                            controlled by an in-card dropdown
                            (All Time / This Month / Last Month /
-                           Last 3 Months / This Year). In All Time mode
-                           the card shows Margin %; otherwise it shows
-                           the ↑/↓ delta vs the prior same-length window.
+                           Last 3 Months / This Year). Subtitle always leads
+                           with the margin %; for a bounded period whose prior
+                           window had activity it also appends a named ↑/↓
+                           trend (e.g. "32.1% margin · ↑ ₱500 vs last month").
+                           All Time shows margin only (no prior to compare).
         Debt Balance:      total loan obligation − debt_payment, floored at 0
                            (a loan's obligation = monthly_due × term_months
                            when set, else its principal); toggleable via
