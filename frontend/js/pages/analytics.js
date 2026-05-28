@@ -617,19 +617,6 @@ function toManilaDate(d) { return _manilaFmt.format(d); }
 
 // ── Main render ──
 
-// Range-key label for the Cashflow card pill — keeps the user oriented
-// when they change the date filter.
-function cashflowWindowLabel(rangeKey) {
-  switch (rangeKey) {
-    case 'today':       return 'Today';
-    case 'this-week':   return 'This week';
-    case 'this-month':  return 'This month';
-    case 'last-month':  return 'Last month';
-    case 'custom':      return 'Custom range';
-    default:            return 'Selected period';
-  }
-}
-
 async function renderAll() {
   var range   = getDateRange(currentRange);
   // Convert to Manila local date strings (YYYY-MM-DD) — never toISOString() which is UTC
@@ -638,16 +625,10 @@ async function renderAll() {
 
   var advancedOn = isAdvancedEnabled();
 
-  // Show skeletons for Tier 2 widgets while their data is in flight.
+  // Show skeleton for the Monthly Revenue Goal card while data is in flight.
   if (advancedOn) {
-    setCashflowState('loading');
-    setInventoryHealthState('loading');
     setGoalState('loading');
   }
-
-  // Update the cashflow window pill to match the current selection.
-  var cfPill = document.getElementById('cf-window-pill');
-  if (cfPill) cfPill.textContent = cashflowWindowLabel(currentRange);
 
   try {
     var calls = [
@@ -658,8 +639,6 @@ async function renderAll() {
       getProfit(fromStr, toStr),
     ];
     if (advancedOn) {
-      calls.push(getFinanceSummary({ from: fromStr, to: toStr }));
-      calls.push(getInventoryHealth());
       calls.push(getGoalProjection());
     }
 
@@ -669,9 +648,7 @@ async function renderAll() {
     var heatmapResult    = results[2];
     var productsResult   = results[3];
     var profitResult     = results[4];
-    var financeResult    = advancedOn ? results[5] : null;
-    var inventoryResult  = advancedOn ? results[6] : null;
-    var projectionResult = advancedOn ? results[7] : null;
+    var projectionResult = advancedOn ? results[5] : null;
 
     if (kpiResult && kpiResult.success) {
       updateKPIs(kpiResult.data);
@@ -710,20 +687,6 @@ async function renderAll() {
     }
 
     if (advancedOn) {
-      // Cashflow
-      if (financeResult && financeResult.success) {
-        renderCashflowPanel(financeResult.data);
-        setCashflowState('ready');
-      } else {
-        setCashflowState('error');
-      }
-      // Inventory Health
-      if (inventoryResult && inventoryResult.success) {
-        renderInventoryHealth(inventoryResult.data);
-        setInventoryHealthState('ready');
-      } else {
-        setInventoryHealthState('error');
-      }
       // Goal projection
       if (projectionResult && projectionResult.success) {
         renderGoalProgress(projectionResult.data);
@@ -735,8 +698,6 @@ async function renderAll() {
   } catch (err) {
     showApiError('Network error. Is the server running?');
     if (advancedOn) {
-      setCashflowState('error');
-      setInventoryHealthState('error');
       setGoalState('error');
     }
   }
@@ -745,32 +706,6 @@ async function renderAll() {
 }
 
 // ── Tier 2 loading / error state helpers ──
-// Each widget has three visible regions: skeleton, body, error.
-// The state setter flips the right region on, the rest off.
-
-function setCashflowState(state) {
-  var body  = document.getElementById('cashflow-body');
-  var skel  = document.getElementById('cashflow-skeleton');
-  var err   = document.getElementById('cashflow-error');
-  if (!body || !skel || !err) return;
-  body.hidden = state !== 'ready';
-  skel.hidden = state !== 'loading';
-  err.hidden  = state !== 'error';
-}
-
-function setInventoryHealthState(state) {
-  var content = document.getElementById('ih-content');
-  var headline = document.getElementById('ih-headline');
-  var skel    = document.getElementById('ih-skeleton');
-  var err     = document.getElementById('ih-error');
-  var tabs    = document.getElementById('ih-tabs');
-  if (!content || !skel || !err) return;
-  content.hidden  = state !== 'ready';
-  if (headline) headline.hidden = state !== 'ready';
-  skel.hidden     = state !== 'loading';
-  err.hidden      = state !== 'error';
-  if (tabs) tabs.hidden = state === 'error';
-}
 
 function setGoalState(state) {
   var skel    = document.getElementById('goal-skeleton');
@@ -904,244 +839,6 @@ function applyAdvancedMode() {
   document.querySelectorAll('.advanced-only').forEach(function (el) {
     el.hidden = !on;
   });
-}
-
-// ── Cashflow Snapshot ──
-// Reframed to surface what a non-technical owner actually needs to see:
-//   primary line  →  Money Out, Net, Utang Balance
-//   secondary     →  Money In (duplicates the Total Revenue KPI most of
-//                    the time, so it sits below the headlines, not above)
-// A plain-English hint generated from the data tells the owner what to
-// do next — that's what turns analytics into a decision tool.
-
-function renderCashflowPanel(summary) {
-  var outEl   = document.getElementById('cf-money-out');
-  var netEl   = document.getElementById('cf-net');
-  var debtEl  = document.getElementById('cf-debt');
-  var inEl    = document.getElementById('cf-money-in');
-  var barIn   = document.getElementById('cf-bar-in');
-  var barOut  = document.getElementById('cf-bar-out');
-  var emptyEl = document.getElementById('cashflow-empty');
-  var hintEl  = document.getElementById('cashflow-hint');
-  if (!outEl || !netEl || !debtEl || !inEl) return;
-
-  var moneyIn  = Number(summary.moneyIn)     || 0;
-  var moneyOut = Number(summary.moneyOut)    || 0;
-  var net      = Number(summary.net);
-  if (isNaN(net)) net = moneyIn - moneyOut;
-  var debt     = Number(summary.debtBalance) || 0;
-
-  outEl.textContent  = formatPeso(moneyOut);
-  netEl.textContent  = formatPeso(net);
-  debtEl.textContent = formatPeso(debt);
-  inEl.textContent   = formatPeso(moneyIn);
-
-  // Tag the Net tile by sign so CSS can color the value red/green
-  var netParent = netEl.parentElement;
-  if (netParent) netParent.dataset.netSign = net >= 0 ? 'positive' : 'negative';
-
-  // Debt-balance tile: only visually emphasize when there's actual utang
-  var debtParent = debtEl.parentElement;
-  if (debtParent) debtParent.dataset.debtState = debt > 0 ? 'has-debt' : 'clear';
-
-  var total = moneyIn + moneyOut;
-  if (barIn && barOut) {
-    if (total === 0) {
-      barIn.style.width  = '0%';
-      barOut.style.width = '0%';
-    } else {
-      barIn.style.width  = ((moneyIn  / total) * 100).toFixed(2) + '%';
-      barOut.style.width = ((moneyOut / total) * 100).toFixed(2) + '%';
-    }
-  }
-
-  if (emptyEl) emptyEl.hidden = total > 0;
-
-  // ── Plain-English "what this means" ──
-  // Priority: warn about negative net first, then debt, then steady state.
-  if (hintEl) {
-    var hint = '';
-    if (total === 0) {
-      hint = '';   // empty state already shown above
-    } else if (net < 0) {
-      var shortBy = Math.abs(net);
-      hint = '⚠ You spent ' + formatPeso(shortBy) + ' more than you earned this period. '
-           + 'Check the Finance page to see where most of the money went.';
-    } else if (debt > 0 && net > 0 && net >= debt * 0.10) {
-      // Owner has profit AND outstanding utang ≥ 10x this period's net.
-      // Suggest paying down debt while they have headroom.
-      hint = 'You have ' + formatPeso(net) + ' net this period and ' + formatPeso(debt)
-           + ' in outstanding utang. Setting aside part of your earnings for a debt payment now '
-           + 'reduces what you owe.';
-    } else if (net > 0) {
-      hint = 'Net positive — you earned ' + formatPeso(net) + ' more than you spent this period.';
-    } else {
-      hint = 'Break-even period — money in matched money out.';
-    }
-    hintEl.textContent = hint;
-    hintEl.hidden      = hint === '';
-  }
-}
-
-// ── Inventory Health widget ──
-
-var _ihData = null;
-var _ihActiveTab = 'slow';
-
-function renderInventoryHealth(data) {
-  _ihData = data;
-  paintInventoryHealthTab();
-}
-
-// Generates the headline insight + suggested action for the active tab.
-// Returns { headline, tone } where tone is 'good' | 'warn' | 'info' so the
-// banner can be styled appropriately.
-function inventoryHealthHeadline(tab, data) {
-  if (!data) return null;
-
-  if (tab === 'slow') {
-    var slow = data.slowMovers || [];
-    if (slow.length === 0) {
-      return { headline: 'All your stock is moving steadily. Nothing flagged as slow.', tone: 'good' };
-    }
-    return {
-      headline: '<strong>' + slow.length + (slow.length === 1 ? ' product' : ' products')
-              + '</strong> selling less than 1 unit per week. '
-              + 'Consider promoting them, bundling with fast movers, or stop reordering.',
-      tone: 'info',
-    };
-  }
-
-  if (tab === 'dead') {
-    var dead = data.deadStock || [];
-    if (dead.length === 0) {
-      return { headline: 'No dead stock — every product made at least one sale in the last 90 days.', tone: 'good' };
-    }
-    var tied = dead.reduce(function (sum, p) { return sum + (Number(p.tiedUpCapital) || 0); }, 0);
-    return {
-      headline: '<strong>' + formatPeso(tied) + '</strong> in capital is tied up across '
-              + dead.length + (dead.length === 1 ? ' product' : ' products') + ' with no sales. '
-              + 'A clearance price often recovers more than holding forever.',
-      tone: 'warn',
-    };
-  }
-
-  // turnover tab — flag urgent restock (days < 7) and overstock (days > 90)
-  var turnover = data.turnover || [];
-  if (turnover.length === 0) {
-    return { headline: 'Not enough sales history yet to estimate days of stock for any product.', tone: 'info' };
-  }
-  var urgent = turnover.filter(function (p) { return p.daysOfStock != null && p.daysOfStock < 7; });
-  var overstock = turnover.filter(function (p) { return p.daysOfStock != null && p.daysOfStock > 90; });
-  var parts = [];
-  if (urgent.length > 0) {
-    parts.push('<strong>' + urgent.length + (urgent.length === 1 ? ' product' : ' products')
-             + '</strong> will run out within a week');
-  }
-  if (overstock.length > 0) {
-    parts.push('<strong>' + overstock.length + (overstock.length === 1 ? ' product' : ' products')
-             + '</strong> with more than 90 days of stock');
-  }
-  if (parts.length === 0) {
-    return { headline: 'Stock levels look balanced — no urgent restocks, no obvious overstocking.', tone: 'good' };
-  }
-  return {
-    headline: parts.join(' · ') + '. Restock the urgent ones; review whether the overstocked ones are tying up too much capital.',
-    tone: urgent.length > 0 ? 'warn' : 'info',
-  };
-}
-
-function paintInventoryHealthTab() {
-  if (!_ihData) return;
-  var tbody    = document.getElementById('ih-tbody');
-  var emptyEl  = document.getElementById('ih-empty');
-  var colMetric = document.getElementById('ih-col-metric');
-  var headlineEl = document.getElementById('ih-headline');
-  if (!tbody) return;
-
-  var rows = [];
-  var metricLabel = 'Per week';
-  if (_ihActiveTab === 'slow') {
-    rows = _ihData.slowMovers || [];
-    metricLabel = 'Per week';
-  } else if (_ihActiveTab === 'dead') {
-    rows = _ihData.deadStock || [];
-    metricLabel = 'Tied-up cash';
-  } else if (_ihActiveTab === 'turnover') {
-    rows = (_ihData.turnover || []).slice().sort(function (a, b) {
-      return (b.daysOfStock || 0) - (a.daysOfStock || 0);
-    });
-    metricLabel = 'Days of stock';
-  }
-
-  if (colMetric) colMetric.textContent = metricLabel;
-
-  // Plain-English insight banner above the table — the "so what?".
-  if (headlineEl) {
-    var insight = inventoryHealthHeadline(_ihActiveTab, _ihData);
-    if (insight) {
-      headlineEl.innerHTML        = insight.headline;
-      headlineEl.dataset.tone     = insight.tone;
-      headlineEl.hidden           = false;
-    } else {
-      headlineEl.hidden = true;
-    }
-  }
-
-  if (rows.length === 0) {
-    tbody.innerHTML = '';
-    if (emptyEl) {
-      emptyEl.hidden = false;
-      emptyEl.textContent = _ihActiveTab === 'dead'
-        ? 'No dead stock — everything is moving.'
-        : _ihActiveTab === 'slow'
-        ? 'No slow-moving products. Nice.'
-        : 'Not enough sales history to estimate days of stock yet.';
-    }
-    document.getElementById('ih-table').hidden = true;
-    return;
-  }
-
-  if (emptyEl) emptyEl.hidden = true;
-  document.getElementById('ih-table').hidden = false;
-
-  var html = rows.map(function (r) {
-    var metricVal;
-    if (_ihActiveTab === 'slow') {
-      metricVal = (r.weeklyRate || 0).toFixed(1);
-    } else if (_ihActiveTab === 'dead') {
-      metricVal = formatPeso(r.tiedUpCapital || 0);
-    } else {
-      metricVal = r.daysOfStock != null ? r.daysOfStock + ' days' : '—';
-    }
-    return '<tr>'
-      + '<td class="ih-name">' + escapeHtml(r.name) + '</td>'
-      + '<td class="ih-num">' + metricVal + '</td>'
-      + '<td class="ih-num">' + r.stock + ' ' + escapeHtml(r.unit || '') + '</td>'
-      + '</tr>';
-  }).join('');
-  tbody.innerHTML = html;
-}
-
-function initInventoryHealthTabs() {
-  var tabs = document.querySelectorAll('.ih-tab');
-  tabs.forEach(function (tab) {
-    tab.addEventListener('click', function () {
-      tabs.forEach(function (t) {
-        t.classList.remove('is-active');
-        t.setAttribute('aria-selected', 'false');
-      });
-      tab.classList.add('is-active');
-      tab.setAttribute('aria-selected', 'true');
-      _ihActiveTab = tab.dataset.tab;
-      paintInventoryHealthTab();
-    });
-  });
-}
-
-function escapeHtml(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ── Monthly Revenue Goal ──
@@ -1286,8 +983,6 @@ function commitGoalFromEditor() {
 
   // Refresh the goal card with the new target — projection data hasn't
   // changed, so we just re-call renderAll to re-fetch projection cheaply.
-  // (Re-rendering from a cached projection would also work; renderAll
-  // keeps cashflow + IH in sync if the user has been away for a while.)
   renderAll();
 }
 
@@ -1318,21 +1013,11 @@ function initGoalEditor() {
   }
 }
 
-// Wire retry buttons on the other Tier 2 cards.
-function initTier2Retries() {
-  var cfRetry = document.getElementById('cashflow-retry');
-  var ihRetry = document.getElementById('ih-retry');
-  if (cfRetry) cfRetry.addEventListener('click', renderAll);
-  if (ihRetry) ihRetry.addEventListener('click', renderAll);
-}
-
 // ── Init ──
 
 document.addEventListener('DOMContentLoaded', function () {
   initPinToggles();
-  initInventoryHealthTabs();
   initGoalEditor();
-  initTier2Retries();
   applyAdvancedMode();
   renderAll();
   attachDatePresetEvents();

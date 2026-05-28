@@ -1754,20 +1754,10 @@
                   the prior Last 30 Days button.
                   Tier 2 (Advanced Analytics toggle, off by default,
                   BETA badge): Monthly Revenue Goal with inline
-                  editor (set + clear goal without leaving the page),
-                  server-side end-of-month projection via
+                  editor (set + clear goal without leaving the page)
+                  and a server-side end-of-month projection via
                   /api/analytics/projection (trailing-30-day daily
-                  avg × days remaining — no longer naive
-                  revenue÷dayOfMonth math), Cashflow Snapshot
-                  (Money Out / Net / Utang as primary headlines,
-                  Money In secondary, plain-English "what this
-                  means" hint), Inventory Health with 3 tabs
-                  (Slow Movers / Dead Stock / Days of Stock) each
-                  showing a plain-English insight banner above the
-                  table so owners see the "so what?" immediately.
-                  Backed by /api/analytics/profit,
-                  /api/analytics/inventory-health, and
-                  /api/analytics/projection. Zero DB schema changes.
+                  avg × days remaining). Zero DB schema changes.
     • QA fixes — accessibility, step counts, celebration modal,
                  finance.html CSS link
 ================================================================

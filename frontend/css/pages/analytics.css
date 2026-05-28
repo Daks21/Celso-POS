@@ -795,137 +795,7 @@ html[data-theme="dark"] .analytics-kpi-card.kpi-card-accent {
   font-size: 14px;
 }
 
-/* ── Cashflow Mini-Panel ── */
-
-.cashflow-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.cashflow-numbers {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-}
-
-.cashflow-num {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-background);
-}
-
-.cashflow-num-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-.cashflow-num-label svg { width: 12px; height: 12px; }
-
-.cashflow-num-value {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.cashflow-num-net[data-net-sign="positive"] .cashflow-num-value { color: #16a34a; }
-.cashflow-num-net[data-net-sign="negative"] .cashflow-num-value { color: #dc2626; }
-
-.cashflow-bar {
-  display: flex;
-  width: 100%;
-  height: 10px;
-  border-radius: var(--radius-full);
-  overflow: hidden;
-  background-color: var(--color-border);
-}
-
-.cashflow-bar-in  { background-color: #5a9e6f; transition: width 0.4s ease; }
-.cashflow-bar-out { background-color: #dc2626; opacity: 0.85; transition: width 0.4s ease; }
-
-.cashflow-empty-msg {
-  font-size: 13px;
-  color: var(--color-text-muted);
-  text-align: center;
-}
-
-/* ── Inventory Health ── */
-
-.ih-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-}
-
-.ih-tab {
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--color-border);
-  background-color: var(--color-surface);
-  color: var(--color-text-muted);
-  font-family: var(--font-main);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.ih-tab:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.ih-tab.is-active {
-  background-color: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #ffffff;
-  font-weight: 600;
-}
-
-.ih-content { min-height: 200px; }
-
-.ih-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.ih-table th {
-  text-align: left;
-  padding: 8px 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.ih-table td {
-  padding: 8px 6px;
-  color: var(--color-text);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.ih-table tr:last-child td { border-bottom: 0; }
-
-.ih-num { text-align: right; }
-
-.ih-name { font-weight: 500; }
-
-.ih-empty {
-  text-align: center;
-  padding: 32px 12px;
-  font-size: 13px;
-  color: var(--color-text-muted);
-}
-
-/* ── Tier 2 polish: window pill, hints, debt tile, skeletons, retry, editor ── */
+/* ── Tier 2 polish: window pill, hints, skeletons, retry, editor ── */
 
 /* Small period/window indicator inside card subtitle text.
    Keeps users oriented on which timeframe a card is showing. */
@@ -993,85 +863,6 @@ html[data-theme="dark"] .analytics-kpi-card.kpi-card-accent {
 }
 
 .goal-skeleton     { min-height: 180px; margin-top: 8px; }
-.cashflow-skeleton { min-height: 200px; }
-.ih-skeleton       { min-height: 200px; margin-top: 8px; }
-
-/* ── Inventory Health headline banner ── */
-
-.ih-headline {
-  margin-bottom: 14px;
-  padding: 10px 14px;
-  font-size: 13px;
-  line-height: 1.5;
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  border-left: 3px solid var(--color-text-muted);
-  background-color: rgba(0, 0, 0, 0.02);
-}
-
-.ih-headline[hidden] { display: none; }
-
-.ih-headline strong { font-weight: 700; }
-
-.ih-headline[data-tone="good"] {
-  border-left-color: #16a34a;
-  background-color: rgba(22, 163, 74, 0.06);
-}
-.ih-headline[data-tone="warn"] {
-  border-left-color: #dc2626;
-  background-color: rgba(220, 38, 38, 0.06);
-}
-.ih-headline[data-tone="info"] {
-  border-left-color: var(--color-primary);
-  background-color: rgba(90, 158, 111, 0.06);
-}
-
-html[data-theme="dark"] .ih-headline {
-  background-color: rgba(255, 255, 255, 0.03);
-}
-
-/* ── Cashflow Snapshot — new 3-tile primary + secondary line ── */
-
-.cashflow-num-sub {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  margin-top: 1px;
-}
-
-/* Utang/debt tile — red accent when there's an outstanding balance,
-   neutral when clear. */
-.cashflow-num[data-debt-state="has-debt"] .cashflow-num-value {
-  color: #dc2626;
-}
-.cashflow-num[data-debt-state="has-debt"] .cashflow-num-label svg {
-  color: #dc2626;
-}
-
-.cashflow-secondary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 12px;
-  background-color: rgba(90, 158, 111, 0.05);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-}
-
-.cashflow-secondary-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--color-text-muted);
-}
-
-.cashflow-secondary-label svg { width: 13px; height: 13px; }
-
-.cashflow-secondary-value {
-  font-weight: 600;
-  color: var(--color-text);
-  font-variant-numeric: tabular-nums;
-}
 
 /* ── Inline Goal Editor (compact) ──
    Single-row layout — input grows to fill space between the two fixed
@@ -1189,10 +980,6 @@ html[data-theme="dark"] .ih-headline {
 
 /* ── Responsive overrides for advanced section ── */
 
-/* Tier 2 (Cashflow Snapshot + Inventory Health) inherits the same 2-column
-   grid as Tier 1, so each card gets ~50% of the content width on desktop
-   and stacks to 1-col at ≤900px alongside the rest of the page. */
-
 /* Goal numbers step-down — 4 → 3 → 2 → 1 (was: 4 → 2 with no intermediate
    step, so values like "Projected end-of-month ₱99,999" clipped at
    720-1000px sidebar-open). */
@@ -1202,7 +989,6 @@ html[data-theme="dark"] .ih-headline {
 
 @media (max-width: 720px) {
   .goal-numbers       { grid-template-columns: repeat(2, 1fr); }
-  .cashflow-numbers   { grid-template-columns: 1fr; }
   .advanced-section-header {
     flex-direction: column;
     align-items: flex-start;
@@ -1211,7 +997,7 @@ html[data-theme="dark"] .ih-headline {
 }
 
 @media (max-width: 600px) {
-  .goal-num-value, .cashflow-num-value { font-size: 16px; }
+  .goal-num-value { font-size: 16px; }
 }
 
 @media (max-width: 480px) {
