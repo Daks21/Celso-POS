@@ -1609,8 +1609,9 @@
             with a live "total to repay" readout; their product becomes the
             loan's debt obligation
       - Debt Balance card shows a "Pay Debt" shortcut (admin, when debt > 0)
-        that opens this modal prefilled to a debt payment for the
-        outstanding amount
+        that opens this modal preset to a debt payment (Type + Category
+        filled); the owner types the amount, which is capped at the
+        outstanding balance
       - Auto-created entries (restock, sale) are read-only;
         manual entries show Edit / Delete kebab menu (admin only)
       - Pagination: 20 entries per page, shared pagination component

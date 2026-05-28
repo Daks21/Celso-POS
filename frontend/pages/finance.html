@@ -181,7 +181,8 @@
 
       <form id="finance-form" class="product-form" autocomplete="off">
 
-        <div class="form-row" style="margin-bottom:0.75rem;">
+        <!-- Classification first (Type + Category), then the values. -->
+        <div class="form-row">
           <div class="form-group">
             <label for="finance-type">Type</label>
             <select id="finance-type" required>
@@ -192,20 +193,16 @@
             <p id="finance-type-error" class="form-error"></p>
           </div>
           <div class="form-group">
-            <label for="finance-date">Date</label>
-            <input type="date" id="finance-date" required />
-            <p id="finance-date-error" class="form-error"></p>
-          </div>
-        </div>
-
-        <div class="form-row" style="margin-bottom:0.75rem;">
-          <div class="form-group">
             <label for="finance-category">Category</label>
             <select id="finance-category">
               <option value="">Select category</option>
             </select>
             <p id="finance-category-error" class="form-error"></p>
           </div>
+        </div>
+
+        <!-- finance-pair: stays 2-col even on mobile (short fields). -->
+        <div class="form-row finance-pair">
           <div class="form-group">
             <label for="finance-amount" id="finance-amount-label">Amount (&#8369;)</label>
             <input
@@ -220,6 +217,11 @@
             <p id="finance-amount-error" class="form-error"></p>
             <p id="finance-amount-hint" class="finance-amount-hint"></p>
           </div>
+          <div class="form-group">
+            <label for="finance-date">Date</label>
+            <input type="date" id="finance-date" required />
+            <p id="finance-date-error" class="form-error"></p>
+          </div>
         </div>
 
         <!-- Loan terms — shown only for Capital In + Borrowed. monthly_due x
@@ -227,7 +229,7 @@
              and drives the Debt Balance; the Amount field above stays the cash
              you actually received (principal). -->
         <div id="loan-terms-block" class="loan-terms-block" style="display:none;">
-          <div class="form-row" style="margin-bottom:0.5rem;">
+          <div class="form-row finance-pair">
             <div class="form-group">
               <label for="finance-monthly-due">Monthly payment (&#8369;)</label>
               <input type="number" id="finance-monthly-due" class="no-spinner" placeholder="0.00" min="0.01" step="0.01" />
@@ -242,7 +244,7 @@
           <p id="loan-total-readout" class="loan-total-readout"></p>
         </div>
 
-        <div class="form-group" style="margin-bottom:0.75rem;">
+        <div class="form-group">
           <label for="finance-notes">Notes (optional)</label>
           <input
             type="text"

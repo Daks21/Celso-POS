@@ -440,8 +440,7 @@ html[data-theme="dark"] #finance-date {
 /* ── Add/Edit modal: loan terms + hints ── */
 
 .loan-terms-block {
-  margin-bottom: 0.75rem;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-md, 8px);
   background: var(--color-background);
@@ -475,6 +474,33 @@ html[data-theme="dark"] #finance-date {
   opacity: 0.5;
   cursor: not-allowed;
   background: var(--color-border-subtle);
+}
+
+/* ── Add / Edit / Pay-Debt modal: compact + responsive layout ──
+   All rules are scoped to #finance-form / #finance-modal so the shared
+   Products and Inventory modals (same .form-row / .modal-card classes) are
+   left untouched. */
+#finance-form { gap: 12px; }
+#finance-form .form-row { gap: 12px; }
+#finance-form .loan-terms-block .form-row { margin-bottom: 6px; }
+
+/* Borrowed terms can make this modal taller than a short phone screen —
+   let the card scroll internally instead of overflowing the viewport. */
+#finance-modal .modal-card {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+@media (max-width: 600px) {
+  /* The global rule collapses every .form-row to one column here. Re-assert
+     two columns only for the short numeric pairs (Amount/Date, Monthly/Months)
+     to save height; Type and Category keep the single-column stack because
+     the dropdowns read better full-width on a phone. */
+  #finance-form .form-row.finance-pair {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  #finance-modal .modal-card { padding: 16px; }
 }
 
 /* ── Responsive ── */
