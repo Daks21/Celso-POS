@@ -173,8 +173,7 @@
   │   │   │                       desktop bottom-right overlay + mobile
   │   │   │                       full-screen bottom sheet, lazy-mount DOM
   │   │   └── os.js            ← Os FAB bootstrapper: mounts the floating
-  │   │                           button on every page, toggles OsWidget,
-  │   │                           rewires sidebar "Os AI" link to open panel
+  │   │                           button on every page, toggles OsWidget
   │   │
   │   └── pages/               ← One script per page
   │       ├── dashboard.js     ← Summary stats, charts, heatmap
@@ -1291,10 +1290,11 @@
       - "Clear conversation" button resets both UI and sessionStorage
       - frontend/js/components/os.js: floating "Os" button on all 9 app
         pages; respects osEnabled pref; toggled live from Account Settings
-      - Os AI nav link in all page sidebars (between Analytics and History)
-      - Note (Module 4.7): the FAB now toggles a docked chat panel instead
-        of navigating. The sidebar "Os AI" link does the same. Full View
-        (ai.html) remains as a focused deep-link mode.
+      - AI is opt-in (BETA): the only discovery surface is the Account
+        Settings toggle. Once enabled, the FAB appears on every page
+        and toggles the docked chat panel. Full View (ai.html) remains
+        as a focused deep-link mode reachable via the "Open in full
+        view ↗" link inside the docked panel header.
 
     Module 4.6 — Onboarding Tour                           [COMPLETE]
       - Role-aware onboarding: 4-step admin tour, 3-step cashier tour
@@ -1314,8 +1314,7 @@
                         for the upcoming React Native / Capacitor app.
         os.widget.js  ← the UI shell. Lazy-mounts DOM on first open;
                         manages open/close/toggle, focus, scroll lock.
-        os.js         ← bootstrapper. Mounts the FAB, wires the sidebar
-                        "Os AI" link to OsWidget.toggle(), hides itself
+        os.js         ← bootstrapper. Mounts the FAB and hides it
                         on ai.html (where Full View IS the chat).
 
       RESPONSIVE LAYOUT — one widget, two surfaces:
@@ -1348,9 +1347,7 @@
           (same XSS posture as the legacy chat page)
 
       INTERACTION DETAILS:
-        - FAB click → OsWidget.toggle(); sidebar "Os AI" link does the
-          same on plain click but still navigates to Full View on
-          Ctrl/Cmd/Shift/middle-click (open in new tab still works)
+        - FAB click → OsWidget.toggle()
         - "Open in full view ↗" link in panel header → ai.html
         - Close button cancels any in-flight stream via AbortController
           so we don't keep tokens streaming after the user leaves

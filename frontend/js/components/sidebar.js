@@ -151,7 +151,6 @@ function initMobileNav() {
     { href: 'products.html',  icon: 'package',           label: 'Products'   },
     { href: 'finance.html',   icon: 'wallet',            label: 'Finance'    },
     { href: 'analytics.html', icon: 'bar-chart-2',       label: 'Analytics'  },
-    { href: 'ai.html',        icon: 'bot',               label: 'Os AI'      },
     { href: 'history.html',   icon: 'clock',             label: 'History'    },
   ];
 
