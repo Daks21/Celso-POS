@@ -523,7 +523,7 @@
   ──────────────────────────────────────────────────────────────
 
     GET    /               Auth required
-      → 200 { success, data: [{ id, name, stock, unit,
+      → 200 { success, data: [{ id, name, category, stock, unit,
               status: out-of-stock | low | in-stock }] }
 
     GET    /low-stock      Auth required

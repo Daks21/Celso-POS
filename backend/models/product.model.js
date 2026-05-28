@@ -70,7 +70,7 @@ const getOutOfStock = async () => {
 
 const getStockLevels = async (threshold = 50) => {
   const [rows] = await db.query(
-    'SELECT id, name, stock, unit FROM products'
+    'SELECT id, name, category, stock, unit FROM products'
     + ' WHERE is_active = 1 ORDER BY name ASC'
   );
   return rows.map(p => ({
