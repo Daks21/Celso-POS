@@ -41,7 +41,8 @@ function buildFilters(filters) {
 const getAll = async (filters = {}) => {
   const { where, params } = buildFilters(filters);
   const [rows] = await db.query(
-    `SELECT cm.id, cm.type, cm.category, cm.amount, cm.description,
+    `SELECT cm.id, cm.type, cm.category, cm.amount, cm.monthly_due, cm.term_months,
+            cm.description,
             DATE_FORMAT(cm.occurred_at, '%Y-%m-%d') AS occurred_at,
             cm.source, cm.source_id, cm.recorded_by, cm.is_active, cm.created_at,
             u.full_name AS recordedByName
@@ -56,7 +57,7 @@ const getAll = async (filters = {}) => {
 
 const getById = async (id) => {
   const [rows] = await db.query(
-    `SELECT id, type, category, amount, description,
+    `SELECT id, type, category, amount, monthly_due, term_months, description,
             DATE_FORMAT(occurred_at, '%Y-%m-%d') AS occurred_at,
             source, source_id, recorded_by, is_active, created_at
      FROM cash_movements WHERE id = ? AND is_active = 1`, [id]
@@ -67,12 +68,14 @@ const getById = async (id) => {
 const create = async (data) => {
   const [result] = await db.query(
     `INSERT INTO cash_movements
-       (type, category, amount, description, occurred_at, source, source_id, recorded_by)
-     VALUES (?,?,?,?,?,?,?,?)`,
+       (type, category, amount, monthly_due, term_months, description, occurred_at, source, source_id, recorded_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
     [
       data.type,
       data.category    || null,
       data.amount,
+      data.monthly_due || null,
+      data.term_months || null,
       data.description || null,
       data.occurred_at,
       data.source      || 'manual',
@@ -86,12 +89,14 @@ const create = async (data) => {
 const createWithConnection = async (conn, data) => {
   const [result] = await conn.query(
     `INSERT INTO cash_movements
-       (type, category, amount, description, occurred_at, source, source_id, recorded_by)
-     VALUES (?,?,?,?,?,?,?,?)`,
+       (type, category, amount, monthly_due, term_months, description, occurred_at, source, source_id, recorded_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
     [
       data.type,
       data.category    || null,
       data.amount,
+      data.monthly_due || null,
+      data.term_months || null,
       data.description || null,
       data.occurred_at,
       data.source      || 'manual',
@@ -105,9 +110,9 @@ const createWithConnection = async (conn, data) => {
 const update = async (id, data) => {
   const [result] = await db.query(
     `UPDATE cash_movements
-     SET type=?, category=?, amount=?, description=?, occurred_at=?
+     SET type=?, category=?, amount=?, monthly_due=?, term_months=?, description=?, occurred_at=?
      WHERE id=? AND is_active=1 AND source='manual'`,
-    [data.type, data.category || null, data.amount, data.description || null, data.occurred_at, id]
+    [data.type, data.category || null, data.amount, data.monthly_due || null, data.term_months || null, data.description || null, data.occurred_at, id]
   );
   if (result.affectedRows === 0) return null;
   return getById(id);
@@ -134,10 +139,17 @@ const getSummary = async (filters = {}) => {
     params
   );
 
-  // Debt balance is period-independent: all-time borrowed minus all debt payments
+  // Debt balance is period-independent: all-time obligation minus all debt payments.
+  // Obligation for a borrowed loan is its full repayment total (monthly_due *
+  // term_months), which bakes in 5-6 style interest. Legacy borrowed rows with
+  // no terms fall back to `amount` (principal) so old data keeps computing.
   const [[utangRow]] = await db.query(
     `SELECT
-       COALESCE(SUM(CASE WHEN type='capital_in' AND category='borrowed'      THEN amount ELSE 0 END), 0) AS totalBorrowed,
+       COALESCE(SUM(CASE WHEN type='capital_in' AND category='borrowed'
+         THEN CASE WHEN monthly_due IS NOT NULL AND term_months IS NOT NULL AND term_months > 0
+                   THEN monthly_due * term_months
+                   ELSE amount END
+         ELSE 0 END), 0) AS totalBorrowed,
        COALESCE(SUM(CASE WHEN type='owner_draw' AND category='debt_payment'  THEN amount ELSE 0 END), 0) AS totalRepaid
      FROM cash_movements WHERE is_active=1`
   );

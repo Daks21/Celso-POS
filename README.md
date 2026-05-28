@@ -395,7 +395,14 @@
                                               supplies | equipment |
                                               furniture | restock | other
                                               (free-form allowed)
-    amount       DECIMAL(10,2) Always positive; direction implied by type
+    amount       DECIMAL(10,2) Always positive; direction implied by type.
+                               For borrowed capital this is the principal (the
+                               cash actually received), NOT the total repayable.
+    monthly_due  DECIMAL(10,2) Borrowed-loan repayment terms (NULL otherwise).
+    term_months  INT           monthly_due × term_months = full amount to repay
+                               (interest baked in) — this drives the Debt
+                               Balance. NULL on legacy/informal loans, which
+                               fall back to `amount` for the debt calc.
     description  TEXT          Notes — lender name on borrowed capital,
                                purpose on owner_draw, free-form otherwise
     occurred_at  DATE          When the movement actually happened
@@ -411,9 +418,11 @@
                  -- by the POS create-sale transaction; never re-summed from sales.total.
     Money Out  = SUM(amount WHERE type IN ('owner_draw','opex','capex'))
     Net        = Money In − Money Out
-    Utang      = MAX(0,
-                   SUM(amount WHERE type='capital_in'  AND category='borrowed')
-                 − SUM(amount WHERE type='owner_draw' AND category='debt_payment'))
+    Utang      = MAX(0, total loan obligation − total debt payments), where
+                   obligation per borrowed loan = COALESCE(monthly_due ×
+                     term_months, amount)   -- terms incl. interest, else principal
+                   payments = SUM(amount WHERE type='owner_draw'
+                                  AND category='debt_payment')
 
   SCHEMA ALTERATIONS (Phase 5):
   ─────────────────────────────────────────────────────────────
@@ -430,6 +439,14 @@
       Product creation now enforces initial stock = 0. All stock entry
       flows through the inventory restock modal, ensuring exactly one
       cost-capture point.
+
+    cash_movements:
+      + monthly_due   DECIMAL(10,2) NULL   borrowed-loan monthly repayment
+      + term_months   INT           NULL   borrowed-loan number of months
+    Already covered by schema.sql for fresh installs. For an existing DB:
+      ALTER TABLE cash_movements
+        ADD COLUMN monthly_due DECIMAL(10,2) NULL,
+        ADD COLUMN term_months INT NULL;
 
   INDEXES: users.email (UNIQUE), products.name, products.category,
            sales.created_at, sales.cashier_id, sale_items.sale_id,
@@ -682,8 +699,10 @@
                 byType: { capital_in, owner_draw, opex, capex, sales_revenue },
                 byCategory: { <category>: <total>, ... }
               } }
-      debtBalance = MAX(0, SUM(capital_in WHERE category='borrowed')
-                         − SUM(owner_draw WHERE category='debt_payment'))
+      debtBalance = MAX(0, total loan obligation − total debt payments), where a
+        borrowed loan's obligation = COALESCE(monthly_due × term_months, amount)
+        (the full repayable amount with interest, else the principal) and
+        payments = SUM(owner_draw WHERE category='debt_payment')
       (period-independent — reflects current outstanding balance; floored at 0)
 
     GET    /profit         Auth required
@@ -703,10 +722,14 @@
       Including it would double-charge the owner against the same purchase.
 
     POST   /               Auth required
-      Body: { type, category, amount, description?, occurred_at }
+      Body: { type, category, amount, description?, occurred_at,
+              monthly_due?, term_months? }
       type: 'capital_in' | 'owner_draw' | 'opex' | 'capex'
       category: validated against type-specific allowed values
       occurred_at: YYYY-MM-DD format (validated server-side)
+      monthly_due / term_months: optional, only for capital_in + borrowed
+        (both-or-neither; term_months is a whole number 1–120). Forced to NULL
+        for every other entry. Their product is the loan's debt obligation.
       → 201 { success, data: CashMovement }
       → 400 validation error
 

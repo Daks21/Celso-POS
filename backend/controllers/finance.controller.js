@@ -9,6 +9,7 @@ const MAX_DESC_LEN     = 500;          // description text guard against runaway
 const MAX_CATEGORY_LEN = 64;           // free-form categories (opex/capex)
 const FUTURE_DAYS_OK   = 365;          // accept up to 1 year ahead (typo tolerance)
 const PAST_YEARS_OK    = 10;           // accept up to 10 years behind
+const MAX_TERM_MONTHS  = 120;          // 10 years — generous ceiling for informal loans
 
 // Store-local date in YYYY-MM-DD. Avoids server-TZ drift on Profit defaults.
 const storeToday = () => dateInTz(settings.getTimezone());
@@ -58,6 +59,33 @@ function validateOccurredAt(dateStr) {
   return null;
 }
 
+// Loan repayment terms apply ONLY to borrowed capital. For any other entry they
+// are forced to null so stray client values can't be persisted. For a borrowed
+// loan they're optional (simple/interest-free loans omit them and the debt calc
+// falls back to the principal), but if one is given both must be, and both must
+// be sane positive numbers. Returns { error } or { monthly_due, term_months }.
+function resolveLoanTerms(type, category, monthly_due, term_months) {
+  const isBorrowed = type === 'capital_in' && category === 'borrowed';
+  if (!isBorrowed) return { monthly_due: null, term_months: null };
+
+  const hasMonthly = monthly_due != null && monthly_due !== '';
+  const hasTerm    = term_months != null && term_months !== '';
+  if (!hasMonthly && !hasTerm) return { monthly_due: null, term_months: null };
+  if (hasMonthly !== hasTerm)
+    return { error: 'monthly_due and term_months must be provided together for a borrowed loan' };
+
+  const md = Number(monthly_due);
+  const tm = Number(term_months);
+  if (!Number.isFinite(md) || md <= 0)
+    return { error: 'monthly_due must be a positive number' };
+  if (md > MAX_AMOUNT)
+    return { error: `monthly_due cannot exceed ₱${MAX_AMOUNT.toLocaleString('en-PH')}` };
+  if (!Number.isInteger(tm) || tm < 1 || tm > MAX_TERM_MONTHS)
+    return { error: `term_months must be a whole number between 1 and ${MAX_TERM_MONTHS}` };
+
+  return { monthly_due: md, term_months: tm };
+}
+
 const getAll = async (req, res, next) => {
   try {
     const { type, category, from, to } = req.query;
@@ -93,7 +121,7 @@ const getSummary = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const { type, category, amount, description, occurred_at } = req.body;
+    const { type, category, amount, description, occurred_at, monthly_due, term_months } = req.body;
 
     if (!type || !Cashflow.VALID_TYPES.includes(type))
       return res.status(400).json({ success: false, message: `type must be one of: ${Cashflow.VALID_TYPES.join(', ')}` });
@@ -119,10 +147,15 @@ const create = async (req, res, next) => {
     const catError = validateCategory(type, category);
     if (catError) return res.status(400).json({ success: false, message: catError });
 
+    const terms = resolveLoanTerms(type, category, monthly_due, term_months);
+    if (terms.error) return res.status(400).json({ success: false, message: terms.error });
+
     const entry = await Cashflow.create({
       type,
       category:    category    || null,
       amount,
+      monthly_due: terms.monthly_due,
+      term_months: terms.term_months,
       description: description || null,
       occurred_at,
       source:      'manual',
@@ -144,7 +177,7 @@ const update = async (req, res, next) => {
     if (!existing)                    return res.status(404).json({ success: false, message: 'Entry not found' });
     if (existing.source !== 'manual') return res.status(400).json({ success: false, message: 'Auto-created entries cannot be edited' });
 
-    const { type, category, amount, description, occurred_at } = req.body;
+    const { type, category, amount, description, occurred_at, monthly_due, term_months } = req.body;
 
     if (!type || !Cashflow.VALID_TYPES.includes(type))
       return res.status(400).json({ success: false, message: `type must be one of: ${Cashflow.VALID_TYPES.join(', ')}` });
@@ -167,10 +200,15 @@ const update = async (req, res, next) => {
     const catError = validateCategory(type, category);
     if (catError) return res.status(400).json({ success: false, message: catError });
 
+    const terms = resolveLoanTerms(type, category, monthly_due, term_months);
+    if (terms.error) return res.status(400).json({ success: false, message: terms.error });
+
     const entry = await Cashflow.update(id, {
       type,
       category:    category    || null,
       amount,
+      monthly_due: terms.monthly_due,
+      term_months: terms.term_months,
       description: description || null,
       occurred_at,
     });

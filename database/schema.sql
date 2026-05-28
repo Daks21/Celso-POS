@@ -116,6 +116,12 @@ CREATE TABLE IF NOT EXISTS cash_movements (
   type        ENUM('capital_in','owner_draw','opex','capex','sales_revenue') NOT NULL,
   category    VARCHAR(100)  DEFAULT NULL,
   amount      DECIMAL(10,2) NOT NULL,
+  -- Repayment terms — set only for capital_in/borrowed. The total obligation
+  -- (monthly_due * term_months) drives the Debt Balance and may exceed `amount`
+  -- (the principal/cash received) by the loan's interest. NULL on every other
+  -- row, and on legacy borrowed rows the debt calc falls back to `amount`.
+  monthly_due DECIMAL(10,2) DEFAULT NULL,
+  term_months INT           DEFAULT NULL,
   description TEXT,
   occurred_at DATE NOT NULL,
   source      ENUM('manual','restock','sale') DEFAULT 'manual',

@@ -28,7 +28,13 @@ var financeDateInput  = document.getElementById('finance-date');
 var financeTypeInput  = document.getElementById('finance-type');
 var financeCatInput   = document.getElementById('finance-category');
 var financeAmountInput = document.getElementById('finance-amount');
+var financeAmountLabel = document.getElementById('finance-amount-label');
+var financeAmountHint  = document.getElementById('finance-amount-hint');
 var financeNotesInput = document.getElementById('finance-notes');
+var loanTermsBlock    = document.getElementById('loan-terms-block');
+var financeMonthlyInput = document.getElementById('finance-monthly-due');
+var financeTermInput  = document.getElementById('finance-term-months');
+var loanTotalReadout  = document.getElementById('loan-total-readout');
 
 var editingId   = null;
 var currentPage = 1;
@@ -59,6 +65,13 @@ var CATEGORIES = {
     { value: 'opex',         label: 'Operating Expense' },
     { value: 'other',        label: 'Other / Iba pa'    },
   ],
+};
+
+// Amount-field label hints — borrowed records the cash received (principal),
+// not the total to repay; a debt payment records the installment paid.
+var AMOUNT_LABELS = {
+  'capital_in:borrowed':     'Amount received (₱)',
+  'owner_draw:debt_payment': 'Payment amount (₱)',
 };
 
 function isAdmin() {
@@ -115,6 +128,7 @@ function getActivePeriod() {
 function renderSummary(data, profitData) {
   var net         = Number(data.net);
   var debtBalance = Number(data.debtBalance || 0);
+  window._debtOutstanding = debtBalance;   // used to prefill the Record Payment modal
   var showDebt    = localStorage.getItem('financeDebtBalanceVisible') !== 'false';
   var debtClass   = debtBalance > 0 ? 'summary-card--debt summary-card--debt-active' : 'summary-card--debt';
   var debtTrend   = debtBalance > 0 ? 'Outstanding borrowed principal' : 'No outstanding debt';
@@ -188,6 +202,11 @@ function renderSummary(data, profitData) {
           '</div>' +
           '<p class="summary-value">' + formatPeso(debtBalance) + '</p>' +
           '<p class="summary-trend">' + debtTrend + '</p>' +
+          (debtBalance > 0 && isAdmin()
+            ? '<button type="button" class="debt-pay-btn" id="debt-pay-btn">' +
+                '<i data-lucide="hand-coins"></i> Record Payment' +
+              '</button>'
+            : '') +
         '</div>'
       : '') +
     '<div class="summary-card summary-card--capital">' +
@@ -214,6 +233,15 @@ function renderSummary(data, profitData) {
     profitPeriodEl.addEventListener('change', function () {
       localStorage.setItem('financePeriod', profitPeriodEl.value);
       loadData();
+    });
+  }
+
+  // Part A: Debt-card "Record Payment" shortcut → modal prefilled to pay down
+  // the outstanding balance. Re-bound on every render alongside the card.
+  var payBtn = document.getElementById('debt-pay-btn');
+  if (payBtn) {
+    payBtn.addEventListener('click', function () {
+      openPayDebtModal(Number(window._debtOutstanding || 0));
     });
   }
 }
@@ -650,17 +678,106 @@ function populateCategorySelect(type) {
     }).join('');
 }
 
+// Show/hide the loan-terms block, swap the Amount label, and refresh the
+// readouts based on the current Type + Category selection.
+function updateConditionalFields() {
+  var type = financeTypeInput.value;
+  var cat  = financeCatInput.value;
+  var isBorrowed = type === 'capital_in' && cat === 'borrowed';
+
+  loanTermsBlock.style.display = isBorrowed ? '' : 'none';
+  if (financeAmountLabel) financeAmountLabel.textContent = AMOUNT_LABELS[type + ':' + cat] || 'Amount (₱)';
+
+  updateLoanReadout();
+  updatePayHint();
+}
+
+// Live "Total to repay" line for a borrowed loan (monthly_due × term_months).
+function updateLoanReadout() {
+  if (!loanTotalReadout) return;
+  var isBorrowed = financeTypeInput.value === 'capital_in' && financeCatInput.value === 'borrowed';
+  if (!isBorrowed) {
+    loanTotalReadout.textContent = '';
+    loanTotalReadout.classList.remove('is-visible');
+    return;
+  }
+  var md = Number(financeMonthlyInput.value);
+  var tm = Number(financeTermInput.value);
+  if (md > 0 && tm > 0) {
+    var total     = md * tm;
+    var principal = Number(financeAmountInput.value);
+    var txt = 'Total to repay: ' + formatPeso(total) + ' over ' + tm + ' month' + (tm !== 1 ? 's' : '');
+    if (principal > 0 && total > principal) txt += '  ·  ' + formatPeso(total - principal) + ' interest';
+    loanTotalReadout.textContent = txt;
+    loanTotalReadout.classList.add('is-visible');
+  } else {
+    loanTotalReadout.textContent = 'Optional: enter monthly payment and months — or leave both blank for an informal loan.';
+    loanTotalReadout.classList.remove('is-visible');
+  }
+}
+
+// Inline hint under Amount when recording a debt payment — confirms the
+// outstanding balance and warns on overpayment (extra still leaves as cash).
+function updatePayHint() {
+  if (!financeAmountHint) return;
+  var isDebtPay = financeTypeInput.value === 'owner_draw' && financeCatInput.value === 'debt_payment';
+  if (!isDebtPay) {
+    financeAmountHint.textContent = '';
+    financeAmountHint.classList.remove('is-warning');
+    return;
+  }
+  var outstanding = Number(window._debtOutstanding || 0);
+  var amt = Number(financeAmountInput.value);
+  if (outstanding <= 0) {
+    financeAmountHint.textContent = '';
+    financeAmountHint.classList.remove('is-warning');
+  } else if (amt > outstanding + 0.001) {
+    financeAmountHint.textContent = 'More than the ' + formatPeso(outstanding) + ' you still owe — the extra will still reduce your cash.';
+    financeAmountHint.classList.add('is-warning');
+  } else {
+    financeAmountHint.textContent = 'You still owe ' + formatPeso(outstanding) + '.';
+    financeAmountHint.classList.remove('is-warning');
+  }
+}
+
+function resetModalFields() {
+  financeTypeInput.value    = '';
+  financeCatInput.innerHTML = '<option value="">Select category</option>';
+  financeAmountInput.value  = '';
+  financeNotesInput.value   = '';
+  financeMonthlyInput.value = '';
+  financeTermInput.value    = '';
+}
+
 function openAddModal() {
   editingId = null;
   financeModalTitle.textContent = 'Add Entry';
   financeSubmitBtn.textContent  = 'Save Entry';
-  financeDateInput.value   = manilaToday();
-  financeTypeInput.value   = '';
-  financeCatInput.innerHTML = '<option value="">Select category</option>';
-  financeAmountInput.value = '';
-  financeNotesInput.value  = '';
+  resetModalFields();
+  financeDateInput.value = manilaToday();
   clearFormErrors();
+  updateConditionalFields();
   financeModal.style.display = 'flex';
+}
+
+// Part A: open the modal pre-filled to pay down debt. Called from the Debt
+// Balance card's "Record Payment" button with the current outstanding balance.
+function openPayDebtModal(outstanding) {
+  editingId = null;
+  financeModalTitle.textContent = 'Record Loan Payment';
+  financeSubmitBtn.textContent  = 'Record Payment';
+  resetModalFields();
+  financeDateInput.value   = manilaToday();
+  financeTypeInput.value   = 'owner_draw';
+  populateCategorySelect('owner_draw');
+  financeCatInput.value    = 'debt_payment';
+  financeAmountInput.value = outstanding > 0 ? Number(outstanding).toFixed(2) : '';
+  clearFormErrors();
+  updateConditionalFields();
+  financeModal.style.display = 'flex';
+  setTimeout(function () {
+    if (financeAmountInput) { financeAmountInput.focus(); financeAmountInput.select(); }
+  }, 50);
 }
 
 function openEditModal(id) {
@@ -669,13 +786,18 @@ function openEditModal(id) {
   editingId = id;
   financeModalTitle.textContent = 'Edit Entry';
   financeSubmitBtn.textContent  = 'Update Entry';
-  financeDateInput.value   = String(entry.occurred_at).substring(0, 10);
-  financeTypeInput.value   = entry.type;
+
+  financeDateInput.value    = String(entry.occurred_at).substring(0, 10);
+  financeTypeInput.value    = entry.type;
   populateCategorySelect(entry.type);
-  financeCatInput.value    = entry.category || '';
-  financeAmountInput.value = entry.amount;
-  financeNotesInput.value  = entry.description || '';
+  financeCatInput.value     = entry.category || '';
+  financeAmountInput.value  = entry.amount;
+  financeNotesInput.value   = entry.description || '';
+  financeMonthlyInput.value = entry.monthly_due != null ? entry.monthly_due : '';
+  financeTermInput.value    = entry.term_months != null ? entry.term_months : '';
+
   clearFormErrors();
+  updateConditionalFields();
   financeModal.style.display = 'flex';
 }
 
@@ -685,7 +807,8 @@ function closeModal() {
 }
 
 function clearFormErrors() {
-  ['finance-date-error', 'finance-type-error', 'finance-category-error', 'finance-amount-error'].forEach(function (id) {
+  ['finance-date-error', 'finance-type-error', 'finance-category-error', 'finance-amount-error',
+   'finance-monthly-due-error', 'finance-term-months-error'].forEach(function (id) {
     var el = document.getElementById(id);
     if (el) { el.textContent = ''; el.style.display = ''; }
   });
@@ -766,6 +889,17 @@ async function handleDelete(id) {
 
 financeTypeInput.addEventListener('change', function () {
   populateCategorySelect(financeTypeInput.value);
+  updateConditionalFields();
+});
+
+financeCatInput.addEventListener('change', updateConditionalFields);
+
+// Live readouts as the owner types loan terms / amount.
+financeMonthlyInput.addEventListener('input', updateLoanReadout);
+financeTermInput.addEventListener('input', updateLoanReadout);
+financeAmountInput.addEventListener('input', function () {
+  updateLoanReadout();
+  updatePayHint();
 });
 
 if (addEntryButton) {
@@ -788,19 +922,43 @@ financeForm.addEventListener('submit', async function (e) {
 
   var occurred_at = financeDateInput.value;
   var type        = financeTypeInput.value;
-  var amount      = Number(financeAmountInput.value);
   var category    = financeCatInput.value || null;
+  var amount      = Number(financeAmountInput.value);
   var description = financeNotesInput.value.trim() || null;
+  var monthly_due = null;
+  var term_months = null;
 
   var hasError = false;
-  if (!occurred_at)           { showFieldError('finance-date-error',   'Date is required');             hasError = true; }
-  if (!type)                  { showFieldError('finance-type-error',   'Type is required');             hasError = true; }
+  if (!type)                  { showFieldError('finance-type-error',   'Type is required');              hasError = true; }
+  if (!occurred_at)           { showFieldError('finance-date-error',   'Date is required');              hasError = true; }
   if (!amount || amount <= 0) { showFieldError('finance-amount-error', 'Amount must be greater than 0'); hasError = true; }
+
+  // Loan terms (optional, but both-or-neither) for borrowed capital.
+  if (type === 'capital_in' && category === 'borrowed') {
+    var mdRaw = financeMonthlyInput.value.trim();
+    var tmRaw = financeTermInput.value.trim();
+    if (mdRaw !== '' || tmRaw !== '') {
+      var md = Number(mdRaw);
+      var tm = Number(tmRaw);
+      if (mdRaw === '' || !(md > 0)) {
+        showFieldError('finance-monthly-due-error', 'Enter the monthly payment'); hasError = true;
+      }
+      if (tmRaw === '' || !Number.isInteger(tm) || tm < 1 || tm > 120) {
+        showFieldError('finance-term-months-error', 'Enter months (1–120)'); hasError = true;
+      }
+      if (!hasError) { monthly_due = md; term_months = tm; }
+    }
+  }
+
   if (hasError) return;
 
   financeSubmitBtn.disabled = true;
   try {
-    var payload = { type: type, category: category, amount: amount, description: description, occurred_at: occurred_at };
+    var payload = {
+      type: type, category: category, amount: amount,
+      monthly_due: monthly_due, term_months: term_months,
+      description: description, occurred_at: occurred_at,
+    };
     var result = editingId
       ? await updateFinanceEntry(editingId, payload)
       : await createFinanceEntry(payload);

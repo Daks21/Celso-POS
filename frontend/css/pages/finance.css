@@ -41,6 +41,37 @@
   flex: 0 0 220px;
 }
 
+/* Record Payment shortcut (Part A) — sits below the debt value/trend.
+   Inline-level so it left-aligns on desktop and auto-centers on mobile
+   (the mobile card sets text-align:center). */
+.debt-pay-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 8px 14px;
+  min-height: 40px;
+  font-family: var(--font-main);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-primary, #5a9e6f);
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.08s ease;
+}
+
+.debt-pay-btn:hover { filter: brightness(1.07); }
+.debt-pay-btn:active { transform: translateY(1px); }
+.debt-pay-btn:focus-visible {
+  outline: 2px solid var(--color-primary, #5a9e6f);
+  outline-offset: 2px;
+}
+
+.debt-pay-btn svg { width: 15px; height: 15px; }
+
 .summary-card--debt-active .summary-value {
   color: var(--color-danger, #dc2626);
 }
@@ -401,6 +432,38 @@ html[data-theme="dark"] #finance-date {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
+}
+
+/* ── Add/Edit modal: loan terms + hints ── */
+
+.loan-terms-block {
+  margin-bottom: 0.75rem;
+  padding: 12px 14px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-background);
+}
+
+.loan-total-readout {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.loan-total-readout.is-visible {
+  color: var(--color-primary, #5a9e6f);
+  font-weight: 600;
+}
+
+.finance-amount-hint {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--color-text-muted);
+}
+
+.finance-amount-hint.is-warning {
+  color: var(--color-danger, #dc2626);
 }
 
 /* ── Responsive ── */
