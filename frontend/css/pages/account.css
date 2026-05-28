@@ -150,6 +150,14 @@
   color: var(--color-text-muted);
 }
 
+#timezone-select {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+#timezone-select::-webkit-scrollbar {
+  display: none;
+}
+
 .account-coming-soon {
   text-align: center;
   padding: 40px 20px;
