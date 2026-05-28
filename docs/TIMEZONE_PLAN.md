@@ -74,7 +74,7 @@ GUIDING PRINCIPLE (industry standard)
 
   D3. JWT staleness when a user changes timezone?
       [Re-issue the JWT on timezone change; frontend swaps the token.]
-      JWT lives 7 days; without re-issue, day-boundary math would use
+      JWT lives 1 day; without re-issue, day-boundary math would use
       the old TZ until next login. Re-issue is clean and instant.
 
   D4. Display timezone source?

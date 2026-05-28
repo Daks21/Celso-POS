@@ -87,8 +87,7 @@ function initLogout() {
   var btn = document.getElementById('logout-button');
   if (!btn) return;
   btn.addEventListener('click', function() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('currentUser');
+    clearSession();
     window.location.href = '../index.html';
   });
 }
@@ -211,8 +210,7 @@ function initMobileNav() {
   var mobileLogout = document.getElementById('mobile-logout-btn');
   if (mobileLogout) {
     mobileLogout.addEventListener('click', function() {
-      localStorage.removeItem('token');
-      localStorage.removeItem('currentUser');
+      clearSession();
       window.location.href = '../index.html';
     });
   }

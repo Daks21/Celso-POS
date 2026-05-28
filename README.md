@@ -800,6 +800,8 @@
     DB_PORT            3306     MySQL port
     DB_POOL_SIZE       5        Connection pool size
     FRONTEND_URL       http://localhost:5173   CORS origin
+    JWT_EXPIRES_IN     1d       Token lifetime (e.g. 1d, 12h, 30m; any
+                                jsonwebtoken-accepted span)
 
   AI Provider (Phase 4 — required when AI module is enabled):
 
@@ -818,6 +820,7 @@
     DB_NAME=celsopos_db
     PORT=3000
     FRONTEND_URL=http://localhost:5173
+    JWT_EXPIRES_IN=1d
     GROQ_API_KEY=gsk_your_groq_api_key_here
 
 ================================================================
@@ -829,7 +832,15 @@
 
   JWT AUTHENTICATION
     Signed with a 128-character cryptographically random JWT_SECRET.
-    Token expiry: 7 days. Role (admin/cashier) embedded in payload.
+    Token expiry: 1 day (24h), configurable via JWT_EXPIRES_IN. Role
+    (admin/cashier) embedded in payload.
+
+  SESSION DATA HYGIENE
+    Logout and session-end (expired or invalid token) fully clear client-side
+    state — token, cached user, preferences, and the Os AI conversation held
+    in sessionStorage. Store devices are commonly shared, so this stops the
+    next user from reading the previous user's data. Only non-sensitive
+    cosmetic state is kept: the theme choice and onboarding "seen" flags.
 
   SQL INJECTION PREVENTION
     All database queries use parameterized prepared statements via
@@ -1028,6 +1039,7 @@
       - Instant toggle via topbar button or account settings
       - Persists across sessions (localStorage)
       - Applied before page paint to prevent flash
+      - Honored on the login and register screens too (survives logout)
 
     Analytics Page
       - Date range presets: Today, This Week, This Month, Last Month, Custom
@@ -1086,7 +1098,7 @@
 
     Module 2.2 — Auth API (Login / Register)
       - bcrypt password hashing on register
-      - JWT token issued on login (signed with secret, 7-day expiry)
+      - JWT token issued on login (signed with secret, 1-day expiry)
       - authMiddleware verifies token and attaches user to req
       - Replaced all localStorage-based auth from Phase 1
 

@@ -15,8 +15,7 @@ async function apiCall(endpoint, options = {}) {
     headers: { ...defaultHeaders, ...(options.headers || {}) },
   });
   if (response.status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('currentUser');
+    clearSession();
     window.location.href = getLoginPath();
     return;
   }
@@ -50,9 +49,34 @@ async function getMe() {
   return apiCall('/auth/me');
 }
 
+// Wipes client-side state on sign-out / session-end. Sari-sari store devices
+// are commonly shared, so a partial clear (token + currentUser only) would let
+// the next user read the previous user's preferences and — critically — their
+// AI chat history (sessionStorage 'osHistory'). We clear everything so no
+// account data survives; cached prefs are re-synced from the DB on next login.
+// Two kinds of non-sensitive state are intentionally preserved: onboarding
+// flags ('onboarding_*', the "have you seen the tour" booleans) and the 'theme'
+// choice. Wiping onboarding would replay the welcome modal + tours on every
+// login; wiping theme would flip the login/register pages back to light after
+// sign-out. Neither reveals any business data, so keeping them is safe on a
+// shared device. ('theme' is re-synced to the next user's preference on login.)
+function clearSession() {
+  try {
+    var preserved = {};
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (key && (key === 'theme' || key.indexOf('onboarding_') === 0)) {
+        preserved[key] = localStorage.getItem(key);
+      }
+    }
+    localStorage.clear();
+    Object.keys(preserved).forEach(function (k) { localStorage.setItem(k, preserved[k]); });
+  } catch (_) {}
+  try { sessionStorage.clear(); } catch (_) {}
+}
+
 function logout() {
-  localStorage.removeItem('token');
-  localStorage.removeItem('currentUser');
+  clearSession();
   window.location.href = getLoginPath();
 }
 

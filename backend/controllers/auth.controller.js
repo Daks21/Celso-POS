@@ -57,7 +57,9 @@ const login = async (req, res, next) => {
     const token = jwt.sign(
       { id: user.id, fullName: user.fullName, email: user.email, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      // Short-lived by default: store devices are shared, so a long-lived token
+      // left signed in is a risk. Tunable per-deployment via JWT_EXPIRES_IN.
+      { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
     );
 
     return res.status(200).json({

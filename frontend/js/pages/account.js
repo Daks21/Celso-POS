@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const fullNameEl = document.getElementById('account-fullname');
     const emailEl = document.getElementById('account-email');
     const emailDisplayEl = document.getElementById('account-email-display');
-    const statusEl = document.getElementById('account-status');
     const memberSinceEl = document.getElementById('account-member-since');
     const avatarEl = document.getElementById('account-avatar');
 
@@ -36,10 +35,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (emailDisplayEl) {
       emailDisplayEl.textContent = email;
-    }
-
-    if (statusEl) {
-      statusEl.textContent = 'Active';
     }
 
     if (memberSinceEl) {
@@ -234,6 +229,40 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       avatarEl.textContent = initials;
+    }
+
+    // Reconcile the cached profile with the server. currentUser in
+    // localStorage is only a fast first paint; this refreshes the display
+    // (and the cache) so a renamed account — or a session that predates the
+    // createdAt field — shows correct data without forcing a re-login.
+    if (typeof getMe === 'function') {
+      getMe().then(function (res) {
+        if (!res || !res.success || !res.user) return;
+        var u = res.user;
+        localStorage.setItem('currentUser', JSON.stringify(Object.assign({}, currentUser, u)));
+
+        var freshName  = u.fullName || fullName;
+        var freshEmail = u.email || email;
+
+        if (fullNameEl)     fullNameEl.textContent     = freshName;
+        if (emailEl)        emailEl.textContent        = freshEmail;
+        if (emailDisplayEl) emailDisplayEl.textContent = freshEmail;
+
+        if (memberSinceEl && u.createdAt) {
+          var c = new Date(u.createdAt);
+          if (!isNaN(c)) {
+            memberSinceEl.textContent = c.toLocaleDateString('en-US',
+              { year: 'numeric', month: 'long', day: 'numeric', timeZone: getStoreTz() });
+          }
+        }
+
+        if (avatarEl) {
+          var nm = freshName.trim().split(/\s+/);
+          avatarEl.textContent = (nm.length >= 2
+            ? (nm[0][0] + nm[nm.length - 1][0])
+            : freshName.substring(0, 2)).toUpperCase();
+        }
+      }).catch(function () { /* offline — cached values remain on screen */ });
     }
 
     // ── Nav Preferences (Theme & Appearance section) ──
