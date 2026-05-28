@@ -1296,13 +1296,9 @@
         of navigating. The sidebar "Os AI" link does the same. Full View
         (ai.html) remains as a focused deep-link mode.
 
-    Module 4.6 — Onboarding Tour + Dashboard Widgets       [COMPLETE]
+    Module 4.6 — Onboarding Tour                           [COMPLETE]
       - Role-aware onboarding: 4-step admin tour, 3-step cashier tour
       - Tour runs automatically on first Os enable; re-triggerable via chat
-      - Os Daily Brief card on Dashboard: urgency-colored dot + summary + tip
-        (auto-loads when osEnabled; hidden otherwise)
-      - Os Restock Advisor widget on Inventory page: AI-ranked priority list
-        (urgent / soon / monitor), loaded when osEnabled
 
     Module 4.7 — Docked Os Widget (Messenger-style)        [COMPLETE]
 
@@ -1775,10 +1771,6 @@
                   Backed by /api/analytics/profit,
                   /api/analytics/inventory-health, and
                   /api/analytics/projection. Zero DB schema changes.
-                  Note: CSV + PDF export was prototyped and fully
-                  removed — raw file exports were confusing to
-                  non-technical owners and duplicated data they
-                  already see on-screen.
     • QA fixes — accessibility, step counts, celebration modal,
                  finance.html CSS link
 ================================================================
