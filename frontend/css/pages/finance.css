@@ -50,11 +50,12 @@
   justify-content: center;
   gap: 6px;
   margin-top: 14px;
-  padding: 8px 14px;
-  min-height: 40px;
+  padding: 7px 13px;
+  min-height: 36px;
   font-family: var(--font-main);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
+  white-space: nowrap;
   color: #fff;
   background: var(--color-primary, #5a9e6f);
   border: none;
@@ -623,4 +624,19 @@ html[data-theme="dark"] #finance-date {
     white-space: nowrap;
     flex-shrink: 0;
   }
+
+  /* Debt-card payment button goes full-width inside the (now grid) card,
+     with a smaller label so it fits the narrow cell and stays tappable. */
+  .debt-pay-btn {
+    display: flex;
+    width: 100%;
+    margin-top: 12px;
+    padding: 8px 10px;
+    min-height: 36px;
+    font-size: 12px;
+    gap: 5px;
+    white-space: normal;
+    line-height: 1.2;
+  }
+  .debt-pay-btn svg { width: 14px; height: 14px; }
 }
