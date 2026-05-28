@@ -40,6 +40,7 @@ if (loginForm) {
     if (result && result.success) {
       localStorage.setItem('token', result.token);
       localStorage.setItem('currentUser', JSON.stringify(result.user));
+      if (result.timezone) localStorage.setItem('storeTimezone', result.timezone);
 
       // Pull saved preferences from DB and cache them in localStorage
       // so every app page reads from cache without an extra API call.

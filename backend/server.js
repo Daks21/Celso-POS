@@ -25,8 +25,11 @@ const analyticsRouter  = require('./routes/analytics.routes');
 const inventoryRouter  = require('./routes/inventory.routes');
 const financeRouter    = require('./routes/finance.routes');
 const aiRouter         = require('./routes/ai.routes');
+const settingsRouter   = require('./routes/settings.routes');
 const errorMiddleware  = require('./middleware/error.middleware');
 const pool             = require('./config/db.config');
+const settings         = require('./models/settings.model');
+const tz               = require('./utils/tz');
 
 const app = express();
 
@@ -84,15 +87,22 @@ app.use('/api/analytics', analyticsRouter);
 app.use('/api/inventory', inventoryRouter);
 app.use('/api/finance',   financeRouter);
 app.use('/api/ai',        aiRouter);
+app.use('/api/settings',  settingsRouter);
 
 // --- Global error handler ---
 app.use(errorMiddleware);
 
 // --- Start server ---
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () =>
-  console.log(`[Server] Celso POS running on port ${PORT}`)
-);
+const server = app.listen(PORT, async () => {
+  console.log(`[Server] Celso POS running on port ${PORT}`);
+  // Load the store timezone into cache and learn whether MySQL can resolve
+  // named IANA zones (else CONVERT_TZ falls back to a fixed offset).
+  await settings.load();
+  const named = await tz.detectNamedZones();
+  console.log(`[TZ] Store timezone: ${settings.getTimezone()} | ` +
+    `MySQL named zones: ${named ? 'available' : 'offset fallback'}`);
+});
 
 // --- Graceful shutdown ---
 const shutdown = async (signal) => {

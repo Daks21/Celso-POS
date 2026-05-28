@@ -2,13 +2,18 @@
 const crypto   = require('crypto');
 const groq     = require('./providers/groq');
 const deepseek = require('./providers/deepseek');
+const settings = require('../backend/models/settings.model');
+const { dateInTz } = require('../backend/utils/tz');
 
 const cache   = new Map();
 const TTL_MS  = (parseInt(process.env.AI_CACHE_TTL_SEC) || 300) * 1000;
 
 function cacheKey(question) {
-  const today = new Date().toISOString().slice(0, 10);
-  return crypto.createHash('md5').update(question + today).digest('hex');
+  // Roll the daily cache over at the store's local midnight, and scope it to
+  // the store timezone so a timezone change can't serve stale day-based answers.
+  const tz    = settings.getTimezone();
+  const today = dateInTz(tz);
+  return crypto.createHash('md5').update(question + today + tz).digest('hex');
 }
 
 function getCache(key) {

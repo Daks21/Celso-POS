@@ -306,6 +306,21 @@
   ENGINE: MySQL 8.0 | CHARSET: utf8mb4
   DRIVER: mysql2/promise (connection pool, size: 5)
 
+  TIME CONVENTION:
+    All DATETIME columns store UTC. The DB connection pins the session to
+    UTC ('Z'). Day-bucketing and display happen in the store timezone
+    (app_settings.timezone) via CONVERT_TZ in the aggregation queries.
+    When MySQL's named-timezone tables aren't loaded (e.g. PlanetScale),
+    the backend falls back to a fixed numeric offset computed in Node.
+    Exception: cash_movements.occurred_at is a user-picked calendar DATE
+    (no time component) and is never timezone-converted.
+
+  TABLE: app_settings  (single row — store-wide configuration)
+  ─────────────────────────────────────────────────────────────
+    id          TINYINT       PK, always 1
+    timezone    VARCHAR(64)   IANA store timezone (default: Asia/Manila)
+    updated_at  TIMESTAMP     AUTO UPDATE
+
   TABLE: users
   ─────────────────────────────────────────────────────────────
     id          INT           PK, AUTO_INCREMENT
@@ -673,7 +688,7 @@
 
     GET    /profit         Auth required
       Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (default: current calendar month
-              in Asia/Manila local time)
+              in the store-local timezone)
       → 200 { success, data: {
                 revenue, cogs, grossProfit,
                 opex,           -- non-restock opex + owner_draw with category='opex'
@@ -703,6 +718,25 @@
     DELETE /:id            Auth + Admin required
       Soft delete (sets is_active = 0).
       → 204 no content
+
+  ──────────────────────────────────────────────────────────────
+  SETTINGS  /api/settings          (store-wide)
+  ──────────────────────────────────────────────────────────────
+
+    GET    /               Auth required
+      → 200 { success, data: { timezone } }
+
+    PUT    /timezone       Auth + Admin required
+      Body: { timezone }   IANA zone, validated server-side
+      → 200 { success, data: { timezone } }
+      → 400 invalid timezone
+      Changing the timezone never rewrites past records (timestamps are
+      absolute UTC moments) — it only changes how days are bucketed and
+      displayed going forward.
+
+    Note: POST /api/auth/login and GET /api/auth/me now also return the
+    current store `timezone` so the frontend can render dates in store
+    time without an extra call.
 
   ──────────────────────────────────────────────────────────────
   HEALTH CHECK  /api/health
@@ -1712,6 +1746,16 @@
     Module 7.4 — Set environment variables in production
     Module 7.5 — Final testing and go-live
 
+  TIMEZONE MIGRATION (run once when upgrading an existing database):
+    Order: stop API → back up DB → run database/migrate_timezone.sql →
+    deploy backend (connection now pins UTC) → start API. The migration
+    shifts existing Manila-local DATETIMEs to UTC (idempotent, guarded by
+    schema_migrations) and creates the app_settings row.
+    Named-zone CONVERT_TZ needs MySQL's timezone tables loaded — present on
+    AWS RDS / Railway / Render, NOT on PlanetScale. The backend detects this
+    on boot and falls back to a fixed offset when they're absent (logged as
+    "[TZ] ... offset fallback").
+
 ================================================================
 [11. DEPENDENCIES]
 ================================================================
@@ -1733,9 +1777,16 @@
   NODE REQUIREMENT: >= 18.0.0
 
 ================================================================
-  END OF DOCUMENT — Version 7.2
+  END OF DOCUMENT — Version 7.3
   Phase 4 AI COMPLETE | Phase 5 Finance COMPLETE | Phase 6 Onboarding COMPLETE
   Post-ship:
+    • Timezone infrastructure — store-wide timezone setting (app_settings),
+                   all timestamps stored UTC, day-bucketing & display in the
+                   store timezone via CONVERT_TZ (named-zone with offset
+                   fallback). Set during onboarding (admin) and changeable in
+                   Account Settings. Past records are never rewritten — only
+                   how days are bucketed/displayed changes. New /api/settings
+                   endpoints; migrate_timezone.sql for existing databases.
     • Module 4.7 — Docked Os widget (Messenger-style overlay +
                    mobile bottom sheet); chat client split into a
                    pure-JS module (os.client.js) so the upcoming

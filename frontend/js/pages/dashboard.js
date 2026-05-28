@@ -197,7 +197,7 @@ function renderDashboardWidgets() {
               cur.setDate(cur.getDate() + 1);
               continue;
             }
-            var key = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(cur);
+            var key = new Intl.DateTimeFormat('en-CA', { timeZone: getStoreTz() }).format(cur);
             var m   = cur.getMonth();
             if (d === 0 && m !== lastMonth) {
               monthLabels.push({ label: DASH_MONTHS[m], weekIndex: weeks.length });
@@ -474,9 +474,8 @@ function _renderTransactions(sales, page) {
   var slice = sales.slice(start, start + pageSize);
   var html  = '';
   slice.forEach(function (sale) {
-    var d              = new Date(sale.timestamp);
-    var dateStr        = d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
-    var timeStr        = d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+    var dateStr        = formatDateTz(sale.timestamp, { month: 'short', day: 'numeric' });
+    var timeStr        = formatTimeTz(sale.timestamp, { hour: '2-digit', minute: '2-digit' });
     var itemCount      = sale.items.reduce(function (s, i) { return s + i.quantity; }, 0);
     var totalFmt       = _formatPeso(sale.total);
     var receiptDisplay = sale.receiptNo ? sale.receiptNo.replace(/^RCPT-/, '') : String(sale.id).padStart(6, '0');
@@ -562,7 +561,7 @@ async function initDashboard() {
   // Recent transactions — fetch last 90 days to avoid loading full history
   var txSalesResult;
   try {
-    var _txFrom = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(
+    var _txFrom = new Intl.DateTimeFormat('en-CA', { timeZone: getStoreTz() }).format(
       new Date(Date.now() - 90 * 86400000)
     );
     txSalesResult = await getSales({ from: _txFrom });
@@ -578,7 +577,7 @@ async function initDashboard() {
   try {
     var _now = new Date();
     var _from30 = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() - 29);
-    var _mFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
+    var _mFmt = new Intl.DateTimeFormat('en-CA', { timeZone: getStoreTz() });
     var _chartsRes  = await getCharts(_mFmt.format(_from30), _mFmt.format(_now));
     var _heatmapRes = await getHeatmap();
     if (_chartsRes  && _chartsRes.success)  _dashApiCharts  = _chartsRes.data;

@@ -32,11 +32,9 @@ receiptModal.addEventListener("click", function (event) {
 });
 
 function showReceipt(sale) {
-  const saleDate = new Date(sale.timestamp);
-
   receiptNumber.textContent = sale.receiptNo || `RCPT-${sale.id}`;
-  receiptDate.textContent = saleDate.toLocaleDateString("en-PH");
-  receiptTime.textContent = saleDate.toLocaleTimeString("en-PH");
+  receiptDate.textContent = formatDateTz(sale.timestamp);
+  receiptTime.textContent = formatTimeTz(sale.timestamp);
   receiptCashier.textContent = sale.cashier;
 
   receiptItemsBody.innerHTML = "";

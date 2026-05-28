@@ -493,7 +493,7 @@ function renderHeatmap(dayRevenue) {
         cur.setDate(cur.getDate() + 1);
         continue;
       }
-      var key = toManilaDate(cur);
+      var key = toStoreDate(cur);
       var m   = cur.getMonth();
       if (d === 0 && m !== lastMonth) {
         monthLabels.push({ label: HEATMAP_MONTHS[m], weekIndex: weeks.length });
@@ -612,16 +612,18 @@ function _toDayOfWeek(arr) {
 
 // ── Helpers ──
 
-var _manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
-function toManilaDate(d) { return _manilaFmt.format(d); }
+// Store-local YYYY-MM-DD — never toISOString() which is UTC.
+function toStoreDate(d) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: getStoreTz() }).format(d);
+}
 
 // ── Main render ──
 
 async function renderAll() {
   var range   = getDateRange(currentRange);
-  // Convert to Manila local date strings (YYYY-MM-DD) — never toISOString() which is UTC
-  var fromStr = range.from ? toManilaDate(range.from) : null;
-  var toStr   = range.to   ? toManilaDate(range.to)   : null;
+  // Convert to store-local date strings (YYYY-MM-DD) — never toISOString() which is UTC
+  var fromStr = range.from ? toStoreDate(range.from) : null;
+  var toStr   = range.to   ? toStoreDate(range.to)   : null;
 
   var advancedOn = isAdvancedEnabled();
 
@@ -736,7 +738,7 @@ function setGoalState(state) {
 function attachDatePresetEvents() {
   // Cap the custom date inputs at today — analytics for future dates
   // makes no sense and would just return empty results.
-  var today    = toManilaDate(new Date());
+  var today    = toStoreDate(new Date());
   var fromIn   = document.getElementById('analytics-from');
   var toIn     = document.getElementById('analytics-to');
   if (fromIn) fromIn.max = today;

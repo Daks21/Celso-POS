@@ -3,6 +3,7 @@ const router     = express.Router();
 const { login, register, getPreferencesHandler, savePreferencesHandler } = require('../controllers/auth.controller');
 const { authMiddleware: auth } = require('../middleware/auth.middleware');
 const { findById } = require('../models/user.model');
+const settings = require('../models/settings.model');
 
 router.post('/register', register);
 router.post('/login',    login);
@@ -15,7 +16,8 @@ router.get('/me', auth, async (req, res, next) => {
     }
     res.json({
       success: true,
-      user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt }
+      user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt },
+      timezone: settings.getTimezone()
     });
   } catch (err) {
     next(err);

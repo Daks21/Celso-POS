@@ -69,11 +69,11 @@ function formatPeso(amount) {
   return '₱' + Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Manila local YYYY-MM-DD for `today` and date arithmetic. Avoids server-TZ
+// Store-local YYYY-MM-DD for `today` and date arithmetic. Avoids server-TZ
 // drift (the same defensive pattern the backend uses in analytics.controller).
-var _manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
-function manilaToday() { return _manilaFmt.format(new Date()); }
-function manilaFromUTC(d) { return _manilaFmt.format(d); }
+function _storeFmt() { return new Intl.DateTimeFormat('en-CA', { timeZone: getStoreTz() }); }
+function manilaToday() { return _storeFmt().format(new Date()); }
+function manilaFromUTC(d) { return _storeFmt().format(d); }
 
 // Returns { from, to } for the named period. `from` / `to` are YYYY-MM-DD
 // strings the backend Profit endpoint accepts. Default is 'all-time' so the
@@ -654,7 +654,7 @@ function openAddModal() {
   editingId = null;
   financeModalTitle.textContent = 'Add Entry';
   financeSubmitBtn.textContent  = 'Save Entry';
-  financeDateInput.value   = new Date().toISOString().slice(0, 10);
+  financeDateInput.value   = manilaToday();
   financeTypeInput.value   = '';
   financeCatInput.innerHTML = '<option value="">Select category</option>';
   financeAmountInput.value = '';

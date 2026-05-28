@@ -1,5 +1,7 @@
 const Cashflow  = require('../models/cashflow.model');
 const saleModel = require('../models/sale.model');
+const settings  = require('../models/settings.model');
+const { dateInTz } = require('../utils/tz');
 
 const DATE_RE          = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/;
 const MAX_AMOUNT       = 10_000_000;   // ₱10M ceiling — well below DECIMAL(10,2) overflow
@@ -8,8 +10,8 @@ const MAX_CATEGORY_LEN = 64;           // free-form categories (opex/capex)
 const FUTURE_DAYS_OK   = 365;          // accept up to 1 year ahead (typo tolerance)
 const PAST_YEARS_OK    = 10;           // accept up to 10 years behind
 
-// Manila local date in YYYY-MM-DD. Avoids server-TZ drift on Profit defaults.
-const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
+// Store-local date in YYYY-MM-DD. Avoids server-TZ drift on Profit defaults.
+const storeToday = () => dateInTz(settings.getTimezone());
 
 // Same-length window ending the day before `from`. Used for prior-period delta.
 function priorWindow(from, to) {
@@ -199,7 +201,7 @@ const remove = async (req, res, next) => {
 };
 
 // GET /api/finance/profit?from=YYYY-MM-DD&to=YYYY-MM-DD
-// Defaults to current calendar month-to-date in Manila local time.
+// Defaults to current calendar month-to-date in the store-local timezone.
 //
 //   profit = revenue − COGS − non-restock opex − capex
 //
@@ -208,7 +210,7 @@ const remove = async (req, res, next) => {
 // double-charge the owner against the same purchase.
 const getProfit = async (req, res, next) => {
   try {
-    const today = manilaFmt.format(new Date());
+    const today = storeToday();
     const from  = (req.query.from && DATE_RE.test(req.query.from)) ? req.query.from : today.slice(0, 7) + '-01';
     const to    = (req.query.to   && DATE_RE.test(req.query.to))   ? req.query.to   : today;
 

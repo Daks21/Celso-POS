@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (memberSinceEl) {
       const createdAt = currentUser.createdAt ? new Date(currentUser.createdAt) : null;
       memberSinceEl.textContent = createdAt && !isNaN(createdAt)
-        ? createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+        ? createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: getStoreTz() })
         : '—';
     }
 
@@ -311,6 +311,73 @@ document.addEventListener('DOMContentLoaded', function() {
         syncToDb();
       }
     );
+
+    // ── Timezone (store-wide) ──
+    var tzSelect    = document.getElementById('timezone-select');
+    var tzSaveBtn   = document.getElementById('save-timezone-btn');
+    var tzAdminNote = document.getElementById('timezone-admin-note');
+    if (tzSelect) {
+      var isAdmin = currentUser.role === 'admin';
+
+      var zones = [];
+      try {
+        if (typeof Intl.supportedValuesOf === 'function') zones = Intl.supportedValuesOf('timeZone');
+      } catch (e) {}
+      if (!zones.length) {
+        zones = ['Asia/Manila','Asia/Singapore','Asia/Hong_Kong','Asia/Tokyo',
+                 'Asia/Dubai','Asia/Kolkata','Australia/Sydney','Europe/London',
+                 'Europe/Paris','America/New_York','America/Chicago',
+                 'America/Los_Angeles','Pacific/Honolulu','UTC'];
+      }
+
+      function fillZones(selected) {
+        tzSelect.innerHTML = '';
+        zones.forEach(function (z) {
+          var opt = document.createElement('option');
+          opt.value = z; opt.textContent = z;
+          if (z === selected) opt.selected = true;
+          tzSelect.appendChild(opt);
+        });
+      }
+      fillZones(getStoreTz());
+
+      // Refresh from the server so the selector reflects the live store setting.
+      if (typeof getSettings === 'function') {
+        getSettings().then(function (res) {
+          if (res && res.success && res.data && res.data.timezone) {
+            setStoreTz(res.data.timezone);
+            fillZones(res.data.timezone);
+          }
+        }).catch(function () {});
+      }
+
+      if (!isAdmin) {
+        tzSelect.disabled = true;
+        if (tzSaveBtn) tzSaveBtn.disabled = true;
+        if (tzAdminNote) tzAdminNote.style.display = '';
+      } else if (tzSaveBtn) {
+        tzSaveBtn.addEventListener('click', function () {
+          var chosen = tzSelect.value;
+          tzSaveBtn.disabled = true;
+          updateStoreTimezone(chosen).then(function (res) {
+            if (res && res.success && res.data) {
+              setStoreTz(res.data.timezone);
+              flashSaved(tzSaveBtn);
+              if (memberSinceEl && currentUser.createdAt) {
+                memberSinceEl.textContent = new Date(currentUser.createdAt)
+                  .toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: getStoreTz() });
+              }
+            } else {
+              tzSaveBtn.disabled = false;
+              alert((res && res.message) || 'Could not update timezone.');
+            }
+          }).catch(function () {
+            tzSaveBtn.disabled = false;
+            alert('Network error updating timezone.');
+          });
+        });
+      }
+    }
 
     // ── Restart Onboarding ──
     var restartOnboardingBtn = document.getElementById('restart-onboarding-btn');

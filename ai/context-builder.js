@@ -3,6 +3,8 @@ const path          = require('path');
 const saleModel     = require(path.join(__dirname, '../backend/models/sale.model'));
 const productModel  = require(path.join(__dirname, '../backend/models/product.model'));
 const cashflowModel = require(path.join(__dirname, '../backend/models/cashflow.model'));
+const settings      = require(path.join(__dirname, '../backend/models/settings.model'));
+const { dateInTz }  = require(path.join(__dirname, '../backend/utils/tz'));
 
 const DAYS = ['Sunday','Monday','Tuesday','Wednesday',
               'Thursday','Friday','Saturday'];
@@ -13,11 +15,11 @@ function peso(n) {
 }
 
 async function fetchContext() {
-  const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
+  const tz        = settings.getTimezone();
   const now       = new Date();
   const from30    = new Date(now.getTime() - 30 * 86400000);
-  const nowStr    = manilaFmt.format(now);
-  const fromStr   = manilaFmt.format(from30);
+  const nowStr    = dateInTz(tz, now);
+  const fromStr   = dateInTz(tz, from30);
 
   const [today, allProducts, kpis,
          topRevenue, topQty, byDow, finance] =

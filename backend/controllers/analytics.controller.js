@@ -1,10 +1,13 @@
 const saleModel    = require('../models/sale.model');
 const productModel = require('../models/product.model');
+const settings     = require('../models/settings.model');
+const { dateInTz } = require('../utils/tz');
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-// Manila timezone date formatter — keep all dates user-local so YYYY-MM-DD
-// keys line up with sale rows and frontend display alike.
-const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
+// Store-local date helpers — keep all default date ranges in the store
+// timezone so YYYY-MM-DD keys line up with sale buckets and frontend display.
+const storeToday    = () => dateInTz(settings.getTimezone());
+const storeDaysAgo  = (n) => dateInTz(settings.getTimezone(), new Date(Date.now() - n * 86400000));
 
 // Returns the immediately-prior same-length window given a [from, to] pair.
 // Both inputs and outputs are YYYY-MM-DD strings. The prior window ends the
@@ -27,7 +30,7 @@ function priorWindow(from, to) {
 
 const getSummary = async (req, res, next) => {
   try {
-    const dateStr   = req.query.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+    const dateStr   = req.query.date || storeToday();
     const threshold = parseInt(req.query.threshold, 10) || 50;
 
     const [saleSummary, products] = await Promise.all([
@@ -68,8 +71,8 @@ const getHeatmap = async (req, res, next) => {
 
 const getKPIs = async (req, res, next) => {
   try {
-    const from = req.query.from || manilaFmt.format(new Date(Date.now() - 30 * 86400000));
-    const to   = req.query.to   || manilaFmt.format(new Date());
+    const from = req.query.from || storeDaysAgo(30);
+    const to   = req.query.to   || storeToday();
 
     const prev = priorWindow(from, to);
     const [current, previous] = await Promise.all([
@@ -98,8 +101,8 @@ const getKPIs = async (req, res, next) => {
 // Compared against the immediately-prior same-length window.
 const getProfit = async (req, res, next) => {
   try {
-    const from = req.query.from || manilaFmt.format(new Date(Date.now() - 30 * 86400000));
-    const to   = req.query.to   || manilaFmt.format(new Date());
+    const from = req.query.from || storeDaysAgo(30);
+    const to   = req.query.to   || storeToday();
 
     const prev = priorWindow(from, to);
     const [current, previous, byProduct] = await Promise.all([
@@ -124,8 +127,8 @@ const getProfit = async (req, res, next) => {
 //   - turnover:     days-of-stock remaining at current sell rate (high → low)
 const getInventoryHealth = async (req, res, next) => {
   try {
-    const today  = manilaFmt.format(new Date());
-    const since  = manilaFmt.format(new Date(Date.now() - 90 * 86400000));
+    const today  = storeToday();
+    const since  = storeDaysAgo(90);
     const data   = await saleModel.getInventoryHealth(since, today);
     res.json({ success: true, data });
   } catch (err) {
@@ -135,12 +138,11 @@ const getInventoryHealth = async (req, res, next) => {
 
 const getCharts = async (req, res, next) => {
   try {
-    const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
-    const from = req.query.from || manilaFmt.format(new Date(Date.now() - 30 * 86400000));
-    const to   = req.query.to   || manilaFmt.format(new Date());
+    const from = req.query.from || storeDaysAgo(30);
+    const to   = req.query.to   || storeToday();
 
     // Seed zero for every date in range so the chart has no gaps.
-    // Iterate as date strings to stay in local (Manila) time — avoids UTC key mismatch.
+    // Iterate as date strings to stay in store-local time — avoids UTC key mismatch.
     const revenueByDay = {};
     let curStr = from;
     while (curStr <= to) {
@@ -179,14 +181,17 @@ const getCharts = async (req, res, next) => {
 // client where it was previously naive.
 const getGoalProjection = async (req, res, next) => {
   try {
-    const today = manilaFmt.format(new Date());
+    const today = storeToday();
 
     const { currentMonthRevenue, trailingDailyAvg, daysOfHistory } =
       await saleModel.getGoalProjectionInputs(today);
 
     // Days remaining in the current calendar month (inclusive of today).
-    const now      = new Date();
-    const daysInMo = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    // Derive year/month from the store-local date so the month boundary
+    // doesn't depend on the server's own timezone.
+    const year     = parseInt(today.slice(0, 4), 10);
+    const month    = parseInt(today.slice(5, 7), 10);   // 1–12
+    const daysInMo = new Date(year, month, 0).getDate(); // day 0 of next month
     const todayDay = parseInt(today.slice(8, 10), 10);
     const daysRemaining = Math.max(0, daysInMo - todayDay);
 

@@ -2,6 +2,8 @@
 -- Celso POS Seed Data
 -- Run AFTER schema.sql. Provides test data for development.
 -- Safe to re-run: INSERT IGNORE skips existing rows.
+-- NOTE: created_at columns use CURRENT_TIMESTAMP, which is UTC
+-- (the session is pinned to 'Z'). occurred_at is a calendar DATE.
 -- ============================================================
 USE celsopos_db;
 

@@ -1,6 +1,7 @@
 const bcrypt  = require('bcrypt');
 const jwt     = require('jsonwebtoken');
 const { findByEmail, createUser, getPreferences, savePreferences } = require('../models/user.model');
+const settings = require('../models/settings.model');
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -62,7 +63,8 @@ const login = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       token,
-      user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt }
+      user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt },
+      timezone: settings.getTimezone()
     });
   } catch (err) {
     next(err);

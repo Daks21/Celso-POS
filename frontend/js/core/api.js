@@ -224,6 +224,19 @@ async function deleteFinanceEntry(id) {
   return apiCall(`/finance/${id}`, { method: 'DELETE' });
 }
 
+// --- Settings (store-wide) ---
+
+async function getSettings() {
+  return apiCall('/settings');
+}
+
+async function updateStoreTimezone(timezone) {
+  return apiCall('/settings/timezone', {
+    method: 'PUT',
+    body: JSON.stringify({ timezone }),
+  });
+}
+
 // --- Os AI (non-streaming endpoints) ---
 async function getOsForecast()      { return apiCall('/ai/forecast'); }
 async function getOsProfitCoach()   { return apiCall('/ai/profit');   }

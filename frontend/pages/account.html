@@ -309,6 +309,36 @@
             </div>
           </section>
 
+          <!-- Timezone Card -->
+          <section class="page-section">
+            <div class="products-header">
+              <div>
+                <h2>Timezone</h2>
+                <p>Controls how dates and &ldquo;today&rdquo; are calculated across the whole store</p>
+              </div>
+            </div>
+
+            <div class="account-theme-row">
+              <div class="account-theme-label">
+                <h3>Store Timezone</h3>
+                <p>All sales, reports, and &ldquo;today / this month&rdquo; totals are grouped by day in this timezone.</p>
+              </div>
+              <select id="timezone-select" class="search-input" style="max-width:280px;"></select>
+            </div>
+
+            <p style="margin-top:12px;font-size:13px;color:var(--color-text-muted);line-height:1.5;">
+              Changing the timezone never alters past records &mdash; each sale was
+              saved at the exact moment it happened. Only how dates are
+              displayed and how &ldquo;today&rdquo; / &ldquo;this month&rdquo; are
+              calculated will change from here forward.
+            </p>
+
+            <div style="margin-top:14px;display:flex;align-items:center;gap:10px;">
+              <button type="button" class="stock-color-reset" id="save-timezone-btn" style="width:auto;">Save Timezone</button>
+              <span id="timezone-admin-note" style="display:none;font-size:13px;color:var(--color-text-muted);">Only an admin can change the store timezone.</span>
+            </div>
+          </section>
+
           <!-- AI Features Card -->
           <section class="settings-section">
             <h2 class="settings-section-title">AI Features</h2>

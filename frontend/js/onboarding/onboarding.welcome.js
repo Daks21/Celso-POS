@@ -24,6 +24,32 @@ const OnboardingWelcome = (() => {
     const role = OnboardingCore.getUserRole();
     const desc = PANEL_2_COPY[role] || PANEL_2_COPY.cashier;
 
+    // Timezone confirmation (admins only — the store timezone is store-wide).
+    // Pre-select the device's detected zone; the owner can change it here or
+    // later in Account Settings.
+    const isAdmin = role === 'admin';
+    let detectedTz = 'Asia/Manila';
+    try { detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Manila'; } catch (e) {}
+    let zones = [];
+    try { if (typeof Intl.supportedValuesOf === 'function') zones = Intl.supportedValuesOf('timeZone'); } catch (e) {}
+    if (!zones.length) {
+      zones = ['Asia/Manila','Asia/Singapore','Asia/Hong_Kong','Asia/Tokyo',
+               'Asia/Dubai','Asia/Kolkata','Australia/Sydney','Europe/London',
+               'Europe/Paris','America/New_York','America/Chicago',
+               'America/Los_Angeles','Pacific/Honolulu','UTC'];
+    }
+    if (zones.indexOf(detectedTz) === -1) zones.unshift(detectedTz);
+    const tzOptions = zones.map(function (z) {
+      return '<option value="' + z + '"' + (z === detectedTz ? ' selected' : '') + '>' + z + '</option>';
+    }).join('');
+    const tzFieldHtml = isAdmin
+      ? '<div class="onb-tz-field">' +
+          '<label for="onb-tz-select">Store timezone</label>' +
+          '<select id="onb-tz-select" class="onb-tz-select">' + tzOptions + '</select>' +
+          '<p class="onb-tz-hint">We detected this from your device. Sales and daily totals use it to know when each day starts. You can change it later in Account Settings.</p>' +
+        '</div>'
+      : '';
+
     const html = `
 <div id="onb-welcome-overlay" class="onb-overlay onb-overlay--welcome"
      role="dialog" aria-modal="true" aria-labelledby="onb-welcome-title">
@@ -67,6 +93,7 @@ const OnboardingWelcome = (() => {
       </div>
       <h2>You're all set.</h2>
       <p id="onb-panel-2-desc">${desc}</p>
+      ${tzFieldHtml}
       <button type="button" class="onb-btn-primary" id="onb-welcome-done">Let's Go</button>
     </div>
 
@@ -95,6 +122,13 @@ const OnboardingWelcome = (() => {
       showPanel(2);
     });
     document.getElementById('onb-welcome-done').addEventListener('click', function () {
+      // Persist the chosen store timezone (admins only). Non-fatal on failure —
+      // the value is cached locally and can be corrected in Account Settings.
+      var sel = document.getElementById('onb-tz-select');
+      if (sel && sel.value) {
+        if (typeof setStoreTz === 'function') setStoreTz(sel.value);
+        if (typeof updateStoreTimezone === 'function') updateStoreTimezone(sel.value).catch(function () {});
+      }
       close();
     });
     document.getElementById('onb-welcome-close').addEventListener('click', close);

@@ -2,11 +2,29 @@
 -- Celso POS Database Schema  v4.0
 -- Run this file once to set up the entire database.
 -- Safe to re-run: IF NOT EXISTS prevents errors.
+--
+-- TIME CONVENTION: all DATETIME columns store UTC. The DB connection
+-- pins the session to UTC ('Z'); day-bucketing/display happen in the
+-- store timezone (app_settings.timezone) via CONVERT_TZ. The only
+-- exception is cash_movements.occurred_at, a user-picked calendar DATE
+-- that carries no time and is never timezone-converted.
 -- ============================================================
 
 CREATE DATABASE IF NOT EXISTS celsopos_db
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE celsopos_db;
+
+-- 0. App Settings (single-row, store-wide configuration)
+-- Holds the store timezone. All timestamps are stored in UTC; this
+-- value controls how UTC instants are bucketed into calendar days and
+-- displayed. Store-wide (not per-user): every staff member of one store
+-- shares the same "today".
+CREATE TABLE IF NOT EXISTS app_settings (
+  id         TINYINT      NOT NULL PRIMARY KEY,   -- always 1
+  timezone   VARCHAR(64)  NOT NULL DEFAULT 'Asia/Manila',
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+INSERT IGNORE INTO app_settings (id, timezone) VALUES (1, 'Asia/Manila');
 
 -- 1. Users
 CREATE TABLE IF NOT EXISTS users (

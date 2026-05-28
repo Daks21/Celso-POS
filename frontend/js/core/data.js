@@ -4,6 +4,41 @@ function formatPeso(amount) {
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 }
 
+// ── Store timezone (display) ──
+// All timestamps come from the API as absolute UTC instants. We render them
+// in the store timezone (set during onboarding / Account Settings) so the
+// displayed day matches how the backend buckets sales — even when the device
+// timezone differs (e.g. an owner viewing remotely).
+var STORE_TZ_DEFAULT = 'Asia/Manila';
+
+function getStoreTz() {
+  try { return localStorage.getItem('storeTimezone') || STORE_TZ_DEFAULT; }
+  catch (e) { return STORE_TZ_DEFAULT; }
+}
+
+function setStoreTz(tz) {
+  try { if (tz) localStorage.setItem('storeTimezone', tz); } catch (e) {}
+}
+
+// Format an absolute instant (Date or ISO-8601 string) as a date in store time.
+function formatDateTz(value, opts) {
+  var d = (value instanceof Date) ? value : new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-PH', Object.assign({ timeZone: getStoreTz() }, opts || {}));
+}
+
+// Format an absolute instant as a time-of-day in store time.
+function formatTimeTz(value, opts) {
+  var d = (value instanceof Date) ? value : new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('en-PH', Object.assign({ timeZone: getStoreTz() }, opts || {}));
+}
+
+// 'YYYY-MM-DD' for "now" in the store timezone.
+function todayStrTz() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: getStoreTz() }).format(new Date());
+}
+
 // ── Stock color defaults ──
 var STOCK_COLOR_DEFAULTS = { ok: '#5a9e6f', low: '#eab308', out: '#dc2626' };
 

@@ -87,15 +87,14 @@ function renderSales(salesArray) {
   pageSlice.forEach(function (sale) {
     const row = document.createElement("tr");
 
-    const saleDate = new Date(sale.timestamp);
     const itemCount = sale.items.reduce(function (sum, item) {
       return sum + item.quantity;
     }, 0);
 
     row.innerHTML = `
       <td>${formatReceiptNumber(sale)}</td>
-      <td>${saleDate.toLocaleDateString("en-PH")}</td>
-      <td>${saleDate.toLocaleTimeString("en-PH", { hour: '2-digit', minute: '2-digit' })}</td>
+      <td>${formatDateTz(sale.timestamp)}</td>
+      <td>${formatTimeTz(sale.timestamp, { hour: '2-digit', minute: '2-digit' })}</td>
       <td>${itemCount}</td>
       <td>${formatPeso(sale.total)}</td>
       <td>${sale.cashier}</td>

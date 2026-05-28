@@ -2,6 +2,7 @@
 const { fetchContext, buildContextText } = require('../../ai/context-builder');
 const { OS_SYSTEM_PROMPT }               = require('../../ai/prompts/system');
 const assistant                          = require('../../ai/assistant');
+const settings                           = require('../models/settings.model');
 
 // ── Per-user rate limiter ──────────────────────────────────────
 const userLimits = new Map();
@@ -164,11 +165,11 @@ const restockAdvice = async (req, res, next) => {
 const forecast = async (req, res, next) => {
   try {
     const contextText = await getContextMessage();
-    const tomorrow    = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dowName     = ['Sunday','Monday','Tuesday','Wednesday',
-                         'Thursday','Friday','Saturday']
-                       [tomorrow.getDay()];
+    // Tomorrow's weekday in the store timezone (not the server's).
+    const tomorrow    = new Date(Date.now() + 86400000);
+    const dowName     = new Intl.DateTimeFormat('en-US', {
+      timeZone: settings.getTimezone(), weekday: 'long',
+    }).format(tomorrow);
     const question    =
       contextText + '\n\nBased on day-of-week patterns, forecast ' +
       'tomorrow (' + dowName + '). Return JSON: ' +

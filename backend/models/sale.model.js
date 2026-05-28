@@ -1,4 +1,6 @@
 const db = require('../config/db.config');
+const settings = require('./settings.model');
+const { localExpr, tzParam, dateInTz } = require('../utils/tz');
 
 // Helper: fetch all sale_items rows for a list of sale IDs in one query
 const _fetchItems = async (saleIds) => {
@@ -59,8 +61,9 @@ const getAll = async (filters = {}) => {
   const params = [];
   const conds  = [];
 
-  if (filters.from) { conds.push('DATE(s.created_at) >= ?'); params.push(filters.from); }
-  if (filters.to)   { conds.push('DATE(s.created_at) <= ?'); params.push(filters.to); }
+  const tzp = tzParam();
+  if (filters.from) { conds.push(`DATE(${localExpr('s.created_at')}) >= ?`); params.push(tzp, filters.from); }
+  if (filters.to)   { conds.push(`DATE(${localExpr('s.created_at')}) <= ?`); params.push(tzp, filters.to); }
   if (conds.length) sql += ' WHERE ' + conds.join(' AND ');
   sql += ' ORDER BY s.created_at DESC';
   if (filters.limit) { sql += ' LIMIT ?'; params.push(filters.limit); }
@@ -128,13 +131,14 @@ const create = async (saleRecord, userId) => {
     }
 
     // Step 3: Record sale revenue in cash_movements (atomic with the sale).
-    // Use DATE(created_at) from the sale row itself so occurred_at always
-    // matches what the History page shows — avoids any session-timezone drift.
+    // occurred_at is the store-local calendar day of the sale (created_at is
+    // stored UTC), so it matches what the History page shows in store time.
+    const occurredAt = dateInTz(settings.getTimezone());
     await connection.query(
       `INSERT INTO cash_movements
          (type, category, amount, description, occurred_at, source, source_id, recorded_by)
-       VALUES ('sales_revenue', NULL, ?, ?, (SELECT DATE(created_at) FROM sales WHERE id = ?), 'sale', ?, ?)`,
-      [saleRecord.total, `Sale ${receiptNo}`, saleId, saleId, userId]
+       VALUES ('sales_revenue', NULL, ?, ?, ?, 'sale', ?, ?)`,
+      [saleRecord.total, `Sale ${receiptNo}`, occurredAt, saleId, userId]
     );
 
     await connection.commit();
@@ -150,12 +154,14 @@ const create = async (saleRecord, userId) => {
 // ─── Aggregations ──────────────────────────────────────────────────────────
 
 const getTodaySummary = async () => {
+  const today = dateInTz(settings.getTimezone());
   const [rows] = await db.query(
     `SELECT
        COALESCE(SUM(total), 0) AS totalRevenue,
        COUNT(*)                AS transactionCount,
        COALESCE(AVG(total), 0) AS avgSaleValue
-     FROM sales WHERE DATE(created_at) = CURDATE()`
+     FROM sales WHERE DATE(${localExpr('created_at')}) = ?`,
+    [tzParam(), today]
   );
   return {
     totalRevenue:     parseFloat(rows[0].totalRevenue),
@@ -170,8 +176,8 @@ const getSummary = async (dateStr) => {
        COALESCE(SUM(total), 0) AS totalRevenue,
        COUNT(*)                AS transactionCount,
        COALESCE(AVG(total), 0) AS avgSaleValue
-     FROM sales WHERE DATE(created_at) = ?`,
-    [dateStr]
+     FROM sales WHERE DATE(${localExpr('created_at')}) = ?`,
+    [tzParam(), dateStr]
   );
   return {
     totalRevenue:     parseFloat(rows[0].totalRevenue),
@@ -181,9 +187,11 @@ const getSummary = async (dateStr) => {
 };
 
 const getDailyMap = async () => {
+  const tzp = tzParam();
   const [rows] = await db.query(
-    `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS saleDate, SUM(total) AS totalRevenue
-     FROM sales GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d') ORDER BY saleDate ASC`
+    `SELECT DATE_FORMAT(${localExpr('created_at')}, '%Y-%m-%d') AS saleDate, SUM(total) AS totalRevenue
+     FROM sales GROUP BY DATE_FORMAT(${localExpr('created_at')}, '%Y-%m-%d') ORDER BY saleDate ASC`,
+    [tzp, tzp]
   );
   const map = {};
   rows.forEach(r => { map[r.saleDate] = parseFloat(r.totalRevenue); });
@@ -200,9 +208,9 @@ const getKPIs = async (from, to) => {
        SELECT s.id, s.total, COALESCE(SUM(si.quantity), 0) AS qty
        FROM sales s
        LEFT JOIN sale_items si ON s.id = si.sale_id
-       WHERE DATE(s.created_at) BETWEEN ? AND ?
+       WHERE DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
        GROUP BY s.id, s.total
-     ) sub`, [from, to]
+     ) sub`, [tzParam(), from, to]
   );
   return {
     totalRevenue:     parseFloat(rows[0].totalRevenue),
@@ -216,8 +224,8 @@ const getTopByRevenue = async (from, to, limit = 5) => {
   const [rows] = await db.query(
     `SELECT si.product_name AS name, SUM(si.line_total) AS revenue
      FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id
-     WHERE DATE(s.created_at) BETWEEN ? AND ?
-     GROUP BY si.product_name ORDER BY revenue DESC LIMIT ?`, [from, to, limit]
+     WHERE DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
+     GROUP BY si.product_name ORDER BY revenue DESC LIMIT ?`, [tzParam(), from, to, limit]
   );
   return rows.map(r => ({ name: r.name, revenue: parseFloat(r.revenue) }));
 };
@@ -227,19 +235,21 @@ const getTopByQty = async (from, to, limit = 5) => {
     `SELECT si.product_name AS name, SUM(si.quantity) AS qty
      FROM sale_items si
      INNER JOIN sales s ON si.sale_id = s.id
-     WHERE DATE(s.created_at) BETWEEN ? AND ?
+     WHERE DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
      GROUP BY si.product_name
      ORDER BY qty DESC
-     LIMIT ?`, [from, to, limit]
+     LIMIT ?`, [tzParam(), from, to, limit]
   );
   return rows.map(r => ({ name: r.name, qty: parseInt(r.qty, 10) }));
 };
 
 const getByDayOfWeek = async (from, to) => {
+  const tzp = tzParam();
   const [rows] = await db.query(
-    `SELECT (DAYOFWEEK(created_at) - 1) AS dayIndex, SUM(total) AS total
-     FROM sales WHERE DATE(created_at) BETWEEN ? AND ?
-     GROUP BY (DAYOFWEEK(created_at) - 1) ORDER BY dayIndex ASC`, [from, to]
+    `SELECT (DAYOFWEEK(${localExpr('created_at')}) - 1) AS dayIndex, SUM(total) AS total
+     FROM sales WHERE DATE(${localExpr('created_at')}) BETWEEN ? AND ?
+     GROUP BY (DAYOFWEEK(${localExpr('created_at')}) - 1) ORDER BY dayIndex ASC`,
+    [tzp, tzp, from, to, tzp]
   );
   const totals = [0, 0, 0, 0, 0, 0, 0];
   rows.forEach(r => { totals[r.dayIndex] = parseFloat(r.total); });
@@ -259,8 +269,8 @@ const getProfit = async (from, to) => {
      FROM sale_items si
      INNER JOIN sales    s ON si.sale_id    = s.id
      LEFT  JOIN products p ON si.product_id = p.id
-     WHERE DATE(s.created_at) BETWEEN ? AND ?`,
-    [from, to]
+     WHERE DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?`,
+    [tzParam(), from, to]
   );
   const revenue = parseFloat(rows[0].revenue);
   const cogs    = parseFloat(rows[0].cogs);
@@ -284,11 +294,11 @@ const getProfitByProduct = async (from, to, limit = 10) => {
      FROM sale_items si
      INNER JOIN sales    s ON si.sale_id    = s.id
      LEFT  JOIN products p ON si.product_id = p.id
-     WHERE DATE(s.created_at) BETWEEN ? AND ?
+     WHERE DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
      GROUP BY si.product_name
      ORDER BY (SUM(si.line_total) - SUM(si.quantity * COALESCE(p.cost, 0))) DESC
      LIMIT ?`,
-    [from, to, limit]
+    [tzParam(), from, to, limit]
   );
   return rows.map(r => {
     const revenue = parseFloat(r.revenue);
@@ -324,10 +334,10 @@ const getInventoryHealth = async (from, to) => {
             ON si.product_id = p.id
      LEFT JOIN sales s
             ON s.id = si.sale_id
-           AND DATE(s.created_at) BETWEEN ? AND ?
+           AND DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
      WHERE p.is_active = 1
      GROUP BY p.id, p.name, p.stock, p.unit, p.category, p.price, p.cost`,
-    [from, to]
+    [tzParam(), from, to]
   );
 
   const windowDays = Math.max(1,
@@ -388,7 +398,7 @@ const getInventoryHealth = async (from, to) => {
 // ─── Goal projection ──────────────────────────────────────────────────────
 // Provides the inputs the frontend needs to draw an honest end-of-month
 // projection on the Monthly Revenue Goal card:
-//   - currentMonthRevenue : Calendar month-to-date revenue (Manila local).
+//   - currentMonthRevenue : Calendar month-to-date revenue (store-local).
 //   - trailingDailyAvg    : Avg daily revenue over the LAST 30 DAYS as of
 //                           today. Acts as the per-day baseline for the
 //                           days still remaining in the month — far more
@@ -396,14 +406,14 @@ const getInventoryHealth = async (from, to) => {
 //   - daysOfHistory       : Distinct sales-day count in that 30-day window.
 //                           Frontend uses this to caveat "limited data"
 //                           when the store is brand new.
-const getGoalProjectionInputs = async (manilaToday) => {
+const getGoalProjectionInputs = async (storeToday) => {
   // Calendar month-to-date revenue.
-  const firstOfMonth = manilaToday.slice(0, 7) + '-01';
+  const firstOfMonth = storeToday.slice(0, 7) + '-01';
   const [[mtdRow]] = await db.query(
     `SELECT COALESCE(SUM(total), 0) AS revenue
      FROM sales
-     WHERE DATE(created_at) BETWEEN ? AND ?`,
-    [firstOfMonth, manilaToday]
+     WHERE DATE(${localExpr('created_at')}) BETWEEN ? AND ?`,
+    [tzParam(), firstOfMonth, storeToday]
   );
 
   // Trailing 30-day daily average. Window ends YESTERDAY (today is partial
@@ -411,14 +421,15 @@ const getGoalProjectionInputs = async (manilaToday) => {
   // evening). If the store is younger than 30 days, the SUM/COUNT just
   // reflects what data we have — the daysOfHistory field tells the
   // frontend how confident to be.
+  const tzp = tzParam();
   const [[trailRow]] = await db.query(
     `SELECT
        COALESCE(SUM(total), 0) AS revenue,
-       COUNT(DISTINCT DATE(created_at)) AS days_with_sales
+       COUNT(DISTINCT DATE(${localExpr('created_at')})) AS days_with_sales
      FROM sales
-     WHERE DATE(created_at) >= DATE_SUB(?, INTERVAL 30 DAY)
-       AND DATE(created_at) <  ?`,
-    [manilaToday, manilaToday]
+     WHERE DATE(${localExpr('created_at')}) >= DATE_SUB(?, INTERVAL 30 DAY)
+       AND DATE(${localExpr('created_at')}) <  ?`,
+    [tzp, tzp, storeToday, tzp, storeToday]
   );
   const trailingSum     = parseFloat(trailRow.revenue) || 0;
   const daysOfHistory   = parseInt(trailRow.days_with_sales, 10) || 0;
