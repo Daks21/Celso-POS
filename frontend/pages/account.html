@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <script>
@@ -157,73 +157,90 @@
             </div>
           </section>
 
-          <!-- Theme Card -->
+          <!-- Preferences Card (Tax) -->
           <section class="page-section">
             <div class="products-header">
               <div>
-                <h2>Theme &amp; Appearance</h2>
-                <p>Customize how the app looks</p>
+                <h2>Preferences</h2>
+                <p>Set how New Order handles tax</p>
               </div>
             </div>
 
             <div class="account-theme-row">
               <div class="account-theme-label">
-                <h3>Dark Mode</h3>
-                <p>Toggle between light and dark theme</p>
+                <h3>Tax Feature</h3>
+                <p>Show a tax row in New Order. Turn on only if you charge tax.</p>
               </div>
               <button
                 type="button"
-                class="topbar-icon-button"
-                id="account-theme-toggle"
-                title="Toggle theme"
-              >
-                <i data-lucide="moon" id="account-theme-icon"></i>
-              </button>
+                class="toggle-switch"
+                id="tax-feature-toggle"
+                title="Toggle tax feature"
+                aria-pressed="false"
+              ></button>
             </div>
 
-            <div class="pref-divider"><span>Navigation</span></div>
-
-            <div class="account-theme-row">
-              <div class="account-theme-label">
-                <h3>Header label <span class="pref-mobile-badge">Mobile</span></h3>
-                <p>Text shown beside the logo in the mobile nav bar</p>
+            <div id="tax-subprefs">
+              <div class="account-theme-row">
+                <div class="account-theme-label">
+                  <h3>Tax on by Default</h3>
+                  <p>Start each new order with tax already switched on</p>
+                </div>
+                <button
+                  type="button"
+                  class="toggle-switch"
+                  id="tax-default-toggle"
+                  title="Toggle tax on by default"
+                  aria-pressed="false"
+                ></button>
               </div>
-              <div class="pref-radio-group" id="nav-label-group">
-                <button type="button" class="pref-radio-btn" data-value="app">App name</button>
-                <button type="button" class="pref-radio-btn" data-value="page">Page name</button>
+
+              <div class="account-theme-row">
+                <div class="account-theme-label">
+                  <h3>Tax Rate</h3>
+                  <p>Percentage applied when tax is on (e.g. 10 for 10%)</p>
+                </div>
+                <div class="tax-rate-input-row">
+                  <input
+                    type="number"
+                    id="tax-rate-input"
+                    class="tax-rate-input"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    placeholder="0"
+                  />
+                  <span class="tax-rate-pct-label">%</span>
+                </div>
               </div>
             </div>
-
-            <div class="account-theme-row">
-              <div class="account-theme-label">
-                <h3>Logo tap goes to <span class="pref-mobile-badge">Mobile</span></h3>
-                <p>Where tapping the logo takes you</p>
-              </div>
-              <div class="pref-radio-group" id="logo-target-group">
-                <button type="button" class="pref-radio-btn" data-value="order.html">New Order</button>
-                <button type="button" class="pref-radio-btn" data-value="dashboard.html">Dashboard</button>
-              </div>
-            </div>
-
-            <div class="account-theme-row">
-              <div class="account-theme-label">
-                <h3>Show theme button</h3>
-                <p>Display the light/dark toggle in the nav bar</p>
-              </div>
-              <button type="button" class="toggle-switch" id="show-theme-btn-toggle" aria-pressed="false"></button>
-            </div>
-
           </section>
 
-          <!-- Profile Settings Card -->
+          <!-- Timezone Card -->
           <section class="page-section">
             <div class="products-header">
               <div>
-                <h2>Profile Settings</h2>
-                <p>Update your personal information</p>
+                <h2>Timezone</h2>
+                <p>Controls how dates and &ldquo;today&rdquo; are calculated across the store</p>
               </div>
             </div>
-            <div class="account-coming-soon">Coming soon</div>
+
+            <div class="account-theme-row">
+              <div class="account-theme-label">
+                <h3>Store Timezone</h3>
+                <p>Sales and reports are grouped by day in this timezone</p>
+              </div>
+              <select id="timezone-select" class="search-input" style="max-width:280px;"></select>
+            </div>
+
+            <p style="margin-top:12px;font-size:13px;color:var(--color-text-muted);line-height:1.5;">
+              Past records are never changed &mdash; only how dates are grouped from here forward.
+            </p>
+
+            <div style="margin-top:14px;display:flex;align-items:center;gap:10px;">
+              <button type="button" class="stock-color-reset" id="save-timezone-btn" style="width:auto;">Save Timezone</button>
+              <span id="timezone-admin-note" style="display:none;font-size:13px;color:var(--color-text-muted);">Only an admin can change the store timezone.</span>
+            </div>
           </section>
 
           <!-- Stock Status Card -->
@@ -231,9 +248,8 @@
             <div class="products-header">
               <div>
                 <h2>Stock Status</h2>
-                <p>Set indicator colors and thresholds for stock levels across the app</p>
+                <p>Set indicator colors and the low-stock threshold used across the app</p>
               </div>
-              <button type="button" class="account-save-btn" id="save-stock-status">Save</button>
             </div>
 
             <div class="stock-color-settings" id="stock-color-settings">
@@ -309,111 +325,6 @@
             </div>
           </section>
 
-          <!-- Timezone Card -->
-          <section class="page-section">
-            <div class="products-header">
-              <div>
-                <h2>Timezone</h2>
-                <p>Controls how dates and &ldquo;today&rdquo; are calculated across the whole store</p>
-              </div>
-            </div>
-
-            <div class="account-theme-row">
-              <div class="account-theme-label">
-                <h3>Store Timezone</h3>
-                <p>All sales, reports, and &ldquo;today / this month&rdquo; totals are grouped by day in this timezone.</p>
-              </div>
-              <select id="timezone-select" class="search-input" style="max-width:280px;"></select>
-            </div>
-
-            <p style="margin-top:12px;font-size:13px;color:var(--color-text-muted);line-height:1.5;">
-              Changing the timezone never alters past records &mdash; each sale was
-              saved at the exact moment it happened. Only how dates are
-              displayed and how &ldquo;today&rdquo; / &ldquo;this month&rdquo; are
-              calculated will change from here forward.
-            </p>
-
-            <div style="margin-top:14px;display:flex;align-items:center;gap:10px;">
-              <button type="button" class="stock-color-reset" id="save-timezone-btn" style="width:auto;">Save Timezone</button>
-              <span id="timezone-admin-note" style="display:none;font-size:13px;color:var(--color-text-muted);">Only an admin can change the store timezone.</span>
-            </div>
-          </section>
-
-          <!-- AI Features Card -->
-          <section class="settings-section">
-            <h2 class="settings-section-title">AI Features</h2>
-            <div class="settings-card">
-              <div class="settings-row">
-                <div class="settings-label-group">
-                  <span class="settings-label">
-                    Os Business Advisor
-                    <span class="beta-badge">BETA</span>
-                  </span>
-                  <span class="settings-description">
-                    Enable Os, your AI assistant for sales insights,
-                    restock advice, and financial questions.
-                    Uses Groq free tier — no extra cost to you.
-                  </span>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="os-enabled-toggle">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-            </div>
-          </section>
-
-          <!-- Advanced Analytics Card -->
-          <section class="settings-section" id="advanced-analytics">
-            <h2 class="settings-section-title">
-              Advanced Analytics
-              <span class="beta-badge">BETA</span>
-            </h2>
-            <div class="settings-card">
-              <div class="settings-row">
-                <div class="settings-label-group">
-                  <span class="settings-label">Show advanced insights</span>
-                  <span class="settings-description">
-                    Adds the monthly revenue goal card to the Analytics page.
-                    Off by default to keep the page simple for everyday use.
-                    <em>The end-of-month projection is an early estimate — it
-                    uses a simple daily pace and doesn't yet account for weekly
-                    patterns, paydays, or seasonality.</em>
-                  </span>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="advanced-analytics-toggle">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-
-              <div class="settings-row" id="monthly-goal-row">
-                <div class="settings-label-group">
-                  <span class="settings-label">Monthly revenue goal</span>
-                  <span class="settings-description">
-                    Set a target so the Analytics page shows your progress against it.
-                    The end-of-month projection is a rough estimate based on your average
-                    daily revenue this month — treat it as a directional guide, not a forecast.
-                    Leave blank to hide.
-                  </span>
-                </div>
-                <div class="goal-input-wrap">
-                  <span class="goal-input-prefix">₱</span>
-                  <input
-                    type="number"
-                    id="monthly-goal-input"
-                    class="search-input no-spinner"
-                    min="0"
-                    step="100"
-                    placeholder="e.g. 50000"
-                    style="width:140px;"
-                  />
-                  <button type="button" class="secondary-button" id="monthly-goal-save">Save</button>
-                </div>
-              </div>
-            </div>
-          </section>
-
           <!-- Dashboard Card -->
           <section class="page-section">
             <div class="products-header">
@@ -454,65 +365,124 @@
             </div>
           </section>
 
-          <!-- Preferences Card -->
+          <!-- Theme Card -->
           <section class="page-section">
             <div class="products-header">
               <div>
-                <h2>Preferences</h2>
-                <p>Set your app preferences</p>
+                <h2>Theme &amp; Appearance</h2>
+                <p>Customize how the app looks</p>
               </div>
-              <button type="button" class="account-save-btn" id="save-preferences">Save</button>
             </div>
 
             <div class="account-theme-row">
               <div class="account-theme-label">
-                <h3>Tax Feature</h3>
-                <p>Show a tax row in New Order. Enable only if your business charges tax on sales.</p>
+                <h3>Dark Mode</h3>
+                <p>Toggle between light and dark theme</p>
               </div>
               <button
                 type="button"
-                class="toggle-switch"
-                id="tax-feature-toggle"
-                title="Toggle tax feature"
-                aria-pressed="false"
-              ></button>
+                class="topbar-icon-button"
+                id="account-theme-toggle"
+                title="Toggle theme"
+              >
+                <i data-lucide="moon" id="account-theme-icon"></i>
+              </button>
             </div>
 
-            <div id="tax-subprefs">
-              <div class="account-theme-row">
-                <div class="account-theme-label">
-                  <h3>Tax on by Default</h3>
-                  <p>When enabled, the tax button in New Order starts active for each transaction</p>
-                </div>
-                <button
-                  type="button"
-                  class="toggle-switch"
-                  id="tax-default-toggle"
-                  title="Toggle tax on by default"
-                  aria-pressed="false"
-                ></button>
-              </div>
+            <div class="pref-divider"><span>Navigation</span></div>
 
-              <div class="account-theme-row">
-                <div class="account-theme-label">
-                  <h3>Tax Rate</h3>
-                  <p>Percentage applied to the sale total when tax is active (e.g. 10 for 10%)</p>
-                </div>
-                <div class="tax-rate-input-row">
-                  <input
-                    type="number"
-                    id="tax-rate-input"
-                    class="tax-rate-input"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    placeholder="0"
-                  />
-                  <span class="tax-rate-pct-label">%</span>
-                </div>
+            <div class="account-theme-row">
+              <div class="account-theme-label">
+                <h3>Header label <span class="pref-mobile-badge">Mobile</span></h3>
+                <p>Text shown beside the logo in the mobile nav bar</p>
+              </div>
+              <div class="pref-radio-group" id="nav-label-group">
+                <button type="button" class="pref-radio-btn" data-value="app">App name</button>
+                <button type="button" class="pref-radio-btn" data-value="page">Page name</button>
               </div>
             </div>
 
+            <div class="account-theme-row">
+              <div class="account-theme-label">
+                <h3>Logo tap goes to <span class="pref-mobile-badge">Mobile</span></h3>
+                <p>Where tapping the logo takes you</p>
+              </div>
+              <div class="pref-radio-group" id="logo-target-group">
+                <button type="button" class="pref-radio-btn" data-value="order.html">New Order</button>
+                <button type="button" class="pref-radio-btn" data-value="dashboard.html">Dashboard</button>
+              </div>
+            </div>
+
+            <div class="account-theme-row">
+              <div class="account-theme-label">
+                <h3>Show theme button</h3>
+                <p>Display the light/dark toggle in the nav bar</p>
+              </div>
+              <button type="button" class="toggle-switch" id="show-theme-btn-toggle" aria-pressed="false"></button>
+            </div>
+
+          </section>
+
+          <!-- AI Features Card -->
+          <section class="page-section">
+            <div class="products-header">
+              <div>
+                <h2>AI Features</h2>
+                <p>Your built-in business assistant</p>
+              </div>
+            </div>
+
+            <div class="account-theme-row">
+              <div class="account-theme-label">
+                <h3>Os Business Advisor <span class="beta-badge">BETA</span></h3>
+                <p>Sales insights, restock advice, and finance answers. Uses the Groq free tier &mdash; no extra cost.</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="os-enabled-toggle">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </section>
+
+          <!-- Advanced Analytics Card -->
+          <section class="page-section" id="advanced-analytics">
+            <div class="products-header">
+              <div>
+                <h2>Advanced Analytics <span class="beta-badge">BETA</span></h2>
+                <p>Extra insights on the Analytics page</p>
+              </div>
+            </div>
+
+            <div class="account-theme-row">
+              <div class="account-theme-label">
+                <h3>Show advanced insights</h3>
+                <p>Adds a monthly revenue goal card to Analytics. Off by default to keep things simple.</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="advanced-analytics-toggle">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="account-theme-row" id="monthly-goal-row">
+              <div class="account-theme-label">
+                <h3>Monthly revenue goal</h3>
+                <p>Set a target to track your progress on Analytics. Leave blank to hide.</p>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:14px;color:var(--color-text-muted);">&#8369;</span>
+                <input
+                  type="number"
+                  id="monthly-goal-input"
+                  class="search-input no-spinner"
+                  min="0"
+                  step="100"
+                  placeholder="e.g. 50000"
+                  style="width:140px;"
+                />
+                <button type="button" class="secondary-button" id="monthly-goal-save" style="width:auto;">Save</button>
+              </div>
+            </div>
           </section>
 
           <!-- Onboarding Card -->

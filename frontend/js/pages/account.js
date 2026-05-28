@@ -66,17 +66,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ── Shared: flash "Saved!" on a save button ──
     function flashSaved(btn) {
+      var original = btn.dataset.originalLabel || btn.textContent;
+      btn.dataset.originalLabel = original;
       btn.textContent = 'Saved!';
       btn.classList.add('is-saved');
       btn.disabled = true;
       setTimeout(function () {
-        btn.textContent = 'Save';
+        btn.textContent = original;
         btn.classList.remove('is-saved');
         btn.disabled = false;
       }, 1500);
     }
 
-    // ── Stock Status ──
+    // ── Stock Status (auto-saves on change) ──
     const colorOkInput  = document.getElementById('stock-color-ok');
     const colorLowInput = document.getElementById('stock-color-low');
     const colorOutInput = document.getElementById('stock-color-out');
@@ -84,7 +86,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const swatchLow = document.getElementById('swatch-low');
     const swatchOut = document.getElementById('swatch-out');
     const resetColorsBtn   = document.getElementById('reset-stock-colors');
-    const saveStockBtn     = document.getElementById('save-stock-status');
     const thresholdInput   = document.getElementById('low-stock-threshold');
 
     if (colorOkInput && colorLowInput && colorOutInput) {
@@ -104,6 +105,17 @@ document.addEventListener('DOMContentLoaded', function() {
         root.style.setProperty('--stock-color-out', colors.out);
       }
 
+      // Persist all three colors, apply app-wide, sync to DB
+      function persistStockColors() {
+        localStorage.setItem('stockColors', JSON.stringify({
+          ok:  colorOkInput.value,
+          low: colorLowInput.value,
+          out: colorOutInput.value
+        }));
+        applyStockColors();
+        syncToDb();
+      }
+
       // Live preview on drag — updates swatches + CSS vars, does NOT save yet
       colorOkInput.addEventListener('input', function () {
         if (swatchOk) swatchOk.style.backgroundColor = colorOkInput.value;
@@ -118,49 +130,41 @@ document.addEventListener('DOMContentLoaded', function() {
         document.documentElement.style.setProperty('--stock-color-out', colorOutInput.value);
       });
 
-      // Reset: revert UI to defaults without saving
+      // Commit the pick once the colour picker closes
+      colorOkInput.addEventListener('change', persistStockColors);
+      colorLowInput.addEventListener('change', persistStockColors);
+      colorOutInput.addEventListener('change', persistStockColors);
+
+      // Reset: revert to defaults — takes effect immediately
       if (resetColorsBtn) {
         resetColorsBtn.addEventListener('click', function () {
           localStorage.removeItem('stockColors');
           loadColorsIntoUI();
-        });
-      }
-
-      // Save button: persist colors + threshold
-      if (saveStockBtn) {
-        saveStockBtn.addEventListener('click', function () {
-          localStorage.setItem('stockColors', JSON.stringify({
-            ok:  colorOkInput.value,
-            low: colorLowInput.value,
-            out: colorOutInput.value
-          }));
           applyStockColors();
-
-          if (thresholdInput) {
-            var val = parseInt(thresholdInput.value, 10);
-            if (isNaN(val) || val < 1) val = 1;
-            if (val > 9999) val = 9999;
-            thresholdInput.value = val;
-            localStorage.setItem('lowStockThreshold', String(val));
-          }
-
           syncToDb();
-          flashSaved(saveStockBtn);
         });
       }
 
+      // Threshold: clamp and save when the field changes
       if (thresholdInput) {
         thresholdInput.value = getLowStockThreshold();
+        thresholdInput.addEventListener('change', function () {
+          var val = parseInt(thresholdInput.value, 10);
+          if (isNaN(val) || val < 1) val = 1;
+          if (val > 9999) val = 9999;
+          thresholdInput.value = val;
+          localStorage.setItem('lowStockThreshold', String(val));
+          syncToDb();
+        });
       }
 
       loadColorsIntoUI();
     }
 
-    // ── Preferences ──
+    // ── Preferences / Tax (auto-saves on change) ──
     const taxToggle        = document.getElementById('tax-feature-toggle');
     const taxDefaultToggle = document.getElementById('tax-default-toggle');
     const taxRateInput     = document.getElementById('tax-rate-input');
-    const savePrefsBtn     = document.getElementById('save-preferences');
 
     function setTaxSubprefsState(enabled) {
       var subprefs = document.getElementById('tax-subprefs');
@@ -169,7 +173,6 @@ document.addEventListener('DOMContentLoaded', function() {
       subprefs.style.pointerEvents = enabled ? '' : 'none';
     }
 
-    // Load current saved state into toggles (visual only)
     if (taxToggle) {
       var taxIsOn = localStorage.getItem('taxEnabled') === 'true';
       if (taxIsOn) {
@@ -182,6 +185,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const isOn = taxToggle.classList.toggle('is-on');
         taxToggle.setAttribute('aria-pressed', String(isOn));
         setTaxSubprefsState(isOn);
+        localStorage.setItem('taxEnabled', isOn ? 'true' : 'false');
+        syncToDb();
       });
     }
 
@@ -193,31 +198,27 @@ document.addEventListener('DOMContentLoaded', function() {
       taxDefaultToggle.addEventListener('click', function () {
         const isOn = taxDefaultToggle.classList.toggle('is-on');
         taxDefaultToggle.setAttribute('aria-pressed', String(isOn));
+        localStorage.setItem('taxDefaultOn', isOn ? 'true' : 'false');
+        syncToDb();
       });
     }
 
-    // Tax rate input — stored as decimal (0.1 = 10%), displayed as percentage
+    // Tax rate — stored as decimal (0.1 = 10%), shown as percentage; saved on change
     if (taxRateInput) {
       var savedRate = parseFloat(localStorage.getItem('taxRate') || '0');
       taxRateInput.value = savedRate > 0 ? parseFloat((savedRate * 100).toFixed(4)) : '';
-    }
 
-    if (savePrefsBtn) {
-      savePrefsBtn.addEventListener('click', function () {
-        if (taxToggle) {
-          localStorage.setItem('taxEnabled', taxToggle.classList.contains('is-on') ? 'true' : 'false');
+      taxRateInput.addEventListener('change', function () {
+        var pct = parseFloat(taxRateInput.value);
+        if (isNaN(pct) || pct < 0) {
+          pct = 0;
+          taxRateInput.value = '';
+        } else if (pct > 100) {
+          pct = 100;
+          taxRateInput.value = 100;
         }
-        if (taxDefaultToggle) {
-          localStorage.setItem('taxDefaultOn', taxDefaultToggle.classList.contains('is-on') ? 'true' : 'false');
-        }
-        if (taxRateInput) {
-          var pct = parseFloat(taxRateInput.value);
-          if (!isNaN(pct) && pct >= 0 && pct <= 100) {
-            localStorage.setItem('taxRate', String(+(pct / 100).toFixed(6)));
-          }
-        }
+        localStorage.setItem('taxRate', String(+(pct / 100).toFixed(6)));
         syncToDb();
-        flashSaved(savePrefsBtn);
       });
     }
 
