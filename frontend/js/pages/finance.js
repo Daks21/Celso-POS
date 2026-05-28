@@ -242,7 +242,7 @@ function renderSummary(data, profitData) {
   var payBtn = document.getElementById('debt-pay-btn');
   if (payBtn) {
     payBtn.addEventListener('click', function () {
-      openPayDebtModal(Number(window._debtOutstanding || 0));
+      openPayDebtModal();
     });
   }
 }
@@ -727,8 +727,20 @@ function updateLoanReadout() {
   }
 }
 
-// Inline hint under Amount when recording a debt payment — confirms the
-// outstanding balance and warns on overpayment (extra still leaves as cash).
+// Most that can be paid against debt right now. A debt payment may not exceed
+// what's still owed. When editing an existing debt payment, its own amount is
+// already baked into the outstanding figure, so add it back to get the true cap.
+function debtPaymentCap() {
+  var cap = Number(window._debtOutstanding || 0);
+  if (editingId) {
+    var orig = window._financeEntries && window._financeEntries.find(function (e) { return String(e.id) === String(editingId); });
+    if (orig && orig.category === 'debt_payment') cap += Number(orig.amount);
+  }
+  return cap;
+}
+
+// Inline hint under Amount when recording a debt payment — confirms what is
+// still owed and flags an amount over the allowed cap (which submit blocks).
 function updatePayHint() {
   if (!financeAmountHint) return;
   var isDebtPay = financeTypeInput.value === 'owner_draw' && financeCatInput.value === 'debt_payment';
@@ -737,16 +749,17 @@ function updatePayHint() {
     financeAmountHint.classList.remove('is-warning');
     return;
   }
-  var outstanding = Number(window._debtOutstanding || 0);
-  var amt = Number(financeAmountInput.value);
-  if (outstanding <= 0) {
-    financeAmountHint.textContent = '';
-    financeAmountHint.classList.remove('is-warning');
-  } else if (amt > outstanding + 0.001) {
-    financeAmountHint.textContent = 'More than the ' + formatPeso(outstanding) + ' you still owe — the extra will still reduce your cash.';
+  var owed = Number(window._debtOutstanding || 0);
+  var cap  = debtPaymentCap();
+  var amt  = Number(financeAmountInput.value);
+  if (cap <= 0) {
+    financeAmountHint.textContent = 'No outstanding debt to pay.';
+    financeAmountHint.classList.add('is-warning');
+  } else if (amt > cap + 0.001) {
+    financeAmountHint.textContent = 'Cannot exceed the ' + formatPeso(cap) + ' still owed.';
     financeAmountHint.classList.add('is-warning');
   } else {
-    financeAmountHint.textContent = 'You still owe ' + formatPeso(outstanding) + '.';
+    financeAmountHint.textContent = 'You still owe ' + formatPeso(owed) + '.';
     financeAmountHint.classList.remove('is-warning');
   }
 }
@@ -771,9 +784,10 @@ function openAddModal() {
   financeModal.style.display = 'flex';
 }
 
-// Part A: open the modal pre-filled to pay down debt. Called from the Debt
-// Balance card's "Record Payment" button with the current outstanding balance.
-function openPayDebtModal(outstanding) {
+// Part A: open the modal preset to a debt payment (Type + Category filled).
+// The Amount is left blank for the owner to type how much they're paying; it's
+// capped at the outstanding balance by validation, not prefilled.
+function openPayDebtModal() {
   editingId = null;
   financeModalTitle.textContent = 'Record Loan Payment';
   financeSubmitBtn.textContent  = 'Record Payment';
@@ -782,12 +796,12 @@ function openPayDebtModal(outstanding) {
   financeTypeInput.value   = 'owner_draw';
   populateCategorySelect('owner_draw');
   financeCatInput.value    = 'debt_payment';
-  financeAmountInput.value = outstanding > 0 ? Number(outstanding).toFixed(2) : '';
+  financeAmountInput.value = '';
   clearFormErrors();
   updateConditionalFields();
   financeModal.style.display = 'flex';
   setTimeout(function () {
-    if (financeAmountInput) { financeAmountInput.focus(); financeAmountInput.select(); }
+    if (financeAmountInput) financeAmountInput.focus();
   }, 50);
 }
 
@@ -944,6 +958,18 @@ financeForm.addEventListener('submit', async function (e) {
   if (!category)              { showFieldError('finance-category-error', 'Category is required');          hasError = true; }
   if (!occurred_at)           { showFieldError('finance-date-error',     'Date is required');              hasError = true; }
   if (!amount || amount <= 0) { showFieldError('finance-amount-error',   'Amount must be greater than 0'); hasError = true; }
+
+  // A debt payment can't exceed what's still owed (would drive the balance
+  // negative / overpay the lender).
+  if (type === 'owner_draw' && category === 'debt_payment' && amount > 0) {
+    var payCap = debtPaymentCap();
+    if (amount > payCap + 0.001) {
+      showFieldError('finance-amount-error', payCap > 0
+        ? 'Cannot exceed the ' + formatPeso(payCap) + ' still owed'
+        : 'No outstanding debt to pay');
+      hasError = true;
+    }
+  }
 
   // Loan terms (optional, but both-or-neither) for borrowed capital.
   if (type === 'capital_in' && category === 'borrowed') {
