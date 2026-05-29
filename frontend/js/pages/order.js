@@ -80,6 +80,25 @@ paymentAmountInput.addEventListener("input", function () {
   updateChangeDisplay();
 });
 
+paymentAmountInput.addEventListener("keydown", function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); completeSale(); }
+});
+
+var denomChipsEl = document.getElementById('denom-chips');
+if (denomChipsEl) {
+  denomChipsEl.addEventListener('click', function (e) {
+    var chip = e.target.closest('.denom-chip');
+    if (!chip) return;
+    var subtotal = getCartTotal();
+    var tax = (taxEnabled && cartTaxOn) ? subtotal * taxRate : 0;
+    var grandTotal = subtotal + tax;
+    paymentAmountInput.value = chip.id === 'denom-exact'
+      ? parseFloat(grandTotal.toFixed(2))
+      : chip.dataset.amount;
+    updateChangeDisplay();
+  });
+}
+
 newSaleButton.addEventListener("click", function () {
   receiptModal.style.display = "none";
 
@@ -228,6 +247,7 @@ function updateProductDots() {
       card.classList.remove('is-disabled');
       card.disabled = false;
     }
+
   });
 }
 
@@ -315,13 +335,20 @@ function updateCartDisplay() {
   });
 }
 
+function updateCheckoutButtonState() {
+  completeSaleButton.disabled = cart.length === 0;
+}
+
 function renderCart() {
   cartItems.innerHTML = "";
 
-  clearCartButton.style.display = cart.length > 0 ? "inline-flex" : "none";
+  var hasItems = cart.length > 0;
+  clearCartButton.style.display = hasItems ? "inline-flex" : "none";
   if (cartTaxToggle && taxEnabled) {
-    cartTaxToggle.style.display = cart.length > 0 ? "inline-flex" : "none";
+    cartTaxToggle.style.display = hasItems ? "inline-flex" : "none";
   }
+  var denomChips = document.getElementById('denom-chips');
+  if (denomChips) denomChips.style.display = hasItems ? 'flex' : 'none';
 
   if (cart.length === 0) {
     cartItems.innerHTML = `<p class="cart-empty-message">No items added yet.</p>`;
@@ -367,6 +394,7 @@ function renderCart() {
   attachCartEvents();
   updateChangeDisplay();
   updateProductDots();
+  updateCheckoutButtonState();
 }
 
 function clearCart() {
@@ -488,7 +516,7 @@ async function completeSale() {
   } catch (err) {
     showApiError('Network error. Is the server running?');
   } finally {
-    completeSaleButton.disabled = false;
+    updateCheckoutButtonState();
   }
 }
 
