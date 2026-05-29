@@ -13,6 +13,9 @@
     '.api-toast--error{background:#e53e3e}' +
     '.api-toast--success{background:#38a169}' +
     '.api-toast span{flex:1}' +
+    '.api-toast-content{flex:1;display:flex;flex-direction:column;gap:3px}' +
+    '.api-toast-action{align-self:flex-start;background:none;border:none;padding:0;margin:0;color:#fff;font-weight:600;font-family:inherit;font-size:14px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}' +
+    '.api-toast-action:hover{opacity:0.85}' +
     '.api-toast-close{background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:20px;padding:0 2px;line-height:1;flex-shrink:0}' +
     '.api-toast-close:hover{color:#fff}';
   document.head.appendChild(s);
@@ -46,7 +49,13 @@ function showApiSuccess(message) {
   _showToast(message || 'Done.', 'success');
 }
 
-function _showToast(message, type) {
+// Success toast with a single inline action link (e.g. "Add stock now ->").
+// Non-blocking: it still auto-dismisses; the action fires onClick if tapped.
+function showActionToast(message, actionLabel, onAction, type) {
+  _showToast(message || 'Done.', type || 'success', { label: actionLabel, onClick: onAction });
+}
+
+function _showToast(message, type, action) {
   var container = document.getElementById('api-toast-container');
   if (!container) {
     container = document.createElement('div');
@@ -57,9 +66,30 @@ function _showToast(message, type) {
   var toast = document.createElement('div');
   toast.className = 'api-toast api-toast--' + type;
 
-  var msgSpan = document.createElement('span');
-  msgSpan.textContent = message;
-  toast.appendChild(msgSpan);
+  if (action && action.label) {
+    var content = document.createElement('div');
+    content.className = 'api-toast-content';
+
+    var msgSpan = document.createElement('span');
+    msgSpan.textContent = message;
+    content.appendChild(msgSpan);
+
+    var actionBtn = document.createElement('button');
+    actionBtn.type = 'button';
+    actionBtn.className = 'api-toast-action';
+    actionBtn.textContent = action.label;
+    actionBtn.addEventListener('click', function () {
+      _dismissToast(toast);
+      if (typeof action.onClick === 'function') action.onClick();
+    });
+    content.appendChild(actionBtn);
+
+    toast.appendChild(content);
+  } else {
+    var msgSpan = document.createElement('span');
+    msgSpan.textContent = message;
+    toast.appendChild(msgSpan);
+  }
 
   var closeBtn = document.createElement('button');
   closeBtn.className = 'api-toast-close';

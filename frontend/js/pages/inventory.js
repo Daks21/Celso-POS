@@ -141,6 +141,27 @@ function renderInventory(list) {
   attachRestockEvents();
 }
 
+// Deep-link from the Products page: ?restock=<id> opens that product's restock
+// box on load (the "Add stock now ->" toast after creating a product). The
+// param is stripped afterward so a manual refresh doesn't reopen the modal.
+function maybeOpenRestockFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('restock');
+  if (!id) return;
+
+  if (isAdmin()) {
+    const product = products.find(function (p) { return String(p.id) === String(id); });
+    if (product) {
+      restockingId = id;
+      openRestockModal(id);
+    }
+  }
+
+  params.delete('restock');
+  const qs = params.toString();
+  history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : ''));
+}
+
 function attachRestockEvents() {
   if (!isAdmin()) return;
 
@@ -271,6 +292,8 @@ async function refreshInventory() {
   renderCategorySelect();
   await renderSummary();
   applyFilters();
+
+  maybeOpenRestockFromQuery();
 
   // Gate the inventory tour: only fire when the table has at least one product
   // with a stock row rendered. Otherwise the .action-btn / .stock-dot steps

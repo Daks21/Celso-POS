@@ -3,6 +3,8 @@ let editingProductId = null;
 
 checkAuth();
 
+const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+
 const productsTableBody = document.getElementById("products-table-body");
 
 const productModal = document.getElementById("product-modal");
@@ -157,8 +159,11 @@ productForm.addEventListener("submit", async function (event) {
     if (result && result.success) {
       await refreshProducts();
       closeProductModal();
-      if (isNewProduct && typeof OnboardingChecklist !== 'undefined') {
-        OnboardingChecklist.complete('addProduct');
+      if (isNewProduct) {
+        if (typeof OnboardingChecklist !== 'undefined') {
+          OnboardingChecklist.complete('addProduct');
+        }
+        showAddStockToast(result.data);
       }
     } else {
       showApiError(result ? result.message : 'Failed to save product.');
@@ -295,6 +300,22 @@ function closeProductModal() {
   productModal.style.display = "none";
   productForm.reset();
   editingProductId = null;
+}
+
+// After creating a product (which always starts at stock = 0), nudge the owner
+// to add stock. Restock is admin-only server-side, so non-admins just get a
+// plain confirmation with no dead-end action link.
+function showAddStockToast(product) {
+  if (!product || product.id == null) return;
+  const name = product.name || 'Product';
+  const isAdmin = currentUser && currentUser.role === 'admin';
+  if (isAdmin && typeof showActionToast === 'function') {
+    showActionToast('"' + name + '" added', 'Add stock now →', function () {
+      window.location.href = 'inventory.html?restock=' + encodeURIComponent(product.id);
+    });
+  } else if (typeof showApiSuccess === 'function') {
+    showApiSuccess('"' + name + '" added');
+  }
 }
 
 document.addEventListener('click', function (e) {

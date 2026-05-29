@@ -1036,7 +1036,9 @@
         products always start with stock = 0. Stock is added separately
         on the Inventory page via the per-product restock modal. This
         keeps Products focused on defining the item + pricing, and
-        Inventory on quantity.
+        Inventory on quantity. After saving a new product, a one-tap
+        "Add stock now →" toast links straight to that item's restock
+        box on Inventory (admin only — restock is admin-gated).
 
     Module 1.5 — Inventory Page
       - Inventory table with status filters
@@ -1047,7 +1049,9 @@
         is quantity-only — the money spent buying stock is recorded
         separately as a withdrawal on the Finance page, which keeps
         money-out single-entry (no double counting). A "+ New product"
-        header link jumps to Products for items not yet in the catalog.
+        header link jumps to Products for items not yet in the catalog;
+        conversely, the Products "Add stock now →" toast deep-links back
+        here (?restock=<id>) and auto-opens that item's restock box.
 
     Module 1.6 — POS / Sales Interface (order.html)
       - Two-panel layout: product grid + cart
