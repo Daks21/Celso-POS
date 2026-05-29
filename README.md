@@ -441,14 +441,18 @@
       + total_paid      DECIMAL(10,2) NULL   total paid to supplier
       + payment_method  ENUM('cash','bank','credit') NULL
       + supplier_name   VARCHAR(100) NULL
-    On restock with total_paid > 0, a corresponding cash_movements row
-    is auto-created (type='opex', category='restock', source='restock',
-    source_id=inventory_adjustments.id).
+    These columns and the auto-created restock opex row are BACKEND-READY
+    but NOT surfaced in the current MVP UI: when total_paid > 0 is supplied,
+    a cash_movements row is created (type='opex', category='restock',
+    source='restock', source_id=inventory_adjustments.id). The MVP restock
+    modal is quantity-only and never sends cost fields, so this path is
+    reserved for a future dedicated inventory module — money spent on stock
+    is recorded manually on the Finance page instead.
 
     products:
       Product creation now enforces initial stock = 0. All stock entry
-      flows through the inventory restock modal, ensuring exactly one
-      cost-capture point.
+      flows through the inventory restock modal — this separates concerns
+      (Products defines the item and its cost; Inventory adds quantity).
 
     cash_movements:
       + monthly_due   DECIMAL(10,2) NULL   borrowed-loan monthly repayment
@@ -506,8 +510,9 @@
     POST   /               Auth required
       Body: { name, category, price, cost, unit }
       Initial stock is always 0 — stock is added exclusively via the
-      restock endpoint (POST /api/inventory/:productId/adjust) so that
-      cost capture has a single funnel into cash_movements (Phase 5).
+      restock endpoint (POST /api/inventory/:productId/adjust). Product
+      cost is captured here on the product record (the source for
+      COGS/profit); quantity is added later on the Inventory page.
       → 201 { success, data: Product }
       → 400 validation error
 
@@ -569,14 +574,16 @@
       restock/return → adds stock | damage/adjustment → removes
       Stock never goes below 0.
 
-      Phase 5 cost capture (restock only):
-        If recordExpense === true (default for restock when totalPaid > 0),
-        the inventory_adjustment is persisted with unit_cost, total_paid,
+      Phase 5 cost capture (restock only) — BACKEND-READY, NOT USED BY THE
+      CURRENT MVP UI (reserved for a future dedicated inventory module):
+        If recordExpense === true (when totalPaid > 0), the
+        inventory_adjustment is persisted with unit_cost, total_paid,
         payment_method, supplier_name — and a cash_movements row is
         atomically created (type='opex', category='restock',
         source='restock', source_id=adjustment.id).
-        If recordExpense === false, stock is added without any expense
-        entry (for free / leftover / gifted stock).
+        The MVP restock modal is quantity-only and omits these fields, so
+        stock is added without an expense entry; money spent on stock is
+        recorded manually on the Finance page.
 
       → 200 { success, data: { product, adjustment, cashMovement? } }
 
@@ -1035,12 +1042,12 @@
       - Inventory table with status filters
       - Per-product restock modal
       - Stock status summary (total, ok, low, out)
-      - Note (Phase 5): the restock modal gains a "Binili ko ito
-        (may gastos)" checkbox. When checked, the modal reveals
-        Amount paid, Supplier, and Payment method fields, and the
-        backend atomically creates a cash_movements row alongside
-        the inventory_adjustment. When unchecked, stock is added
-        with no expense entry (free / leftover / gifted stock).
+      - Note (Phase 5): new products are created with stock = 0, so all
+        stock is added here through the per-product restock modal. Restock
+        is quantity-only — the money spent buying stock is recorded
+        separately as a withdrawal on the Finance page, which keeps
+        money-out single-entry (no double counting). A "+ New product"
+        header link jumps to Products for items not yet in the catalog.
 
     Module 1.6 — POS / Sales Interface (order.html)
       - Two-panel layout: product grid + cart
@@ -1196,7 +1203,9 @@
         fields (unitCost, totalPaid, paymentMethod, supplierName)
         and a recordExpense toggle. On restock with recordExpense
         true, a cash_movements row (type='opex', category='restock')
-        is auto-created in the same transaction as the adjustment.
+        is auto-created in the same transaction. This path is
+        backend-ready but unused by the current MVP UI (quantity-only
+        restock); money-out is recorded manually on Finance instead.
 
     Module 2.7 — Frontend-to-Backend Integration
       - api.js: centralized JWT HTTP client (auto-attach token,
@@ -1504,12 +1513,15 @@
       required), with borrowed-loan repayment terms; fast entry
     - Sales auto-log as sales_revenue (source='sale') so revenue
       appears inline with cashflow without double entry
-    - Restocks auto-log as opex (type='opex', category='restock',
-      source='restock') so the owner sees full money-out picture
-      without double entry
-    - Product creation locked to initial stock = 0 — all stock entry
-      flows through the restock modal, ensuring exactly one
-      cost-capture point in the system
+    - Money spent buying stock is recorded manually on the Finance page
+      (a capital withdrawal). Restock is quantity-only and does NOT
+      auto-log an expense, so money-out stays single-entry (no double
+      counting). The backend can auto-create a restock opex row, but the
+      MVP UI deliberately doesn't trigger it — reserved for a future
+      dedicated inventory module.
+    - Product creation locked to initial stock = 0 — this separates
+      concerns: Products defines the item and its cost, the Inventory
+      page adds quantity. All stock entry flows through the restock modal.
 
   REAL-WORLD CONTEXT (why this scope matters):
     PH MSME owners often borrow their starting capital from microfinance
@@ -1624,7 +1636,9 @@
 
     Module 5.4 — Restock Integration + Product Creation Lock [COMPLETE]
       - inventory_adjustments schema extended with unit_cost,
-        total_paid, payment_method, supplier_name columns
+        total_paid, payment_method, supplier_name columns (backend-ready
+        cost capture; the MVP restock UI is quantity-only and doesn't use
+        them — money-out is recorded manually on Finance)
       - Products controller enforces initial stock = 0 on create
       - Finance sidebar link added between Products and Analytics
       - "Finance" appears in every page's sidebar nav
@@ -1856,7 +1870,7 @@
   NODE REQUIREMENT: >= 18.0.0
 
 ================================================================
-  END OF DOCUMENT — Version 7.3
+  END OF DOCUMENT — Version 7.4
   Phase 4 AI COMPLETE | Phase 5 Finance COMPLETE | Phase 6 Onboarding COMPLETE
   Post-ship:
     • Timezone infrastructure — store-wide timezone setting (app_settings),
@@ -1890,4 +1904,14 @@
                   avg × days remaining). Zero DB schema changes.
     • QA fixes — accessibility, step counts, celebration modal,
                  finance.html CSS link
+    • Inventory MVP — restock is quantity-only; the Phase 5 restock
+                 cost-capture UI ("Binili ko ito / may gastos") was
+                 removed. Money spent on stock is recorded manually as a
+                 withdrawal on the Finance page, keeping money-out single-
+                 entry (the backend cost params remain, reserved for a
+                 future dedicated inventory module). Also: a "+ New product"
+                 header link to Products, client-side whole-number quantity
+                 validation, XSS-escaped product name/category/unit, and the
+                 Low Stock summary count aligned with the table status dots
+                 (inclusive threshold).
 ================================================================
