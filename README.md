@@ -344,8 +344,8 @@
   TABLE: products
   ─────────────────────────────────────────────────────────────
     id          INT           PK, AUTO_INCREMENT
-    name        VARCHAR(100)  NOT NULL
-    category    VARCHAR       NOT NULL
+    name        VARCHAR(150)  NOT NULL
+    category    VARCHAR(100)  NOT NULL
     price       DECIMAL(10,2) NOT NULL, > 0
     cost        DECIMAL(10,2) >= 0
     stock       INT           >= 0, default 0
@@ -1031,12 +1031,12 @@
     Module 1.4 — Product Management Page
       - Full CRUD: add, edit, delete products
       - Search and category filter
-      - Stock color coding (ok / low / out)
-      - Summary stats row
-      - Note (Phase 5): "stock" field is hidden on the create form —
-        new products always start with stock = 0. All stock entry
-        flows through the Inventory restock modal so the Phase 5
-        cost-capture funnel stays single-source.
+      - Per-product price and cost (cost is the source for COGS/profit)
+      - Note (Phase 5): the create form has no "stock" field — new
+        products always start with stock = 0. Stock is added separately
+        on the Inventory page via the per-product restock modal. This
+        keeps Products focused on defining the item + pricing, and
+        Inventory on quantity.
 
     Module 1.5 — Inventory Page
       - Inventory table with status filters

@@ -95,7 +95,10 @@
       "PowerShell(npm install *)",
       "PowerShell(npx playwright install chromium 2>&1 | Select-Object -Last 5)",
       "Bash(wmic process *)",
-      "Bash(powershell -Command \"Get-CimInstance Win32_Process -Filter 'ProcessId=12488' | Select-Object -Property ProcessId,CreationDate,CommandLine | Format-List\")"
+      "Bash(powershell -Command \"Get-CimInstance Win32_Process -Filter 'ProcessId=12488' | Select-Object -Property ProcessId,CreationDate,CommandLine | Format-List\")",
+      "PowerShell(Test-NetConnection *)",
+      "PowerShell(git *)",
+      "PowerShell(npm root *)"
     ]
   }
 }

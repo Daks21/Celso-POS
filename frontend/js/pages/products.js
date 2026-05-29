@@ -189,11 +189,14 @@ function renderProducts(productList) {
   (productList || products).forEach(function (product) {
     const row = document.createElement("tr");
 
+    const name     = escapeHtml(product.name);
+    const category = escapeHtml(product.category);
+
     row.innerHTML = `
-      <td>${product.name}</td>
-      <td>${product.category}</td>
-      <td>₱${product.price.toLocaleString()}</td>
-      <td>₱${product.cost.toLocaleString()}</td>
+      <td>${name}</td>
+      <td>${category}</td>
+      <td>${formatPeso(Number(product.price))}</td>
+      <td>${formatPeso(Number(product.cost))}</td>
       <td class="actions-cell">
         <div class="kebab-wrapper">
           <button type="button" class="kebab-btn" data-id="${product.id}" title="Actions">

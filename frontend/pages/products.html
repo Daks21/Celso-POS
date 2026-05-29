@@ -218,6 +218,9 @@
               name="product-price"
               class="no-spinner"
               placeholder="0.00"
+              min="0"
+              step="0.01"
+              inputmode="decimal"
               required
               autocomplete="off"
             />
@@ -232,6 +235,9 @@
               name="product-cost"
               class="no-spinner"
               placeholder="0.00"
+              min="0"
+              step="0.01"
+              inputmode="decimal"
               required
               autocomplete="off"
             />
@@ -247,6 +253,9 @@
               <option value="bottle">bottle</option>
               <option value="sachet">sachet</option>
               <option value="can">can</option>
+              <option value="box">box</option>
+              <option value="kg">kg</option>
+              <option value="liter">liter</option>
             </select>
             <p id="product-unit-error" class="form-error"></p>
           </div>
