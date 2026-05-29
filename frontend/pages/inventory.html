@@ -136,7 +136,10 @@
               <p>Monitor stock levels and restock products</p>
             </div>
             <div class="inventory-header-actions" id="admin-restock-header">
-              <!-- Admin only: shown by JS -->
+              <a href="products.html" class="secondary-button inventory-new-product">
+                <i data-lucide="plus"></i>
+                <span>New product</span>
+              </a>
             </div>
           </div>
 
@@ -200,20 +203,18 @@
       </div>
       <div class="form-group" style="margin-top: 1rem;">
         <label for="restock-quantity">Quantity to Add</label>
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
-          <input
-            type="number"
-            id="restock-quantity"
-            class="search-input no-spinner"
-            placeholder="Enter quantity"
-            min="1"
-            style="flex: 1;"
-          />
-          <button type="button" class="submit-button"
-                  id="confirm-restock" style="width: auto; white-space: nowrap;">Add Stock</button>
-        </div>
+        <input
+          type="number"
+          id="restock-quantity"
+          class="search-input no-spinner"
+          placeholder="Enter quantity"
+          min="1"
+          step="1"
+        />
         <p id="restock-error" class="form-error"></p>
       </div>
+
+      <button type="button" class="submit-button" id="confirm-restock">Add Stock</button>
 
     </div>
   </div>

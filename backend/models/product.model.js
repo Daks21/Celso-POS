@@ -146,7 +146,7 @@ const getInventoryCounts = async (threshold = 50) => {
        COUNT(*)                                                   AS totalProducts,
        COALESCE(SUM(stock), 0)                                    AS totalItems,
        SUM(CASE WHEN stock = 0              THEN 1 ELSE 0 END)    AS outOfStockCount,
-       SUM(CASE WHEN stock > 0 AND stock < ? THEN 1 ELSE 0 END)  AS lowStockCount
+       SUM(CASE WHEN stock > 0 AND stock <= ? THEN 1 ELSE 0 END)  AS lowStockCount
      FROM products
      WHERE is_active = 1`,
     [threshold]

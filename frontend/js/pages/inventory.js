@@ -117,6 +117,10 @@ function renderInventory(list) {
     const status = getStockStatus(product.stock);
     const row    = document.createElement('tr');
 
+    const name     = escapeHtml(product.name);
+    const category = escapeHtml(product.category);
+    const unit     = escapeHtml(product.unit);
+
     const restockCell = isAdmin()
       ? '<td><button type="button" class="action-btn" data-id="' + product.id + '" title="Restock">' +
           '<i data-lucide="plus"></i>' +
@@ -124,9 +128,9 @@ function renderInventory(list) {
       : '<td></td>';
 
     row.innerHTML =
-      '<td><strong>' + product.name + '</strong><span class="row-sub">' + product.category + '</span></td>' +
-      '<td>' + product.category + '</td>' +
-      '<td>' + product.stock + ' ' + product.unit + '</td>' +
+      '<td><strong>' + name + '</strong><span class="row-sub">' + category + '</span></td>' +
+      '<td>' + category + '</td>' +
+      '<td>' + product.stock + ' ' + unit + '</td>' +
       '<td><span class="stock-dot ' + status.dotCls + '"></span></td>' +
       restockCell;
 
@@ -153,8 +157,8 @@ function openRestockModal(productId) {
   if (!product) return;
 
   restockProductInfo.innerHTML =
-    '<h3>' + product.name + '</h3>' +
-    '<p>Current stock: ' + product.stock + ' ' + product.unit + '</p>';
+    '<h3>' + escapeHtml(product.name) + '</h3>' +
+    '<p>Current stock: ' + product.stock + ' ' + escapeHtml(product.unit) + '</p>';
 
   restockQuantityInput.value = '';
   restockError.textContent   = '';
@@ -175,8 +179,8 @@ async function handleRestock() {
     return;
   }
 
-  if (quantity <= 0) {
-    restockError.textContent = 'Quantity must be greater than 0.';
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    restockError.textContent = 'Quantity must be a whole number greater than 0.';
     return;
   }
 
