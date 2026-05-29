@@ -234,6 +234,14 @@
     </div>
   </div>
 
+  <div class="mobile-cart-bar" id="mobile-cart-bar">
+    <div class="mobile-cart-bar-info">
+      <span id="mobile-cart-count">0 items</span>
+      <strong id="mobile-cart-total">₱0.00</strong>
+    </div>
+    <button type="button" class="mobile-cart-bar-btn" id="mobile-cart-bar-btn">View Cart</button>
+  </div>
+
   <div class="modal-overlay" id="receipt-modal">
     <div class="receipt-modal-card">
       <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
@@ -242,8 +250,8 @@
 
       <div class="receipt" id="receipt">
         <div class="receipt-header">
-          <h2>Celso POS Store</h2>
-          <p>123 Sample Street, Quezon City</p>
+          <h2 id="receipt-store-name">Celso POS Store</h2>
+          <p id="receipt-store-address">123 Sample Street, Quezon City</p>
           <p>Philippines</p>
 
           <div class="receipt-meta">

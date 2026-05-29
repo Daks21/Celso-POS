@@ -217,6 +217,25 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
+    // ── Store Info (auto-saves on change) ──
+    const storeNameInput    = document.getElementById('store-name-input');
+    const storeAddressInput = document.getElementById('store-address-input');
+
+    if (storeNameInput) {
+      storeNameInput.value = localStorage.getItem('storeName') || '';
+      storeNameInput.addEventListener('change', function () {
+        localStorage.setItem('storeName', storeNameInput.value.trim());
+        syncToDb();
+      });
+    }
+    if (storeAddressInput) {
+      storeAddressInput.value = localStorage.getItem('storeAddress') || '';
+      storeAddressInput.addEventListener('change', function () {
+        localStorage.setItem('storeAddress', storeAddressInput.value.trim());
+        syncToDb();
+      });
+    }
+
     // Calculate and display avatar initials
     if (avatarEl) {
       const names = fullName.split(' ');

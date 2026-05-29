@@ -128,6 +128,8 @@ function collectCurrentPreferences(userId) {
     osEnabled:                userPrefs.osEnabled === true,
     advancedAnalytics:        userPrefs.advancedAnalytics === true,
     monthlyRevenueGoal:       userPrefs.monthlyRevenueGoal != null ? userPrefs.monthlyRevenueGoal : null,
+    storeName:                localStorage.getItem('storeName')    || '',
+    storeAddress:             localStorage.getItem('storeAddress') || '',
   };
 }
 

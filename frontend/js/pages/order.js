@@ -84,6 +84,17 @@ paymentAmountInput.addEventListener("keydown", function (e) {
   if (e.key === 'Enter') { e.preventDefault(); completeSale(); }
 });
 
+var mobileCartBarBtn = document.getElementById('mobile-cart-bar-btn');
+if (mobileCartBarBtn) {
+  mobileCartBarBtn.addEventListener('click', function () {
+    var cartSection = document.querySelector('.pos-cart');
+    if (cartSection) {
+      cartSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(function () { paymentAmountInput.focus(); }, 400);
+    }
+  });
+}
+
 var denomChipsEl = document.getElementById('denom-chips');
 if (denomChipsEl) {
   denomChipsEl.addEventListener('click', function (e) {
@@ -306,6 +317,7 @@ function updateCartDisplay() {
 
   updateChangeDisplay();
   updateProductDots();
+  updateMobileCartBar();
 
   cart.forEach(function (item) {
     const cartItemElement = cartItems.querySelector(`[data-product-id="${item.productId}"]`);
@@ -337,6 +349,20 @@ function updateCartDisplay() {
 
 function updateCheckoutButtonState() {
   completeSaleButton.disabled = cart.length === 0;
+}
+
+function updateMobileCartBar() {
+  var bar = document.getElementById('mobile-cart-bar');
+  if (!bar) return;
+  var hasItems = cart.length > 0;
+  var subtotal = getCartTotal();
+  var tax = (taxEnabled && cartTaxOn) ? subtotal * taxRate : 0;
+  var total = subtotal + tax;
+  var itemCount = cart.reduce(function (n, i) { return n + i.quantity; }, 0);
+  document.getElementById('mobile-cart-count').textContent = itemCount === 1 ? '1 item' : itemCount + ' items';
+  document.getElementById('mobile-cart-total').textContent = formatPeso(total);
+  bar.classList.toggle('is-visible', hasItems);
+  document.body.classList.toggle('mobile-bar-active', hasItems);
 }
 
 function renderCart() {
@@ -395,6 +421,7 @@ function renderCart() {
   updateChangeDisplay();
   updateProductDots();
   updateCheckoutButtonState();
+  updateMobileCartBar();
 }
 
 function clearCart() {
@@ -521,6 +548,11 @@ async function completeSale() {
 }
 
 function showReceipt(sale) {
+  var nameEl = document.getElementById('receipt-store-name');
+  var addrEl = document.getElementById('receipt-store-address');
+  if (nameEl) nameEl.textContent = localStorage.getItem('storeName')    || 'Celso POS Store';
+  if (addrEl) addrEl.textContent = localStorage.getItem('storeAddress') || '123 Sample Street, Quezon City';
+
   receiptNumber.textContent = sale.receiptNo || ('RCPT-' + String(sale.id).padStart(6, '0'));
   receiptDate.textContent = formatDateTz(sale.timestamp);
   receiptTime.textContent = formatTimeTz(sale.timestamp);

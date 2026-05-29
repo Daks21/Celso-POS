@@ -32,6 +32,11 @@ receiptModal.addEventListener("click", function (event) {
 });
 
 function showReceipt(sale) {
+  var nameEl = document.getElementById('receipt-store-name');
+  var addrEl = document.getElementById('receipt-store-address');
+  if (nameEl) nameEl.textContent = localStorage.getItem('storeName')    || 'Celso POS Store';
+  if (addrEl) addrEl.textContent = localStorage.getItem('storeAddress') || '123 Sample Street, Quezon City';
+
   receiptNumber.textContent = sale.receiptNo || `RCPT-${sale.id}`;
   receiptDate.textContent = formatDateTz(sale.timestamp);
   receiptTime.textContent = formatTimeTz(sale.timestamp);

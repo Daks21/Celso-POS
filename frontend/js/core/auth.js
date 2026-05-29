@@ -188,6 +188,9 @@ function _cachePreferences(prefs, userId) {
     showThemeToggle: p.showThemeToggle,
   }));
 
+  localStorage.setItem('storeName',    p.storeName    || '');
+  localStorage.setItem('storeAddress', p.storeAddress || '');
+
   // Restore user-specific prefs blob (Os toggle, advanced analytics, etc.)
   var userPrefsKey = 'prefs_' + String(userId);
   var userPrefs = {};
