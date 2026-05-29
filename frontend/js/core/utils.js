@@ -13,8 +13,10 @@
     '.api-toast--error{background:#e53e3e}' +
     '.api-toast--success{background:#38a169}' +
     '.api-toast span{flex:1}' +
-    '.api-toast-content{flex:1;display:flex;flex-direction:column;gap:3px}' +
-    '.api-toast-action{align-self:flex-start;background:none;border:none;padding:0;margin:0;color:#fff;font-weight:600;font-family:inherit;font-size:14px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}' +
+    '.api-toast-content{flex:1;display:flex;align-items:center;flex-wrap:wrap;gap:6px}' +
+    '.api-toast-content span{flex:0 1 auto}' +
+    '.api-toast-sep{color:rgba(255,255,255,0.6)}' +
+    '.api-toast-action{background:none;border:none;padding:0;margin:0;color:#fff;font-weight:600;font-family:inherit;font-size:14px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}' +
     '.api-toast-action:hover{opacity:0.85}' +
     '.api-toast-close{background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:20px;padding:0 2px;line-height:1;flex-shrink:0}' +
     '.api-toast-close:hover{color:#fff}';
@@ -74,6 +76,12 @@ function _showToast(message, type, action) {
     msgSpan.textContent = message;
     content.appendChild(msgSpan);
 
+    var sep = document.createElement('span');
+    sep.className = 'api-toast-sep';
+    sep.setAttribute('aria-hidden', 'true');
+    sep.textContent = '·';
+    content.appendChild(sep);
+
     var actionBtn = document.createElement('button');
     actionBtn.type = 'button';
     actionBtn.className = 'api-toast-action';
@@ -85,17 +93,18 @@ function _showToast(message, type, action) {
     content.appendChild(actionBtn);
 
     toast.appendChild(content);
+    // No close (×) button: action toasts stay minimal and auto-dismiss.
   } else {
     var msgSpan = document.createElement('span');
     msgSpan.textContent = message;
     toast.appendChild(msgSpan);
-  }
 
-  var closeBtn = document.createElement('button');
-  closeBtn.className = 'api-toast-close';
-  closeBtn.innerHTML = '&times;';
-  closeBtn.addEventListener('click', function () { _dismissToast(toast); });
-  toast.appendChild(closeBtn);
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'api-toast-close';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.addEventListener('click', function () { _dismissToast(toast); });
+    toast.appendChild(closeBtn);
+  }
 
   container.appendChild(toast);
   requestAnimationFrame(function () { toast.classList.add('is-visible'); });

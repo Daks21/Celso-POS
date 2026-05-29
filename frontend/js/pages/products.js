@@ -307,14 +307,13 @@ function closeProductModal() {
 // plain confirmation with no dead-end action link.
 function showAddStockToast(product) {
   if (!product || product.id == null) return;
-  const name = product.name || 'Product';
   const isAdmin = currentUser && currentUser.role === 'admin';
   if (isAdmin && typeof showActionToast === 'function') {
-    showActionToast('"' + name + '" added', 'Add stock now →', function () {
+    showActionToast('Product added', 'Add stock now →', function () {
       window.location.href = 'inventory.html?restock=' + encodeURIComponent(product.id);
     });
   } else if (typeof showApiSuccess === 'function') {
-    showApiSuccess('"' + name + '" added');
+    showApiSuccess('Product added');
   }
 }
 
