@@ -3,6 +3,8 @@ dotenv.config();
 const db   = require('./config/db.config');
 const http = require('http');
 const fs   = require('fs');
+const { localExpr, tzParam, dateInTz } = require('./utils/tz');
+const settings = require('./models/settings.model');
 
 const req = (method, path, body, token) => new Promise((resolve, reject) => {
   const opts = {
@@ -87,11 +89,18 @@ async function run() {
   // ── /api/sales/summary revenue ────────────────────────────────
   console.log('\n☐  GET /api/sales/summary returns correct revenue');
   const summary = await req('GET', '/api/sales/summary', null, token);
-  const [dbRevRow] = await db.query('SELECT COALESCE(SUM(total),0) AS rev FROM sales');
-  const dbRev = parseFloat(dbRevRow[0].rev);
+  // sales/summary is today-only, so compare against today's sales using the
+  // same store-TZ day bucketing the endpoint uses — not the all-time SUM
+  // (which would wrongly include historical sales like the seed's).
+  const today = dateInTz(settings.getTimezone());
+  const [dbTodayRow] = await db.query(
+    `SELECT COALESCE(SUM(total),0) AS rev FROM sales WHERE DATE(${localExpr('created_at')}) = ?`,
+    [tzParam(), today]
+  );
+  const dbToday = parseFloat(dbTodayRow[0].rev);
   check('Endpoint → 200', summary.status === 200);
-  check('Revenue matches DB SUM(total)', Math.abs((summary.body.data?.totalRevenue ?? -1) - dbRev) < 0.01,
-        `(api=${summary.body.data?.totalRevenue}, db=${dbRev})`);
+  check("Revenue matches today's DB sales", Math.abs((summary.body.data?.totalRevenue ?? -1) - dbToday) < 0.01,
+        `(api=${summary.body.data?.totalRevenue}, db=${dbToday})`);
 
   // ── /api/inventory/low-stock ──────────────────────────────────
   console.log('\n☐  GET /api/inventory/low-stock correct products');
@@ -112,9 +121,14 @@ async function run() {
   check('GET /api/analytics/heatmap → 200',        heatmap.status === 200);
   check('Heatmap has ≥ 1 date entry',              Object.keys(heatmap.body.data || {}).length >= 1);
 
-  const kpis = await req('GET', '/api/analytics/kpis', null, token);
+  // Window the KPI call to all-time so it can be checked against SUM(total)
+  // over all sales (the default 30-day window would exclude older history).
+  const kpis = await req('GET', '/api/analytics/kpis?from=2000-01-01&to=' + today, null, token);
   check('GET /api/analytics/kpis → 200',           kpis.status === 200);
-  check('KPI totalRevenue matches DB',             Math.abs((kpis.body.data?.totalRevenue ?? -1) - dbRev) < 0.01);
+  const [dbAllRow] = await db.query('SELECT COALESCE(SUM(total),0) AS rev FROM sales');
+  const dbAll = parseFloat(dbAllRow[0].rev);
+  check('KPI totalRevenue matches DB (all-time)',  Math.abs((kpis.body.data?.totalRevenue ?? -1) - dbAll) < 0.01,
+        `(api=${kpis.body.data?.totalRevenue}, db=${dbAll})`);
 
   const charts = await req('GET', '/api/analytics/charts', null, token);
   check('GET /api/analytics/charts → 200',         charts.status === 200);

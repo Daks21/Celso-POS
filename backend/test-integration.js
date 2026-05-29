@@ -2,6 +2,8 @@ const dotenv = require('dotenv');
 dotenv.config();
 const db  = require('./config/db.config');
 const http = require('http');
+const { dateInTz } = require('./utils/tz');
+const settings = require('./models/settings.model');
 
 const BASE = { hostname: 'localhost', port: 3000 };
 
@@ -115,12 +117,15 @@ async function run() {
   const summary = await req('GET', '/api/sales/summary', null, adminToken);
   check('GET /api/sales/summary → 200', summary.status === 200);
 
-  const kpis = await req('GET', '/api/analytics/kpis', null, adminToken);
+  // Window the KPI call to all-time so it matches SUM(total) over all sales
+  // (the default 30-day window would exclude older history, e.g. seed sales).
+  const today = dateInTz(settings.getTimezone());
+  const kpis = await req('GET', '/api/analytics/kpis?from=2000-01-01&to=' + today, null, adminToken);
   check('GET /api/analytics/kpis → 200',   kpis.status === 200);
   check('totalRevenue is a number',         typeof kpis.body.data?.totalRevenue === 'number');
   check('transactionCount ≥ 1',            kpis.body.data?.transactionCount >= 1);
 
-  // Cross-check: kpis revenue matches DB
+  // Cross-check: kpis revenue (all-time window) matches DB SUM(total)
   const [dbRev] = await db.query('SELECT COALESCE(SUM(total),0) AS rev FROM sales');
   const dbRevNum = parseFloat(dbRev[0].rev);
   check('KPI revenue matches DB SUM(total)', Math.abs(kpis.body.data?.totalRevenue - dbRevNum) < 0.01,

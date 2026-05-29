@@ -190,7 +190,11 @@ function renderSummary(data, profitData) {
     profitHtml =
       '<div class="summary-card ' + profitClass + '">' +
         '<div class="summary-card-header">' +
-          '<span class="summary-label">Profit</span>' +
+          '<span class="summary-label">Profit' +
+            '<span class="profit-info-trigger" id="profit-info-trigger" tabindex="0" role="button" aria-label="What each period shows">' +
+              '<i data-lucide="info"></i>' +
+            '</span>' +
+          '</span>' +
           periodSelectHtml +
         '</div>' +
         '<p class="summary-value">' + formatPeso(profit) + '</p>' +
@@ -261,6 +265,70 @@ function renderSummary(data, profitData) {
     payBtn.addEventListener('click', function () {
       openPayDebtModal();
     });
+  }
+
+  // The Profit info icon is re-created on every render, so re-bind it here.
+  var infoTrigger = document.getElementById('profit-info-trigger');
+  if (infoTrigger) wireProfitInfo(infoTrigger);
+}
+
+// ── Profit "what do the periods mean?" tooltip ──
+// A body-level popover (avoids the summary card's overflow:hidden clipping),
+// positioned with fixed coordinates on hover/focus — same approach as the
+// dashboard items popover.
+
+var PROFIT_INFO_HTML =
+  '<strong class="pinfo-title">Profit by period</strong>' +
+  '<p class="pinfo-lead">Sales − stock cost − expenses, for the period you pick.</p>' +
+  '<ul class="pinfo-list">' +
+    '<li><b>All Time</b> — since you started; includes earlier months, even loss-making ones</li>' +
+    '<li><b>This Month</b> — 1st of this month to today</li>' +
+    '<li><b>Last Month</b> — the previous full month</li>' +
+    '<li><b>Last 3 Months</b> — the last three months</li>' +
+    '<li><b>This Year</b> — January 1 to today</li>' +
+  '</ul>' +
+  '<p class="pinfo-foot">Margin = profit ÷ sales.</p>';
+
+function positionProfitInfo(trigger) {
+  var pop = document.getElementById('profit-info-pop');
+  if (!pop) return;
+  pop.innerHTML = PROFIT_INFO_HTML;
+  pop.style.visibility = 'hidden';
+  pop.classList.add('is-visible');           // measure with layout applied
+  var t = trigger.getBoundingClientRect();
+  var p = pop.getBoundingClientRect();
+  var gap = 8;
+  var top = t.bottom + gap;
+  if (top + p.height > window.innerHeight - 8) top = Math.max(8, t.top - gap - p.height);
+  var left = t.left;
+  if (left + p.width > window.innerWidth - 8) left = window.innerWidth - 8 - p.width;
+  if (left < 8) left = 8;
+  pop.style.top  = top + 'px';
+  pop.style.left = left + 'px';
+  pop.style.visibility = '';
+}
+
+function showProfitInfo(trigger) { positionProfitInfo(trigger); }
+
+function hideProfitInfo() {
+  var pop = document.getElementById('profit-info-pop');
+  if (pop) pop.classList.remove('is-visible');
+}
+
+function wireProfitInfo(trigger) {
+  var isTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  if (isTouch) {
+    trigger.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var pop = document.getElementById('profit-info-pop');
+      if (pop && pop.classList.contains('is-visible')) hideProfitInfo();
+      else showProfitInfo(trigger);
+    });
+  } else {
+    trigger.addEventListener('mouseenter', function () { showProfitInfo(trigger); });
+    trigger.addEventListener('mouseleave', hideProfitInfo);
+    trigger.addEventListener('focus',      function () { showProfitInfo(trigger); });
+    trigger.addEventListener('blur',       hideProfitInfo);
   }
 }
 
@@ -1052,6 +1120,15 @@ document.addEventListener('click', function () {
     d.classList.remove('open');
   });
 });
+
+// Dismiss the Profit info tooltip on outside tap (touch) and when the page
+// scrolls/resizes (its fixed position would otherwise drift away from the icon).
+document.addEventListener('click', function (e) {
+  if (e.target.closest && e.target.closest('#profit-info-trigger')) return;
+  hideProfitInfo();
+});
+window.addEventListener('scroll', hideProfitInfo, true);
+window.addEventListener('resize', hideProfitInfo);
 
 loadData().then(function () {
   if (typeof OnboardingTour !== 'undefined' && typeof OnboardingTours !== 'undefined') {

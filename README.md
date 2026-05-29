@@ -724,7 +724,7 @@
                 capex,
                 profit,         -- grossProfit − opex − capex
                 margin,         -- profit / revenue × 100, 2dp
-                previous: { profit, range: { from, to } },
+                previous: { profit, revenue, range: { from, to } },
                 period:   { from, to }
               } }
       Restock opex is intentionally excluded from `opex` here because its
@@ -1219,12 +1219,11 @@
 
     Module 3.2 — Create Tables + Seed Data
       - schema.sql: all CREATE TABLE statements with constraints
-      - seed.sql: sample users (admin + cashier), 20 products,
-        and sales history for testing
-      - Note (Phase 5): seed.sql will be extended with sample
-        cash_movements (one borrowed capital_in injection, a few
-        opex entries, a couple of owner_draw withdrawals) so demos
-        show the Finance page populated with realistic data.
+      - seed.sql: sample users (admin + cashier), 10 products, a 2025–2026
+        sales history (sales + items + matching sales_revenue), and Phase 5
+        cash_movements (own + borrowed capital with loan terms, opex/capex,
+        debt payments) so the dashboard, analytics, and Finance page open
+        populated with realistic, period-over-period data.
 
     Module 3.3 — Connect Backend to MySQL
       - mysql2/promise connection pool (connectionLimit: 5)
@@ -1583,6 +1582,8 @@
                            window had activity it also appends a named ↑/↓
                            trend (e.g. "32.1% margin · ↑ ₱500 vs last month").
                            All Time shows margin only (no prior to compare).
+                           An info icon by the label opens a hover/tap tooltip
+                           explaining what each period covers.
         Debt Balance:      total loan obligation − debt_payment, floored at 0
                            (a loan's obligation = monthly_due × term_months
                            when set, else its principal); toggleable via
