@@ -82,10 +82,14 @@ async function run() {
   // ── STEP 5: Complete a sale ────────────────────────────────
   console.log('\nSTEP 5 — Complete a sale');
   const [sardineRow] = await db.query(
-    "SELECT id, stock FROM products WHERE name = 'Canned Sardines' AND is_active = 1 LIMIT 1"
+    "SELECT id FROM products WHERE name = 'Canned Sardines' AND is_active = 1 LIMIT 1"
   );
   const sardineId  = sardineRow[0]?.id;
-  const stockBefore = sardineRow[0]?.stock;
+  // Phase 5: stock enters via restock — ensure enough is on hand before the sale
+  // (older runs / dev usage may have drawn it down to 0).
+  await req('POST', `/api/inventory/${sardineId}/adjust`, { quantity: 50, type: 'restock', recordExpense: false }, adminToken);
+  const [beforeRow] = await db.query('SELECT stock FROM products WHERE id = ?', [sardineId]);
+  const stockBefore = beforeRow[0]?.stock;
 
   const saleRes = await req('POST', '/api/sales', {
     items: [{ productId: sardineId, name: 'Canned Sardines', price: 15.00, quantity: 2, lineTotal: 30.00 }],

@@ -962,8 +962,11 @@
     schema.sql uses CREATE TABLE IF NOT EXISTS, so it never alters an
     existing table. When a release adds columns, run the matching
     database/migrate_*.sql once as a privileged user (the app DB user has
-    no DDL rights). Latest:
+    no DDL rights), e.g.:
+         mysql -u root -p celsopos_db < database/migrate_inventory_costs.sql
          mysql -u root -p celsopos_db < database/migrate_loan_terms.sql
+    migrate_inventory_costs adds the Phase 5 cost columns to
+    inventory_adjustments — without it, restock and stock adjustments 500.
 
   FRONTEND CACHE BUSTING (per deploy)
     Static assets are referenced with a ?v=<version> query so browsers

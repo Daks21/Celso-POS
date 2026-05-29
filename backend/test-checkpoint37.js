@@ -60,6 +60,10 @@ async function run() {
   check('Add product → 201', addP.status === 201);
   const pid = addP.body.data?.id;
 
+  // Phase 5: new products start at stock 0 — stock enters via the restock
+  // endpoint, so top it up before checking out below.
+  await req('POST', `/api/inventory/${pid}/adjust`, { quantity: 50, type: 'restock', recordExpense: false }, token);
+
   const [beforeRows] = await db.query('SELECT stock FROM products WHERE id = ?', [pid]);
   const stockBefore  = beforeRows[0]?.stock;
 
