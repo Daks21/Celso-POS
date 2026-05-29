@@ -8,6 +8,29 @@
   grid-template-columns: repeat(3, 1fr);
 }
 
+/* Category + Unit share ONE custom chevron so the two fields look identical.
+   The native <select> arrow is removed (appearance:none) and replaced with the
+   same SVG used on the category input — otherwise the browser-drawn arrow and a
+   custom caret never match. Category stays a free-text datalist input (suggest
+   existing categories AND allow typing a new one); only its look changes. */
+#product-category,
+#product-unit {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: var(--color-background);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+/* Hide the browser's native datalist arrow so it doesn't double up with ours. */
+#product-category::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  cursor: pointer;
+}
+
 .products-toolbar .search-input {
   width: 350px;
   flex-shrink: 0;

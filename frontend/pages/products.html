@@ -183,7 +183,7 @@
         </button>
       </div>
 
-      <form id="product-form" class="product-form" autocomplete="off">
+      <form id="product-form" class="product-form" autocomplete="off" novalidate>
         <div class="form-group">
           <label for="product-name">Product Name</label>
           <input
@@ -204,9 +204,11 @@
             id="product-category"
             name="product-category"
             placeholder="Enter category"
+            list="product-category-list"
             required
             autocomplete="off"
           />
+          <datalist id="product-category-list"></datalist>
           <p id="product-category-error" class="form-error"></p>
         </div>
 

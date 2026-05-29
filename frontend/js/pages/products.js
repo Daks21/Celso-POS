@@ -45,6 +45,25 @@ function renderCategorySelect() {
   });
 }
 
+// Suggest existing categories in the Add/Edit form so the owner reuses
+// "Drinks" instead of inventing "drinks" — but it stays a free-text input,
+// so a genuinely new category can still be typed.
+function renderCategoryDatalist() {
+  const dl = document.getElementById('product-category-list');
+  if (!dl) return;
+
+  const categories = Array.from(new Set(
+    products.map(function (p) { return p.category; }).filter(Boolean)
+  )).sort(function (a, b) { return String(a).localeCompare(String(b)); });
+
+  dl.innerHTML = '';
+  categories.forEach(function (category) {
+    const option = document.createElement('option');
+    option.value = category;
+    dl.appendChild(option);
+  });
+}
+
 function applyFilters() {
   const search = productSearchInput.value.trim().toLowerCase();
 
@@ -106,6 +125,7 @@ async function refreshProducts() {
     hideLoading('#products-table-body');
   }
   renderCategorySelect();
+  renderCategoryDatalist();
   applyFilters();
 
   if (typeof OnboardingTour !== 'undefined' && typeof OnboardingTours !== 'undefined') {
@@ -134,6 +154,54 @@ closeModalButton.addEventListener("click", function () {
   closeProductModal();
 });
 
+const PRODUCT_UNITS = ['piece', 'pack', 'bottle', 'can', 'sachet', 'box', 'kg', 'liter'];
+
+function clearProductErrors() {
+  [productNameInput, productCategoryInput, productPriceInput, productCostInput, productUnitInput]
+    .forEach(function (input) {
+      const group = input.closest('.form-group');
+      if (group) group.classList.remove('has-error');
+    });
+  ['product-name-error', 'product-category-error', 'product-price-error', 'product-cost-error', 'product-unit-error']
+    .forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '';
+    });
+}
+
+// Block submission unless every field is filled and valid. Mirrors the
+// server-side rules so the owner gets an inline message instead of a round-trip
+// error toast. The form carries `novalidate`, so this is the authoritative gate.
+function validateProductForm(data) {
+  clearProductErrors();
+  let firstInvalid = null;
+
+  function fail(input, errorId, message) {
+    const group = input.closest('.form-group');
+    if (group) group.classList.add('has-error');
+    const el = document.getElementById(errorId);
+    if (el) el.textContent = message;
+    if (!firstInvalid) firstInvalid = input;
+  }
+
+  if (!data.name)
+    fail(productNameInput, 'product-name-error', 'Product name is required.');
+  if (!data.category)
+    fail(productCategoryInput, 'product-category-error', 'Category is required.');
+  if (productPriceInput.value.trim() === '' || !Number.isFinite(data.price) || data.price <= 0)
+    fail(productPriceInput, 'product-price-error', 'Price must be a number greater than 0.');
+  if (productCostInput.value.trim() === '' || !Number.isFinite(data.cost) || data.cost < 0)
+    fail(productCostInput, 'product-cost-error', 'Cost must be a number of 0 or more.');
+  if (!data.unit || PRODUCT_UNITS.indexOf(data.unit) === -1)
+    fail(productUnitInput, 'product-unit-error', 'Please select a unit.');
+
+  if (firstInvalid) {
+    firstInvalid.focus();
+    return false;
+  }
+  return true;
+}
+
 productForm.addEventListener("submit", async function (event) {
   event.preventDefault();
 
@@ -144,6 +212,8 @@ productForm.addEventListener("submit", async function (event) {
     cost: Number(productCostInput.value),
     unit: productUnitInput.value
   };
+
+  if (!validateProductForm(productData)) return;
 
   const isNewProduct = editingProductId === null;
   if (submitButton) submitButton.disabled = true;
@@ -262,6 +332,7 @@ function openEditProductModal(productId) {
   const product = products.find(function (p) { return p.id == productId; });
   if (!product) return;
 
+  clearProductErrors();
   editingProductId = productId;
   modalTitle.textContent = "Edit Product";
 
@@ -293,6 +364,7 @@ function openAddProductModal() {
   editingProductId = null;
   modalTitle.textContent = "Add Product";
   productForm.reset();
+  clearProductErrors();
   productModal.style.display = "flex";
 }
 
