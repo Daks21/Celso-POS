@@ -41,14 +41,12 @@ function showReceipt(sale) {
 
   sale.items.forEach(function (item) {
     const row = document.createElement("tr");
-
-    row.innerHTML = `
-      <td>${item.name}</td>
-      <td>${item.quantity}</td>
-      <td>${formatPeso(item.price)}</td>
-      <td>${formatPeso(item.lineTotal)}</td>
-    `;
-
+    [item.name, String(item.quantity), formatPeso(item.price), formatPeso(item.lineTotal)]
+      .forEach(function (text) {
+        const td = document.createElement("td");
+        td.textContent = text;
+        row.appendChild(td);
+      });
     receiptItemsBody.appendChild(row);
   });
 

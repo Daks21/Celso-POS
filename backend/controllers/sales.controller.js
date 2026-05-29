@@ -41,6 +41,13 @@ const createSale = async (req, res, next) => {
     if (typeof subtotal !== 'number' || typeof tax !== 'number' || typeof total !== 'number') {
       return res.status(400).json({ success: false, message: 'subtotal, tax, and total must be numbers' });
     }
+    if (tax < 0) {
+      return res.status(400).json({ success: false, message: 'Tax cannot be negative' });
+    }
+    const parsedTaxRate = Number(taxRate);
+    if (isNaN(parsedTaxRate) || parsedTaxRate < 0 || parsedTaxRate > 1) {
+      return res.status(400).json({ success: false, message: 'taxRate must be a decimal between 0 and 1' });
+    }
 
     // Phase 1 — validate every item, cache DB lookups to avoid duplicate queries
     const productCache = {};
@@ -76,6 +83,12 @@ const createSale = async (req, res, next) => {
     }
     if (Math.abs(serverSubtotal - subtotal) > 0.01) {
       return res.status(400).json({ success: false, message: 'Subtotal does not match item totals' });
+    }
+    if (tax > 0) {
+      const expectedTax = parseFloat((serverSubtotal * parsedTaxRate).toFixed(2));
+      if (Math.abs(expectedTax - tax) > 0.02) {
+        return res.status(400).json({ success: false, message: 'Tax amount does not match the supplied tax rate' });
+      }
     }
     if (Math.abs((subtotal + tax) - total) > 0.01) {
       return res.status(400).json({ success: false, message: 'Total does not match subtotal + tax' });

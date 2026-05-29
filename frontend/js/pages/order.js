@@ -22,10 +22,23 @@ let products = [];
 let cart = [];
 let activeCategory = 'All';
 
-const taxEnabled = localStorage.getItem('taxEnabled') === 'true';
-const taxDefaultOn = localStorage.getItem('taxDefaultOn') === 'true';
-const taxRate = parseFloat(localStorage.getItem('taxRate') || '0');
-let cartTaxOn = taxDefaultOn;
+let taxEnabled   = localStorage.getItem('taxEnabled')   === 'true';
+let taxDefaultOn = localStorage.getItem('taxDefaultOn') === 'true';
+let taxRate      = parseFloat(localStorage.getItem('taxRate') || '0');
+let cartTaxOn    = taxDefaultOn;
+
+function refreshTaxSettings() {
+  taxEnabled   = localStorage.getItem('taxEnabled')   === 'true';
+  taxDefaultOn = localStorage.getItem('taxDefaultOn') === 'true';
+  taxRate      = parseFloat(localStorage.getItem('taxRate') || '0');
+  applyTaxRowVisibility();
+}
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible') refreshTaxSettings();
+});
+window.addEventListener('pageshow', function (e) {
+  if (e.persisted) refreshTaxSettings();
+});
 
 const cartTaxRow = document.getElementById('cart-tax-row');
 const cartSubtotalRow = document.getElementById('cart-subtotal-row');
@@ -250,16 +263,7 @@ function updateQuantity(productId, newQuantity) {
   if (!product) return;
 
   if (newQuantity <= 0) {
-    const confirmed = confirm("Remove this item from the cart?");
-    if (confirmed) {
-      removeFromCart(productId);
-    } else {
-      const quantityInput = document.querySelector(`.quantity-input[data-id="${productId}"]`);
-      if (quantityInput) quantityInput.value = 1;
-      const cartItem = cart.find(function (item) { return item.productId === productId; });
-      if (cartItem) cartItem.quantity = 1;
-      updateCartDisplay();
-    }
+    removeFromCart(productId);
     return;
   }
 

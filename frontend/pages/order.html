@@ -197,6 +197,7 @@
                 class="payment-input"
                 placeholder="Enter payment amount"
                 min="0"
+                inputmode="numeric"
               />
 
               <div class="change-checkout-row">
@@ -225,6 +226,9 @@
 
   <div class="modal-overlay" id="receipt-modal">
     <div class="receipt-modal-card">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+        <button type="button" class="modal-close-button" id="close-receipt-button" title="Close">&#x2715;</button>
+      </div>
 
       <div class="receipt" id="receipt">
         <div class="receipt-header">
