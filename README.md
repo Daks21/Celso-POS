@@ -1617,7 +1617,11 @@
       - Cash flow list (date, type + category + source chip, signed
         amount, notes) paginated at 20 rows; daily sales grouped into
         single rows. Auto-created rows show a "from Restock" / "from
-        POS" pill in the description cell.
+        POS" pill in the description cell. (In the current MVP the app
+        never creates new "from Restock" rows — restock is quantity-only
+        and writes no cash_movements row; that pill is dormant rendering
+        for the backend-ready restock-expense path, and for any such rows
+        present in seed/demo data — see Phase 5.)
       - "+ Add Entry" button (admin only) → modal:
           • Type selector: Capital In | Withdrawal
           • Category selector swaps based on type (required)
