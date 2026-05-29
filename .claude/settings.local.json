@@ -98,7 +98,8 @@
       "Bash(powershell -Command \"Get-CimInstance Win32_Process -Filter 'ProcessId=12488' | Select-Object -Property ProcessId,CreationDate,CommandLine | Format-List\")",
       "PowerShell(Test-NetConnection *)",
       "PowerShell(git *)",
-      "PowerShell(npm root *)"
+      "PowerShell(npm root *)",
+      "PowerShell(Test-Path *)"
     ]
   }
 }
