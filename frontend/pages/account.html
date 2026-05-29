@@ -163,34 +163,30 @@
               </div>
             </div>
 
-            <div class="account-theme-row">
-              <div class="account-theme-label">
-                <h3>Store Name</h3>
-                <p>Business name printed on receipts</p>
+            <div class="store-info-fields">
+              <div class="store-info-field">
+                <label for="store-name-input" class="store-info-label">Store Name</label>
+                <p class="store-info-hint">Business name printed on receipts</p>
+                <input
+                  type="text"
+                  id="store-name-input"
+                  class="store-info-input"
+                  placeholder="e.g. Celso's Store"
+                  maxlength="60"
+                />
               </div>
-              <input
-                type="text"
-                id="store-name-input"
-                class="search-input"
-                placeholder="e.g. Celso's Store"
-                maxlength="60"
-                style="max-width:220px;"
-              />
-            </div>
 
-            <div class="account-theme-row">
-              <div class="account-theme-label">
-                <h3>Store Address</h3>
-                <p>Address line printed below the store name</p>
+              <div class="store-info-field">
+                <label for="store-address-input" class="store-info-label">Store Address</label>
+                <p class="store-info-hint">Full address printed below the store name (include city, province)</p>
+                <input
+                  type="text"
+                  id="store-address-input"
+                  class="store-info-input"
+                  placeholder="e.g. 123 Rizal St, Barangay Uno, Quezon City"
+                  maxlength="80"
+                />
               </div>
-              <input
-                type="text"
-                id="store-address-input"
-                class="search-input"
-                placeholder="e.g. 123 Main St, Quezon City"
-                maxlength="80"
-                style="max-width:220px;"
-              />
             </div>
           </section>
 

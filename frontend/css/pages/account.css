@@ -338,6 +338,51 @@
   font-weight: 600;
 }
 
+/* ── Store Info Fields ── */
+
+.store-info-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.store-info-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.store-info-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.store-info-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.store-info-input {
+  width: 100%;
+  max-width: 480px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-size: 14px;
+  font-family: var(--font-main);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.store-info-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(90, 158, 111, 0.3);
+}
+
 /* ── Responsive ── */
 
 @media (max-width: 600px) {
@@ -357,5 +402,9 @@
   .account-theme-row {
     flex-wrap: wrap;
     gap: 10px;
+  }
+
+  .store-info-input {
+    max-width: 100%;
   }
 }
