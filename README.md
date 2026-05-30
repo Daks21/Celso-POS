@@ -1066,11 +1066,16 @@
         from the grid until restocked (an item fully added to the current cart
         shows disabled). Dots update live as the cart consumes stock.
       - Cart with quantity controls and an optional tax toggle
-      - On-screen payment numpad — the field is readonly, so the OS keyboard
-        never covers the total/checkout. Opens as a bottom sheet on mobile /
+      - On-screen payment numpad — when active the field is readonly, so the OS
+        keyboard never covers the total/checkout. Opens as a bottom sheet on mobile /
         centered popover on desktop, with a live Total/Payment/Change readout,
         additive denomination chips (₱5–₱1000) + an "Exact" shortcut, decimal
         entry, and physical-keyboard support. Live change calculation.
+        Phones & tablets always use the numpad; desktop has a single toggle in
+        Account → New Order (off by default — a keyboard owner types the amount
+        directly and presses Enter to checkout). "Desktop" = the wide two-panel
+        POS layout: width > 1000px (the POS-stacking breakpoint, re-checked live
+        on resize) AND a non-touch pointer, so a tablet keeps the numpad too.
       - Sticky mobile cart bar (item count + total + "View Cart") once the
         cart has items
       - Checkout is disabled while the cart is empty and guarded against
@@ -1098,6 +1103,8 @@
         custom tax rate input (any percentage, 0–100), customizable stock status colors
       - Store Info: store name + address, auto-saved and synced to the DB;
         rendered as the header on printed receipts (POS + History)
+      - New Order: a single "numpad on desktop" toggle (off by default);
+        phones & tablets always use the numpad. Desktop owners type directly.
       - Dashboard row count controls: separate selectors for
         Low Stock Alerts rows and Recent Transactions rows
       - Items popover toggle: show or hide the transaction detail

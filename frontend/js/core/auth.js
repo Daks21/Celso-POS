@@ -167,6 +167,7 @@ function _cachePreferences(prefs, userId) {
     dashboardRecentCount: 5, dashboardWidgets: [],
     navLabel: 'app', logoTarget: 'order.html', showThemeToggle: false,
     financeDebtBalanceVisible: true, osEnabled: false,
+    numpadOnDesktop: false,
   };
   var p = Object.assign({}, DEFAULTS, prefs);
 
@@ -190,6 +191,7 @@ function _cachePreferences(prefs, userId) {
 
   localStorage.setItem('storeName',    p.storeName    || '');
   localStorage.setItem('storeAddress', p.storeAddress || '');
+  localStorage.setItem('numpadOnDesktop', String(p.numpadOnDesktop === true));
 
   // Restore user-specific prefs blob (Os toggle, advanced analytics, etc.)
   var userPrefsKey = 'prefs_' + String(userId);

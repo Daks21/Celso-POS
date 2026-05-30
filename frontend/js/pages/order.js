@@ -22,6 +22,7 @@ let products = [];
 let cart = [];
 let activeCategory = 'All';
 let isSubmitting = false;
+let numpadEnabled = true;
 
 let taxEnabled   = localStorage.getItem('taxEnabled')   === 'true';
 let taxDefaultOn = localStorage.getItem('taxDefaultOn') === 'true';
@@ -35,10 +36,10 @@ function refreshTaxSettings() {
   applyTaxRowVisibility();
 }
 document.addEventListener('visibilitychange', function () {
-  if (document.visibilityState === 'visible') refreshTaxSettings();
+  if (document.visibilityState === 'visible') { refreshTaxSettings(); applyNumpadMode(); }
 });
 window.addEventListener('pageshow', function (e) {
-  if (e.persisted) refreshTaxSettings();
+  if (e.persisted) { refreshTaxSettings(); applyNumpadMode(); }
 });
 
 const cartTaxRow = document.getElementById('cart-tax-row');
@@ -142,7 +143,7 @@ function numpadPress(key) {
 }
 
 function openNumpad() {
-  if (!numpadBackdrop) return;
+  if (!numpadBackdrop || !numpadEnabled) return;
   numpadBackdrop.hidden = false;
   document.body.classList.add('numpad-open');
   if (paymentField) paymentField.setAttribute('aria-expanded', 'true');
@@ -161,11 +162,76 @@ function closeNumpad() {
 }
 
 if (paymentField) {
-  paymentField.addEventListener('click', openNumpad);
+  paymentField.addEventListener('click', function () {
+    if (numpadEnabled) openNumpad();
+    else paymentAmountInput.focus();
+  });
   paymentField.addEventListener('keydown', function (e) {
+    if (!numpadEnabled) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNumpad(); }
   });
 }
+
+// Direct-type mode (numpad off): the field is a normal editable input —
+// type the amount and press Enter to checkout.
+paymentAmountInput.addEventListener('input', function () {
+  if (numpadEnabled) return;
+  updateChangeDisplay();
+});
+paymentAmountInput.addEventListener('keydown', function (e) {
+  if (numpadEnabled) return;
+  if (e.key === 'Enter') { e.preventDefault(); completeSale(); }
+});
+
+// Phones & tablets always use the numpad. Only a genuine desktop (the wide,
+// two-panel POS layout + non-touch pointer) honors the toggle, off by default
+// — a keyboard owner types the amount directly. The ≤1000px width matches the
+// app's POS-stacking breakpoint (below it the layout is the stacked
+// mobile/tablet view), is testable by resizing, and the touch-pointer check
+// keeps a large/landscape tablet on the numpad too.
+function applyNumpadMode() {
+  var tabletOrBelow = !!(window.matchMedia && window.matchMedia('(max-width: 1000px)').matches);
+  var touch         = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  numpadEnabled = tabletOrBelow || touch ||
+    localStorage.getItem('numpadOnDesktop') === 'true';  // desktop toggle, default OFF
+
+  if (!paymentField || !paymentAmountInput) return;
+
+  if (numpadEnabled) {
+    // Pad mode: the wrapper is the focusable control; the input is a display.
+    paymentField.classList.remove('payment-field--editable');
+    paymentField.setAttribute('role', 'button');
+    paymentField.setAttribute('tabindex', '0');
+    paymentAmountInput.setAttribute('readonly', '');
+    paymentAmountInput.setAttribute('inputmode', 'none');
+    paymentAmountInput.setAttribute('aria-hidden', 'true');
+    paymentAmountInput.setAttribute('tabindex', '-1');
+    paymentAmountInput.type = 'text';
+  } else {
+    // Direct-type mode: the input itself is the focusable, tabbable control.
+    // Hide the pad if open, but WITHOUT closeNumpad()'s focus-return (this runs
+    // on load, and we don't want to yank focus to the payment field).
+    if (numpadBackdrop && !numpadBackdrop.hidden) {
+      numpadBackdrop.hidden = true;
+      document.body.classList.remove('numpad-open');
+    }
+    paymentField.classList.add('payment-field--editable');
+    paymentField.removeAttribute('role');
+    paymentField.removeAttribute('tabindex');
+    paymentAmountInput.removeAttribute('readonly');
+    paymentAmountInput.removeAttribute('aria-hidden');
+    paymentAmountInput.removeAttribute('tabindex');
+    paymentAmountInput.setAttribute('inputmode', 'decimal');
+    paymentAmountInput.type = 'number';
+  }
+}
+applyNumpadMode();
+
+// Re-evaluate when crossing the desktop/tablet breakpoint (resize / rotate),
+// so a desktop window dragged narrow gets the numpad and vice-versa, live.
+var _numpadMQ = window.matchMedia('(max-width: 1000px)');
+if (_numpadMQ.addEventListener) _numpadMQ.addEventListener('change', applyNumpadMode);
+else if (_numpadMQ.addListener) _numpadMQ.addListener(applyNumpadMode);
 
 if (numpadSheet) {
   numpadSheet.addEventListener('click', function (e) {

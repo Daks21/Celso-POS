@@ -365,6 +365,16 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     );
 
+    // ── New Order / Payment numpad on desktop (phones & tablets always on) ──
+    initPrefToggle(
+      'numpad-desktop-toggle',
+      localStorage.getItem('numpadOnDesktop') === 'true',  // default OFF
+      function(isOn) {
+        localStorage.setItem('numpadOnDesktop', String(isOn));
+        syncToDb();
+      }
+    );
+
     // ── Timezone (store-wide) ──
     var tzSelect    = document.getElementById('timezone-select');
     var tzSaveBtn   = document.getElementById('save-timezone-btn');

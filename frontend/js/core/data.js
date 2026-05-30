@@ -130,6 +130,7 @@ function collectCurrentPreferences(userId) {
     monthlyRevenueGoal:       userPrefs.monthlyRevenueGoal != null ? userPrefs.monthlyRevenueGoal : null,
     storeName:                localStorage.getItem('storeName')    || '',
     storeAddress:             localStorage.getItem('storeAddress') || '',
+    numpadOnDesktop:          localStorage.getItem('numpadOnDesktop') === 'true',
   };
 }
 

@@ -433,8 +433,12 @@
   pointer-events: none;
 }
 
+/* Suppress the global .payment-input:focus glow (components.css) on the inner
+   input — it rendered as an "oval" glow inside the field in direct-type mode.
+   The focus ring lives on the wrapper instead (see :focus-within below). */
 .payment-field .payment-input:focus {
   outline: none;
+  box-shadow: none;
 }
 
 .payment-field-icon {
@@ -442,6 +446,36 @@
   height: 18px;
   color: var(--color-text-muted);
   flex-shrink: 0;
+}
+
+/* Direct-type mode (numpad disabled): field is a normal editable input */
+.payment-field--editable {
+  cursor: text;
+}
+
+.payment-field--editable .payment-input {
+  pointer-events: auto;
+  cursor: text;
+}
+
+.payment-field--editable .payment-field-icon {
+  display: none;
+}
+
+/* Clean focus ring on the whole field when typing directly */
+.payment-field--editable:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(90, 158, 111, 0.3);
+}
+
+.payment-field .payment-input::-webkit-outer-spin-button,
+.payment-field .payment-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.payment-field .payment-input[type="number"] {
+  -moz-appearance: textfield;
 }
 
 .change-display {
