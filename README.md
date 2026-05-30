@@ -2042,4 +2042,14 @@
                  validation, XSS-escaped product name/category/unit, and the
                  Low Stock summary count aligned with the table status dots
                  (inclusive threshold).
+    • Search UX — All four filter search boxes (Products, Inventory,
+                 New Order/POS, History receipt #) clear with the ESC key
+                 and a tappable "X" button that appears once the field has
+                 text — touch-friendly for the mobile/tablet majority.
+                 Clearing keeps focus for fast retyping. Shared
+                 .search-field / .search-clear styles live in components.css
+                 (the POS reuses .search-clear inside its own
+                 .pos-search-wrapper). The POS Enter-to-add / barcode-scanner
+                 hook is preserved, and its ESC clear is scoped so it never
+                 closes an open payment numpad.
 ================================================================

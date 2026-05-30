@@ -355,8 +355,10 @@
 }
 
 /* ── Search field with inline clear ("X") button ──
-   Shared across Products, Inventory, History. The clear button is hidden
-   until the field has text; ESC and tapping it both clear the input. */
+   .search-field wraps Products / Inventory / History search inputs; the
+   New Order POS search reuses .search-clear inside its own .pos-search-wrapper.
+   The clear button is hidden until the field has text; ESC and tapping it
+   both clear the input. */
 
 .search-field {
   position: relative;
