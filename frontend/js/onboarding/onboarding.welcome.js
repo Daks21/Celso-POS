@@ -13,6 +13,13 @@ const OnboardingWelcome = (() => {
     cashier: 'Your POS is ready. Start by making your first sale.',
   };
 
+  // Panel-1 "here's the path" steps, role-aware so a cashier isn't shown
+  // owner-only setup tasks (log capital / restock) they can't actually do.
+  const STEPS_BY_ROLE = {
+    admin:   ['Log starting capital', 'Add your products', 'Restock them', 'Make your first sale'],
+    cashier: ['Make a sale', 'Check your sales history'],
+  };
+
   function init() {
     if (!OnboardingCore.isFirstLogin()) return false;
     render();
@@ -28,6 +35,16 @@ const OnboardingWelcome = (() => {
     // Pre-select the device's detected zone; the owner can change it here or
     // later in Account Settings.
     const isAdmin = role === 'admin';
+
+    // Build the role-aware step pills for panel 1.
+    const steps = STEPS_BY_ROLE[role] || STEPS_BY_ROLE.cashier;
+    const stepsHtml = steps.map(function (label, i) {
+      return '<div class="onb-step">' +
+               '<span class="onb-step-num">' + (i + 1) + '</span>' +
+               '<span>' + label + '</span>' +
+             '</div>';
+    }).join('');
+
     let detectedTz = 'Asia/Manila';
     try { detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Manila'; } catch (e) {}
     let zones = [];
@@ -63,22 +80,7 @@ const OnboardingWelcome = (() => {
       <h2 id="onb-welcome-title">Welcome to Celso POS</h2>
       <p>Everything you need to manage your store — products, stock, sales, and your money — all in one place.</p>
       <div class="onb-welcome-steps">
-        <div class="onb-step">
-          <span class="onb-step-num">1</span>
-          <span>Log starting capital</span>
-        </div>
-        <div class="onb-step">
-          <span class="onb-step-num">2</span>
-          <span>Add your products</span>
-        </div>
-        <div class="onb-step">
-          <span class="onb-step-num">3</span>
-          <span>Restock them</span>
-        </div>
-        <div class="onb-step">
-          <span class="onb-step-num">4</span>
-          <span>Make your first sale</span>
-        </div>
+        ${stepsHtml}
       </div>
       <button type="button" class="onb-btn-primary" id="onb-welcome-next">Next →</button>
     </div>

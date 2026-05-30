@@ -1,6 +1,6 @@
 const bcrypt  = require('bcrypt');
 const jwt     = require('jsonwebtoken');
-const { findByEmail, createUser, getPreferences, savePreferences } = require('../models/user.model');
+const { findByEmail, createUser, countUsers, getPreferences, savePreferences } = require('../models/user.model');
 const settings = require('../models/settings.model');
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -26,7 +26,13 @@ const register = async (req, res, next) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await createUser({ fullName, email, password: hashedPassword });
+
+    // The first account to register is the store owner — auto-promote it to
+    // admin so they can actually set the store up (restock, Finance, settings)
+    // without a manual DB `UPDATE users SET role='admin'`. Every later signup is
+    // staff on the shared device and stays 'cashier'.
+    const role = (await countUsers()) === 0 ? 'admin' : 'cashier';
+    await createUser({ fullName, email, password: hashedPassword, role });
 
     return res.status(201).json({ success: true, message: 'Account created successfully' });
   } catch (err) {

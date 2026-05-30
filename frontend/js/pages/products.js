@@ -295,11 +295,21 @@ function renderProducts(productList) {
 
   productsTableBody.innerHTML = "";
 
+  // Delete is admin-only on the server (soft-delete), so don't offer the button
+  // to cashiers — it would just 403. Edit/add stay available to all staff.
+  const userIsAdmin = currentUser && currentUser.role === 'admin';
+
   (productList || products).forEach(function (product) {
     const row = document.createElement("tr");
 
     const name     = escapeHtml(product.name);
     const category = escapeHtml(product.category);
+
+    const deleteBtnHtml = userIsAdmin
+      ? `<button type="button" class="kebab-item delete-btn" data-id="${product.id}">
+              <i data-lucide="trash-2"></i> Delete
+            </button>`
+      : '';
 
     row.innerHTML = `
       <td>${name}</td>
@@ -315,9 +325,7 @@ function renderProducts(productList) {
             <button type="button" class="kebab-item edit-btn" data-id="${product.id}">
               <i data-lucide="pencil"></i> Edit
             </button>
-            <button type="button" class="kebab-item delete-btn" data-id="${product.id}">
-              <i data-lucide="trash-2"></i> Delete
-            </button>
+            ${deleteBtnHtml}
           </div>
         </div>
       </td>

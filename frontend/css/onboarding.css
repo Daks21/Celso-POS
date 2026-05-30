@@ -83,6 +83,11 @@
   max-width: 480px;
   box-shadow: var(--shadow-lg);
   animation: onbFadeUp 0.3s var(--transition-bounce) forwards;
+  /* On short viewports (small laptops, landscape phones) the admin panel —
+     icon + heading + 4 step pills + timezone select + CTA — can exceed the
+     screen height; cap it and scroll inside rather than clipping the CTA. */
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 }
 
 /* Drag-handle bar — hidden on desktop, shown when modal becomes a bottom sheet */
@@ -646,6 +651,7 @@ body.onb-tour-active #new-sale-fab {
 
   .onb-welcome-modal {
     max-width: 100%;
+    max-height: 90vh;          /* bottom sheet never taller than most of the screen */
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     padding: 20px 24px 36px;
   }
@@ -701,5 +707,18 @@ body.onb-tour-active #new-sale-fab {
   .onb-step {
     flex: 1 1 calc(50% - 4px);
     min-width: 0;
+  }
+}
+
+/* ── 8. REDUCED MOTION ──────────────────────────────────────── */
+/* Honor the OS "reduce motion" setting: snap onboarding surfaces into place
+   instead of sliding/celebrating. Matches the theme system's reduced-motion
+   behavior so the whole app is consistent. */
+@media (prefers-reduced-motion: reduce) {
+  [class^="onb-"],
+  [class*=" onb-"] {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
   }
 }
