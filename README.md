@@ -340,7 +340,9 @@
     full_name   VARCHAR       NOT NULL
     email       VARCHAR       UNIQUE, NOT NULL
     password    VARCHAR       bcrypt hash, NOT NULL
-    role        VARCHAR       'admin' | 'cashier' (default: cashier)
+    role        VARCHAR       'admin' | 'cashier' (column default: cashier;
+                              the first registered account is auto-promoted to
+                              admin by the app — the store owner)
     created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
     updated_at  TIMESTAMP     AUTO UPDATE
 
@@ -551,7 +553,7 @@
       Body: Same as POST (full update)
       → 200 { success, data: Product }
 
-    DELETE /:id            Auth required
+    DELETE /:id            Auth + Admin required
       Soft delete (sets is_active = 0, data is preserved). Recoverable
       via GET /archived + POST /:id/restore.
       → 204 no content
@@ -2001,12 +2003,12 @@
         requests don't need it, but set it correctly anyway.
       - Set every secret as a platform env var — never commit .env
 
-    Module 7.5 — First-run setup (otherwise the owner can't run the store)
-      - Owner registers the first account via the register page
-      - PROMOTE that account to admin: registration defaults role='cashier'
-        (user.model.js), and cashiers are blocked from restock, Finance, and
-        deletes. Run once in the DB console:
-          UPDATE users SET role='admin' WHERE email='<owner-email>';
+    Module 7.5 — First-run setup
+      - Owner registers the first account via the register page. The FIRST
+        account to register is auto-promoted to admin (it's the store owner);
+        every later signup defaults to cashier (staff on the shared device).
+        Admins can restock, use Finance, delete products, and change settings;
+        cashiers are blocked from all four. No manual DB role change is needed.
       - In Account Settings: set store name + address and the store timezone
 
     Module 7.6 — Backups & recovery (financial data — non-negotiable)
