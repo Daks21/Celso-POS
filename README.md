@@ -553,6 +553,22 @@
       → 200 { success, data: { totalRevenue, transactionCount,
               avgSaleValue } } (today only)
 
+    PUT    /:id            Auth + Admin required
+      Body: { items: [{ itemId, quantity }], cartTaxOn, payment }
+      Edits a past sale. Each itemId references an existing sale_items
+      row; quantity 0 removes that line (at least one line must remain).
+      Lines not sent keep their original quantity. Server trusts only the
+      new quantities, the tax toggle, and the payment — unit prices come
+      from the original sale_items snapshot and the sale's stored tax_rate
+      (never re-read from the live product price). Atomically, in one
+      locked transaction:
+      returns/deducts the stock delta per line, writes balancing
+      inventory_adjustments rows, recomputes subtotal/tax/total/change,
+      and re-amounts the linked sales_revenue cash movement — so
+      Inventory, Finance, and Analytics all stay reconciled.
+      → 200 { success, data: Sale }
+      → 400 insufficient stock | validation | 404 not found
+
   ──────────────────────────────────────────────────────────────
   INVENTORY  /api/inventory
   ──────────────────────────────────────────────────────────────
@@ -1090,6 +1106,14 @@
       - Search by product or receipt number
       - Sale detail modal with full breakdown
       - Receipt reprint from history
+      - Admin sale-edit: an Edit button inside the View/receipt modal
+        (admin only) reopens the sale with qty steppers, per-line remove,
+        the tax toggle, and live totals. Saving calls PUT /api/sales/:id,
+        which reconciles stock, the audit log, and the sales_revenue
+        cash movement server-side. Double-submit guarded.
+      - Table hides when there are no sales so it no longer overlaps the
+        empty-state card; all rendered cells (incl. cashier name) are
+        HTML-escaped
 
     Module 1.8 — Receipt Generation
       - Shared receipt modal (used on POS and History)
@@ -1207,11 +1231,17 @@
         New products are created with stock = 0; the controller
         forces this regardless of any client-supplied value.
 
-    Module 2.4 — Sales API (Create + History)
+    Module 2.4 — Sales API (Create + History + Edit)
       - POST /api/sales: atomic two-phase commit — validates stock
         and price server-side before recording sale and deducting stock
       - GET /api/sales: history with date-range filtering
       - GET /api/sales/summary: today's revenue, orders, top products
+      - PUT /api/sales/:id (admin): atomic sale edit — locks the row,
+        applies the per-line stock delta (return/deduct), logs balancing
+        inventory_adjustments, recomputes the header from the original
+        unit-price + tax-rate snapshot, and re-amounts the linked
+        sales_revenue cash movement so Inventory/Finance/Analytics stay
+        in sync. Only quantities, tax toggle, and payment are trusted.
       - All endpoints JWT-protected
 
     Module 2.5 — Analytics API
@@ -1910,9 +1940,16 @@
   NODE REQUIREMENT: >= 18.0.0
 
 ================================================================
-  END OF DOCUMENT — Version 7.4
+  END OF DOCUMENT — Version 7.5
   Phase 4 AI COMPLETE | Phase 5 Finance COMPLETE | Phase 6 Onboarding COMPLETE
   Post-ship:
+    • Sales — Admin sale-edit (PUT /api/sales/:id): edit a past sale from
+                   History with full server-side reconciliation (stock
+                   delta + inventory_adjustments + recomputed header +
+                   re-amounted sales_revenue cash movement). Edit UI lives
+                   in the View/receipt modal (qty steppers, remove, tax
+                   toggle, live totals, double-submit guard). History table
+                   hides when empty; all cells HTML-escaped.
     • Timezone infrastructure — store-wide timezone setting (app_settings),
                    all timestamps stored UTC, day-bucketing & display in the
                    store timezone via CONVERT_TZ (named-zone with offset
