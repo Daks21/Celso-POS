@@ -387,18 +387,61 @@
   margin-bottom: 8px;
 }
 
-.payment-input {
+/* ── Compact payment field (opens the numpad) ── */
+
+.payment-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-background);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.payment-input::-webkit-outer-spin-button,
-.payment-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+.payment-field:hover {
+  border-color: var(--color-primary);
 }
 
-.payment-input[type="number"] {
-  -moz-appearance: textfield;
+.payment-field:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(90, 158, 111, 0.3);
+}
+
+.payment-field-peso {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.payment-field .payment-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: var(--font-main);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  pointer-events: none;
+}
+
+.payment-field .payment-input:focus {
+  outline: none;
+}
+
+.payment-field-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
 }
 
 .change-display {
@@ -670,10 +713,10 @@
 
 /* ── Denomination Chips ── */
 
-.denom-chips {
+.numpad-chips {
+  display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 8px;
 }
 
 .denom-chip {
@@ -757,5 +800,132 @@
   .pos-product-price {
     font-size: 15px;
     margin-top: 2px;
+  }
+}
+
+/* ── Payment Numpad ── */
+
+.numpad-backdrop[hidden] {
+  display: none;
+}
+
+.numpad-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.4);
+  animation: numpadFade 0.15s ease-out;
+}
+
+.numpad-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 340px;
+  padding: 16px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  animation: numpadPop 0.18s var(--transition-bounce, ease-out);
+}
+
+.numpad-summary {
+  padding: 10px 12px;
+  background-color: var(--color-background);
+  border-radius: var(--radius-sm);
+}
+
+.numpad-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.numpad-summary-row:last-child {
+  margin-bottom: 0;
+}
+
+.numpad-summary-row strong {
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.numpad-change-row strong {
+  font-size: 16px;
+}
+
+.numpad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.numpad-key {
+  min-height: 48px;
+  padding: 12px 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-main);
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.12s, transform 0.06s;
+}
+
+.numpad-key:hover {
+  background-color: rgba(90, 158, 111, 0.1);
+}
+
+.numpad-key:active {
+  transform: scale(0.96);
+}
+
+.numpad-key-muted {
+  color: var(--color-text-muted);
+  font-size: 16px;
+}
+
+.numpad-done {
+  width: 100%;
+  margin: 0;
+}
+
+@keyframes numpadFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes numpadPop {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes numpadSlideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .numpad-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .numpad-sheet {
+    max-width: 100%;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    animation: numpadSlideUp 0.2s ease-out;
   }
 }

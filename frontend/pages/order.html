@@ -191,23 +191,26 @@
 
             <div class="payment-section">
               <label for="payment-amount">Payment Amount</label>
-              <input
-                type="number"
-                id="payment-amount"
-                class="payment-input"
-                placeholder="Enter payment amount"
-                min="0"
-                inputmode="decimal"
-              />
-
-              <div class="denom-chips" id="denom-chips" style="display:none">
-                <button type="button" class="denom-chip" data-amount="20">₱20</button>
-                <button type="button" class="denom-chip" data-amount="50">₱50</button>
-                <button type="button" class="denom-chip" data-amount="100">₱100</button>
-                <button type="button" class="denom-chip" data-amount="200">₱200</button>
-                <button type="button" class="denom-chip" data-amount="500">₱500</button>
-                <button type="button" class="denom-chip" data-amount="1000">₱1000</button>
-                <button type="button" class="denom-chip denom-exact" id="denom-exact">Exact</button>
+              <div
+                class="payment-field"
+                id="payment-field"
+                role="button"
+                tabindex="0"
+                aria-haspopup="dialog"
+                aria-expanded="false"
+              >
+                <span class="payment-field-peso">₱</span>
+                <input
+                  type="text"
+                  id="payment-amount"
+                  class="payment-input"
+                  placeholder="0.00"
+                  readonly
+                  inputmode="none"
+                  tabindex="-1"
+                  aria-hidden="true"
+                />
+                <i data-lucide="calculator" class="payment-field-icon"></i>
               </div>
 
               <div class="change-checkout-row">
@@ -240,6 +243,49 @@
       <strong id="mobile-cart-total">₱0.00</strong>
     </div>
     <button type="button" class="mobile-cart-bar-btn" id="mobile-cart-bar-btn">View Cart</button>
+  </div>
+
+  <div class="numpad-backdrop" id="numpad-backdrop" hidden>
+    <div class="numpad-sheet" id="numpad-sheet" role="dialog" aria-modal="true" aria-label="Enter payment amount">
+      <div class="numpad-summary">
+        <div class="numpad-summary-row">
+          <span>Total</span><strong id="numpad-total">₱0.00</strong>
+        </div>
+        <div class="numpad-summary-row">
+          <span>Payment</span><strong id="numpad-payment">₱0.00</strong>
+        </div>
+        <div class="numpad-summary-row numpad-change-row">
+          <span>Change</span><strong id="numpad-change">₱0.00</strong>
+        </div>
+      </div>
+
+      <div class="numpad-chips" id="numpad-chips">
+        <button type="button" class="denom-chip" data-amount="20">+₱20</button>
+        <button type="button" class="denom-chip" data-amount="50">+₱50</button>
+        <button type="button" class="denom-chip" data-amount="100">+₱100</button>
+        <button type="button" class="denom-chip" data-amount="200">+₱200</button>
+        <button type="button" class="denom-chip" data-amount="500">+₱500</button>
+        <button type="button" class="denom-chip" data-amount="1000">+₱1000</button>
+        <button type="button" class="denom-chip denom-exact" id="numpad-exact">Exact</button>
+      </div>
+
+      <div class="numpad-grid">
+        <button type="button" class="numpad-key" data-key="7">7</button>
+        <button type="button" class="numpad-key" data-key="8">8</button>
+        <button type="button" class="numpad-key" data-key="9">9</button>
+        <button type="button" class="numpad-key" data-key="4">4</button>
+        <button type="button" class="numpad-key" data-key="5">5</button>
+        <button type="button" class="numpad-key" data-key="6">6</button>
+        <button type="button" class="numpad-key" data-key="1">1</button>
+        <button type="button" class="numpad-key" data-key="2">2</button>
+        <button type="button" class="numpad-key" data-key="3">3</button>
+        <button type="button" class="numpad-key numpad-key-muted" data-key="clear">C</button>
+        <button type="button" class="numpad-key" data-key="0">0</button>
+        <button type="button" class="numpad-key numpad-key-muted" data-key="back">&#x232b;</button>
+      </div>
+
+      <button type="button" class="submit-button numpad-done" id="numpad-done">Done</button>
+    </div>
   </div>
 
   <div class="modal-overlay" id="receipt-modal">

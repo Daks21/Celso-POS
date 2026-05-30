@@ -77,39 +77,126 @@ completeSaleButton.addEventListener("click", function () {
   completeSale();
 });
 
-paymentAmountInput.addEventListener("input", function () {
-  updateChangeDisplay();
-});
-
-paymentAmountInput.addEventListener("keydown", function (e) {
-  if (e.key === 'Enter') { e.preventDefault(); completeSale(); }
-});
-
 var mobileCartBarBtn = document.getElementById('mobile-cart-bar-btn');
 if (mobileCartBarBtn) {
   mobileCartBarBtn.addEventListener('click', function () {
     var cartSection = document.querySelector('.pos-cart');
     if (cartSection) {
       cartSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setTimeout(function () { paymentAmountInput.focus(); }, 400);
+      setTimeout(function () { paymentField.focus(); }, 400);
     }
   });
 }
 
-var denomChipsEl = document.getElementById('denom-chips');
-if (denomChipsEl) {
-  denomChipsEl.addEventListener('click', function (e) {
-    var chip = e.target.closest('.denom-chip');
-    if (!chip) return;
-    var subtotal = getCartTotal();
-    var tax = (taxEnabled && cartTaxOn) ? subtotal * taxRate : 0;
-    var grandTotal = subtotal + tax;
-    paymentAmountInput.value = chip.id === 'denom-exact'
-      ? parseFloat(grandTotal.toFixed(2))
-      : chip.dataset.amount;
-    updateChangeDisplay();
+/* ── Payment Numpad ──
+   The payment field is readonly (no OS keyboard); all entry goes through
+   this on-screen pad — bottom sheet on mobile, centered popover on desktop.
+   It writes to #payment-amount (the value store), so updateChangeDisplay()
+   and completeSale() keep reading from the same place. */
+var numpadBackdrop  = document.getElementById('numpad-backdrop');
+var numpadSheet     = document.getElementById('numpad-sheet');
+var paymentField    = document.getElementById('payment-field');
+var numpadTotalEl   = document.getElementById('numpad-total');
+var numpadPaymentEl = document.getElementById('numpad-payment');
+var numpadChangeEl  = document.getElementById('numpad-change');
+
+function currentGrandTotal() {
+  var subtotal = getCartTotal();
+  var tax = (taxEnabled && cartTaxOn) ? subtotal * taxRate : 0;
+  return subtotal + tax;
+}
+
+function syncNumpad() {
+  if (!numpadTotalEl) return;
+  var total = currentGrandTotal();
+  var paid = Number(paymentAmountInput.value) || 0;
+  var change = paid - total;
+  numpadTotalEl.textContent   = formatPeso(total);
+  numpadPaymentEl.textContent = formatPeso(paid);
+  numpadChangeEl.textContent  = formatPeso(change);
+  numpadChangeEl.classList.toggle('change-negative', change < 0);
+  numpadChangeEl.classList.toggle('change-positive', change >= 0 && paymentAmountInput.value !== '');
+}
+
+function setPayment(raw) {
+  paymentAmountInput.value = raw;
+  updateChangeDisplay();
+  syncNumpad();
+}
+
+function numpadPress(key) {
+  var v = paymentAmountInput.value;
+  if (key === 'clear') { setPayment(''); return; }
+  if (key === 'back')  { setPayment(v.slice(0, -1)); return; }
+  if (key === '.') {
+    if (v.indexOf('.') !== -1) return;
+    setPayment(v === '' ? '0.' : v + '.');
+    return;
+  }
+  // digit: cap at 2 decimal places, no leading zeros
+  if (v.indexOf('.') !== -1 && v.split('.')[1].length >= 2) return;
+  if (v === '0') { setPayment(key); return; }
+  setPayment(v + key);
+}
+
+function openNumpad() {
+  if (!numpadBackdrop) return;
+  numpadBackdrop.hidden = false;
+  if (paymentField) paymentField.setAttribute('aria-expanded', 'true');
+  syncNumpad();
+}
+
+function closeNumpad() {
+  if (!numpadBackdrop) return;
+  numpadBackdrop.hidden = true;
+  if (paymentField) {
+    paymentField.setAttribute('aria-expanded', 'false');
+    paymentField.focus();
+  }
+}
+
+if (paymentField) {
+  paymentField.addEventListener('click', openNumpad);
+  paymentField.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNumpad(); }
   });
 }
+
+if (numpadSheet) {
+  numpadSheet.addEventListener('click', function (e) {
+    var key = e.target.closest('.numpad-key');
+    if (key) { numpadPress(key.dataset.key); return; }
+
+    var chip = e.target.closest('.denom-chip');
+    if (chip) {
+      if (chip.id === 'numpad-exact') {
+        setPayment(currentGrandTotal().toFixed(2));
+      } else {
+        var base = Number(paymentAmountInput.value) || 0;
+        setPayment(String(base + (Number(chip.dataset.amount) || 0)));
+      }
+      return;
+    }
+
+    if (e.target.closest('#numpad-done')) closeNumpad();
+  });
+}
+
+if (numpadBackdrop) {
+  numpadBackdrop.addEventListener('click', function (e) {
+    if (e.target === numpadBackdrop) closeNumpad();
+  });
+}
+
+// Physical keyboard works while the pad is open (desktop power users).
+document.addEventListener('keydown', function (e) {
+  if (!numpadBackdrop || numpadBackdrop.hidden) return;
+  if (e.key === 'Escape')    { closeNumpad(); return; }
+  if (e.key === 'Enter')     { e.preventDefault(); closeNumpad(); return; }
+  if (e.key === 'Backspace') { e.preventDefault(); numpadPress('back'); return; }
+  if (e.key === '.')         { e.preventDefault(); numpadPress('.'); return; }
+  if (e.key >= '0' && e.key <= '9') { e.preventDefault(); numpadPress(e.key); }
+});
 
 newSaleButton.addEventListener("click", function () {
   receiptModal.style.display = "none";
@@ -374,8 +461,6 @@ function renderCart() {
   if (cartTaxToggle && taxEnabled) {
     cartTaxToggle.style.display = hasItems ? "inline-flex" : "none";
   }
-  var denomChips = document.getElementById('denom-chips');
-  if (denomChips) denomChips.style.display = hasItems ? 'flex' : 'none';
 
   if (cart.length === 0) {
     cartItems.innerHTML = `<p class="cart-empty-message">No items added yet.</p>`;
