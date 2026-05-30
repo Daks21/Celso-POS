@@ -126,6 +126,31 @@ const createSale = async (req, res, next) => {
   }
 };
 
+const updateSale = async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid sale ID' });
+    }
+
+    const { items, payment, cartTaxOn } = req.body;
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ success: false, message: 'items must be an array' });
+    }
+    if (typeof payment !== 'number' || isNaN(payment)) {
+      return res.status(400).json({ success: false, message: 'Payment must be a number' });
+    }
+
+    const sale = await saleModel.update(id, { items, payment, cartTaxOn }, req.user.id);
+    res.status(200).json({ success: true, data: sale });
+  } catch (err) {
+    if (err && err.status) {
+      return res.status(err.status).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+};
+
 const getSummary = async (req, res, next) => {
   try {
     const summary = await saleModel.getTodaySummary();
@@ -135,4 +160,4 @@ const getSummary = async (req, res, next) => {
   }
 };
 
-module.exports = { getSales, getOne, createSale, getSummary };
+module.exports = { getSales, getOne, createSale, updateSale, getSummary };

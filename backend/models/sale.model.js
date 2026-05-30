@@ -27,6 +27,7 @@ const _buildSaleObject = (saleRow, itemRows) => ({
   cashier:   saleRow.cashierName,
   timestamp: saleRow.created_at,
   items: itemRows.map(i => ({
+    id:        i.id,
     productId: i.product_id,
     name:      i.product_name,
     price:     parseFloat(i.unit_price),
@@ -445,8 +446,140 @@ const getGoalProjectionInputs = async (storeToday) => {
   };
 };
 
+// ─── Edit (full reconciliation transaction) ────────────────────────────────
+// Corrects a past sale and keeps every dependent record in sync, atomically:
+//   • per-line stock is returned or deducted by the quantity delta
+//   • an inventory_adjustments audit row is written for each changed product
+//   • the sales header (subtotal/tax/total/payment/change) is recomputed
+//   • the linked sales_revenue cash_movement is re-amounted so Finance stays right
+// Trust boundary: only the new per-line quantities, the tax on/off toggle, and
+// the payment are taken from the client. Unit prices come from the ORIGINAL
+// sale_items snapshot (never re-priced to today's product price) and the tax
+// rate is the sale's own stored rate — so totals can't be tampered with or
+// silently re-priced. Removing a line = quantity 0. At least one line must remain
+// (clearing a whole sale is a void, which is a separate flow).
+const update = async (saleId, edits, userId) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [saleRows] = await connection.query(
+      'SELECT * FROM sales WHERE id = ? FOR UPDATE', [saleId]
+    );
+    if (!saleRows[0]) {
+      const e = new Error('Sale not found'); e.status = 404; throw e;
+    }
+    const sale = saleRows[0];
+    const receiptNo = sale.receipt_no || `RCPT-${String(saleId).padStart(6, '0')}`;
+
+    const [itemRows] = await connection.query(
+      'SELECT * FROM sale_items WHERE sale_id = ? ORDER BY id ASC', [saleId]
+    );
+
+    // Requested quantity per existing sale_item id (lines not sent keep their qty)
+    const wanted = {};
+    (Array.isArray(edits.items) ? edits.items : []).forEach(it => {
+      wanted[Number(it.itemId)] = Number(it.quantity);
+    });
+
+    let remaining = 0;
+    for (const row of itemRows) {
+      const q = Object.prototype.hasOwnProperty.call(wanted, row.id) ? wanted[row.id] : row.quantity;
+      if (!Number.isInteger(q) || q < 0) {
+        const e = new Error('Each quantity must be a whole number (0 or more)'); e.status = 400; throw e;
+      }
+      row._newQty = q;
+      if (q > 0) remaining += 1;
+    }
+    if (remaining === 0) {
+      const e = new Error('A sale must keep at least one item. To cancel it entirely, void the sale instead.');
+      e.status = 400; throw e;
+    }
+
+    let subtotal = 0;
+    for (const row of itemRows) {
+      const oldQty = row.quantity;
+      const newQty = row._newQty;
+      const unitPrice = parseFloat(row.unit_price); // historical snapshot — never re-priced
+      const delta = newQty - oldQty;                // >0 deduct more, <0 return stock
+
+      if (delta !== 0) {
+        const [stockRows] = await connection.query(
+          'SELECT stock FROM products WHERE id = ?', [row.product_id]
+        );
+        // Product may be soft-deleted; the row (and its stock) still exists.
+        if (stockRows[0]) {
+          const stockBefore = stockRows[0].stock;
+          const stockAfter  = stockBefore - delta;
+          if (stockAfter < 0) {
+            const e = new Error(`Not enough stock for ${row.product_name} to make this change`);
+            e.status = 400; throw e;
+          }
+          await connection.query(
+            'UPDATE products SET stock = ? WHERE id = ?', [stockAfter, row.product_id]
+          );
+          await connection.query(
+            `INSERT INTO inventory_adjustments
+               (product_id, type, qty, stock_before, stock_after, notes, adjusted_by)
+             VALUES (?, 'adjustment', ?, ?, ?, ?, ?)`,
+            [row.product_id, Math.abs(delta), stockBefore, stockAfter, `Sale edit ${receiptNo}`, userId]
+          );
+        }
+      }
+
+      if (newQty === 0) {
+        await connection.query('DELETE FROM sale_items WHERE id = ?', [row.id]);
+      } else {
+        const lineTotal = parseFloat((unitPrice * newQty).toFixed(2));
+        subtotal += lineTotal;
+        if (newQty !== oldQty) {
+          await connection.query(
+            'UPDATE sale_items SET quantity = ?, line_total = ? WHERE id = ?',
+            [newQty, lineTotal, row.id]
+          );
+        }
+      }
+    }
+    subtotal = parseFloat(subtotal.toFixed(2));
+
+    // Tax uses the sale's own stored rate; the client may only toggle it on/off.
+    const taxRate   = sale.tax_rate != null ? parseFloat(sale.tax_rate) : 0;
+    const cartTaxOn = Boolean(edits.cartTaxOn) && taxRate > 0;
+    const tax       = cartTaxOn ? parseFloat((subtotal * taxRate).toFixed(2)) : 0;
+    const total     = parseFloat((subtotal + tax).toFixed(2));
+
+    const payment = Number(edits.payment);
+    if (isNaN(payment) || payment < total) {
+      const e = new Error('Payment cannot be less than the new total'); e.status = 400; throw e;
+    }
+    const change = parseFloat((payment - total).toFixed(2));
+
+    await connection.query(
+      `UPDATE sales SET subtotal = ?, tax = ?, cart_tax_on = ?, total = ?, payment = ?, change_given = ?
+       WHERE id = ?`,
+      [subtotal, tax, cartTaxOn ? 1 : 0, total, payment, change, saleId]
+    );
+
+    // Keep Finance "Money In" in sync with the corrected revenue (no-op for any
+    // legacy sale that predates the cash_movements link).
+    await connection.query(
+      `UPDATE cash_movements SET amount = ?
+       WHERE source = 'sale' AND source_id = ? AND type = 'sales_revenue' AND is_active = 1`,
+      [total, saleId]
+    );
+
+    await connection.commit();
+    connection.release();
+    return getById(saleId);
+  } catch (err) {
+    await connection.rollback();
+    connection.release();
+    throw err;
+  }
+};
+
 module.exports = {
-  create, getAll, getById, getTodaySummary,
+  create, update, getAll, getById, getTodaySummary,
   getSummary, getDailyMap, getKPIs,
   getTopByRevenue, getTopByQty, getByDayOfWeek,
   getProfit, getProfitByProduct, getInventoryHealth,

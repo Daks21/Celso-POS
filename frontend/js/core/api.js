@@ -127,6 +127,13 @@ async function getSale(id) {
   return apiCall(`/sales/${id}`);
 }
 
+async function updateSale(id, data) {
+  return apiCall(`/sales/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
 async function getSalesSummary() {
   return apiCall('/sales/summary');
 }

@@ -99,7 +99,9 @@
       "PowerShell(Test-NetConnection *)",
       "PowerShell(git *)",
       "PowerShell(npm root *)",
-      "PowerShell(Test-Path *)"
+      "PowerShell(Test-Path *)",
+      "Read(//c/c/Users/Sonsuman/OneDrive/Desktop/Celso_pos/backend/**)",
+      "Read(//c/c/Users/Sonsuman/OneDrive/Desktop/Celso_pos/backend/models/**)"
     ]
   }
 }
