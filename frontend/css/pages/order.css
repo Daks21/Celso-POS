@@ -896,8 +896,14 @@
   font-size: 16px;
 }
 
-.numpad-done {
-  width: 100%;
+.numpad-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.numpad-actions .secondary-button,
+.numpad-actions .numpad-done {
+  flex: 1;
   margin: 0;
 }
 

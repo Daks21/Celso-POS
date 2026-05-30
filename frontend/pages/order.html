@@ -260,10 +260,11 @@
       </div>
 
       <div class="numpad-chips" id="numpad-chips">
+        <button type="button" class="denom-chip" data-amount="5">+₱5</button>
+        <button type="button" class="denom-chip" data-amount="10">+₱10</button>
         <button type="button" class="denom-chip" data-amount="20">+₱20</button>
         <button type="button" class="denom-chip" data-amount="50">+₱50</button>
         <button type="button" class="denom-chip" data-amount="100">+₱100</button>
-        <button type="button" class="denom-chip" data-amount="200">+₱200</button>
         <button type="button" class="denom-chip" data-amount="500">+₱500</button>
         <button type="button" class="denom-chip" data-amount="1000">+₱1000</button>
         <button type="button" class="denom-chip denom-exact" id="numpad-exact">Exact</button>
@@ -279,12 +280,15 @@
         <button type="button" class="numpad-key" data-key="1">1</button>
         <button type="button" class="numpad-key" data-key="2">2</button>
         <button type="button" class="numpad-key" data-key="3">3</button>
-        <button type="button" class="numpad-key numpad-key-muted" data-key="clear">C</button>
+        <button type="button" class="numpad-key" data-key=".">.</button>
         <button type="button" class="numpad-key" data-key="0">0</button>
         <button type="button" class="numpad-key numpad-key-muted" data-key="back">&#x232b;</button>
       </div>
 
-      <button type="button" class="submit-button numpad-done" id="numpad-done">Done</button>
+      <div class="numpad-actions">
+        <button type="button" class="secondary-button numpad-clear" id="numpad-clear">Clear</button>
+        <button type="button" class="submit-button numpad-done" id="numpad-done">Done</button>
+      </div>
     </div>
   </div>
 

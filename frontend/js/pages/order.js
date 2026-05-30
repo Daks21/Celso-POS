@@ -178,6 +178,7 @@ if (numpadSheet) {
       return;
     }
 
+    if (e.target.closest('#numpad-clear')) { setPayment(''); return; }
     if (e.target.closest('#numpad-done')) closeNumpad();
   });
 }
