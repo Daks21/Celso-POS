@@ -29,6 +29,7 @@
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  text-decoration: none;
   transition: opacity 0.15s ease, transform 0.1s ease;
 }
 

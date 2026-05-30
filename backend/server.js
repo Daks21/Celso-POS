@@ -30,11 +30,31 @@ const errorMiddleware  = require('./middleware/error.middleware');
 const pool             = require('./config/db.config');
 const settings         = require('./models/settings.model');
 const tz               = require('./utils/tz');
+const path             = require('path');
+const fs               = require('fs');
 
 const app = express();
 
 // --- Security headers (OWASP baseline) ---
-app.use(helmet());
+// The backend serves the frontend on the same origin (see below), so helmet's
+// CSP now applies to the pages. Those pages ship two inline <script> blocks
+// (the pre-paint theme applier and lucide.createIcons), which helmet's default
+// script-src 'self' would block. We relax script-src to allow inline scripts
+// and otherwise keep helmet's strict defaults: all third-party libs are
+// self-hosted (no CDN), the API is same-origin (connect-src 'self'), inline
+// styles are already permitted by the default style-src, and script-src-attr
+// stays 'none' (no inline event handlers in the markup). The remaining
+// concession is inline-script execution; the app's primary XSS guard is still
+// escaping user content on render (textContent). A later hardening pass can move
+// the two inline scripts into files + nonces and drop 'unsafe-inline'.
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      'script-src': ["'self'", "'unsafe-inline'"],
+    },
+  },
+}));
 
 // --- CORS: restrict to known frontend origins ---
 const ALLOWED_ORIGINS = (process.env.FRONTEND_URL || 'http://localhost:5173')
@@ -88,6 +108,29 @@ app.use('/api/inventory', inventoryRouter);
 app.use('/api/finance',   financeRouter);
 app.use('/api/ai',        aiRouter);
 app.use('/api/settings',  settingsRouter);
+
+// --- Unknown API route → JSON 404 (don't fall through to the static layer) ---
+app.use('/api', (req, res) => {
+  res.status(404).json({ success: false, message: 'API route not found' });
+});
+
+// --- Serve the frontend from this same origin (single-origin deploy) ---
+// frontend/js/core/api.js derives its API base from window.location.origin +
+// '/api', so the page and the API must share one origin. Fail loudly on boot if
+// the frontend is missing (e.g. the service was deployed with the wrong root
+// directory) instead of silently 404-ing every page. See README Phase 7.1.
+const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
+if (!fs.existsSync(path.join(FRONTEND_DIR, 'index.html'))) {
+  console.error(`[Startup] Frontend not found at ${FRONTEND_DIR} — deploy the ` +
+    `whole repo so the backend can serve the frontend (see README Phase 7.1).`);
+  process.exit(1);
+}
+app.use(express.static(FRONTEND_DIR));
+
+// --- Non-API GET that matched no static file → land on the login page ---
+app.get(/^\/(?!api).*/, (req, res) => {
+  res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
+});
 
 // --- Global error handler ---
 app.use(errorMiddleware);
