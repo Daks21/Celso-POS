@@ -105,20 +105,27 @@ const create = async (saleRecord, userId) => {
       [receiptNo, saleId]
     );
 
-    // Step 2: Insert line items, deduct stock, log adjustments
-    for (const item of saleRecord.items) {
-      await connection.query(
-        `INSERT INTO sale_items
-         (sale_id, product_id, product_name, unit_price, quantity, line_total)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [saleId, item.productId, item.name, item.price, item.quantity, item.lineTotal]
-      );
+    // Step 2: deduct stock + log adjustments. Product rows are locked with
+    // FOR UPDATE in ascending product-id order so two concurrent checkouts on a
+    // shared-device store can't both read the same stock and oversell — the
+    // second transaction waits, then re-reads the already-deducted value. The
+    // sufficiency check is authoritative HERE, inside the transaction: a failure
+    // rolls the whole sale back instead of silently flooring stock at 0. (The
+    // controller's pre-check stays as a fast, friendly rejection but is no
+    // longer what guarantees correctness.)
+    const stockOps = [...saleRecord.items].sort((a, b) => a.productId - b.productId);
+    for (const item of stockOps) {
       const [stockRows] = await connection.query(
-        'SELECT stock FROM products WHERE id = ?',
+        'SELECT stock FROM products WHERE id = ? FOR UPDATE',
         [item.productId]
       );
       const stockBefore = stockRows[0] ? stockRows[0].stock : 0;
-      const stockAfter  = Math.max(0, stockBefore - item.quantity);
+      if (stockBefore < item.quantity) {
+        const e = new Error(`Insufficient stock for ${item.name}`);
+        e.status = 400;
+        throw e;
+      }
+      const stockAfter = stockBefore - item.quantity;
       await connection.query(
         'UPDATE products SET stock = ? WHERE id = ?',
         [stockAfter, item.productId]
@@ -128,6 +135,17 @@ const create = async (saleRecord, userId) => {
          (product_id, type, qty, stock_before, stock_after, notes, adjusted_by)
          VALUES (?, 'sale', ?, ?, ?, ?, ?)`,
         [item.productId, item.quantity, stockBefore, stockAfter, `Sale ${receiptNo}`, userId]
+      );
+    }
+
+    // Line items inserted in original cart order so the receipt lists them as
+    // the cashier entered them (sale_items are read back ORDER BY id ASC).
+    for (const item of saleRecord.items) {
+      await connection.query(
+        `INSERT INTO sale_items
+         (sale_id, product_id, product_name, unit_price, quantity, line_total)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [saleId, item.productId, item.name, item.price, item.quantity, item.lineTotal]
       );
     }
 
@@ -494,6 +512,16 @@ const update = async (saleId, edits, userId) => {
     if (remaining === 0) {
       const e = new Error('A sale must keep at least one item. To cancel it entirely, void the sale instead.');
       e.status = 400; throw e;
+    }
+
+    // Lock every product this sale touches, in ascending id order, before
+    // touching stock — so a sale edit and a concurrent checkout (or another
+    // edit) acquire product locks in the SAME order and can't deadlock. Matches
+    // the ascending lock order used by create().
+    const lockIds = [...new Set(itemRows.map(r => r.product_id).filter(id => id != null))]
+      .sort((a, b) => a - b);
+    for (const pid of lockIds) {
+      await connection.query('SELECT id FROM products WHERE id = ? FOR UPDATE', [pid]);
     }
 
     let subtotal = 0;

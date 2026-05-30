@@ -62,13 +62,19 @@ const chatStream = async (req, res, next) => {
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
+    // If the client closes the chat panel or navigates away, stop draining the
+    // upstream LLM — otherwise we keep paying for provider tokens after the user
+    // has gone. The signal is threaded into the provider's fetch().
+    const upstream = new AbortController();
+    req.on('close', () => upstream.abort());
+
     const contextText = history.length === 0 ? await getContextMessage() : null;
     const userMessage = contextText
       ? contextText + '\n\n' + message
       : message;
 
     const response = await assistant.ask(
-      OS_SYSTEM_PROMPT, history, userMessage, { stream: true }
+      OS_SYSTEM_PROMPT, history, userMessage, { stream: true, signal: upstream.signal }
     );
 
     const reader  = response.body.getReader();
@@ -76,6 +82,7 @@ const chatStream = async (req, res, next) => {
     let fullText  = '';
 
     while (true) {
+      if (req.destroyed) break;   // client gone — stop reading promptly
       const { done, value } = await reader.read();
       if (done) break;
       const chunk = decoder.decode(value, { stream: true });
@@ -94,22 +101,28 @@ const chatStream = async (req, res, next) => {
       }
     }
 
-    const updatedHistory = [
-      ...history,
-      { role: 'user',      content: message },
-      { role: 'assistant', content: fullText },
-    ];
-    res.write('data: ' + JSON.stringify({
-      done: true, history: updatedHistory
-    }) + '\n\n');
-    res.end();
+    if (!res.writableEnded) {
+      const updatedHistory = [
+        ...history,
+        { role: 'user',      content: message },
+        { role: 'assistant', content: fullText },
+      ];
+      res.write('data: ' + JSON.stringify({
+        done: true, history: updatedHistory
+      }) + '\n\n');
+      res.end();
+    }
 
   } catch (err) {
+    // Client disconnect aborts the upstream fetch with an AbortError — that's
+    // expected teardown, not a failure, and the socket is already gone.
     if (!res.headersSent) {
       res.status(500).json({ success: false, message: 'Os is unavailable.' });
-    } else {
-      res.write('data: ' + JSON.stringify({ error: true }) + '\n\n');
-      res.end();
+    } else if (!res.writableEnded) {
+      try {
+        res.write('data: ' + JSON.stringify({ error: true }) + '\n\n');
+        res.end();
+      } catch (_) { /* client already gone */ }
     }
   }
 };

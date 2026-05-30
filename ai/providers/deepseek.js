@@ -17,6 +17,7 @@ async function getCompletion(messages, options = {}) {
       'Authorization': 'Bearer ' + (process.env.DEEPSEEK_API_KEY || ''),
     },
     body: JSON.stringify(body),
+    signal: options.signal,   // aborts the upstream call if the client disconnects
   });
 
   if (!response.ok) {
