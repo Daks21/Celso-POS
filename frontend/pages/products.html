@@ -138,12 +138,25 @@
           </div>
 
           <div class="products-toolbar">
-            <input
-              type="text"
-              id="product-search"
-              class="search-input"
-              placeholder="Search product by name"
-            />
+            <div class="search-field">
+              <input
+                type="text"
+                id="product-search"
+                class="search-input"
+                placeholder="Search product by name"
+                autocomplete="off"
+              />
+              <!-- Tap to clear on touch; ESC clears via keyboard. Hidden until typed. -->
+              <button
+                type="button"
+                class="search-clear"
+                id="product-search-clear"
+                aria-label="Clear search"
+                hidden
+              >
+                <i data-lucide="x"></i>
+              </button>
+            </div>
             <select id="product-category-select" class="filter-select">
               <!-- Options rendered by JS -->
             </select>

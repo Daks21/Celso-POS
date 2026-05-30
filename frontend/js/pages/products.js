@@ -22,6 +22,7 @@ const productForm = document.getElementById("product-form");
 const submitButton = productForm.querySelector('[type="submit"]');
 
 const productSearchInput = document.getElementById("product-search");
+const productSearchClear = document.getElementById("product-search-clear");
 const productCategorySelect = document.getElementById('product-category-select');
 
 let activeCategory = 'All';
@@ -133,10 +134,39 @@ async function refreshProducts() {
   }
 }
 
-productSearchInput.addEventListener("input", function () {
+// Show the clear ("X") button only while the field has text.
+function syncSearchClear() {
+  if (productSearchClear) productSearchClear.hidden = productSearchInput.value === "";
+}
+
+function runProductSearch() {
   currentPage = 1;
   applyFilters();
+  syncSearchClear();
+}
+
+function clearProductSearch() {
+  productSearchInput.value = "";
+  runProductSearch();
+  productSearchInput.focus();
+}
+
+productSearchInput.addEventListener("input", runProductSearch);
+
+// ESC clears the field (keyboard). Stop it here so it never reaches the
+// global Escape handler that closes modals.
+productSearchInput.addEventListener("keydown", function (e) {
+  if (e.key === "Escape" && productSearchInput.value !== "") {
+    e.preventDefault();
+    e.stopPropagation();
+    clearProductSearch();
+  }
 });
+
+// Tap-to-clear (touch / mouse).
+if (productSearchClear) {
+  productSearchClear.addEventListener("click", clearProductSearch);
+}
 
 if (productCategorySelect) {
   productCategorySelect.addEventListener('change', function () {
