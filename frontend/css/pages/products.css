@@ -68,6 +68,14 @@
   gap: 8px;
   max-height: 360px;
   overflow-y: auto;
+  /* Hide the native scrollbar while keeping the list scrollable. The 8px gap
+     before the (slightly clipped) last row already hints there's more below. */
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* legacy Edge/IE */
+}
+
+.archived-list::-webkit-scrollbar {
+  display: none;                /* WebKit / Blink (Chrome, Safari, Android) */
 }
 
 .archived-row {
