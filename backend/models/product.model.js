@@ -51,9 +51,17 @@ const remove = async (id) => {
   return result.affectedRows > 0;
 };
 
+// How many archived rows the list returns at once. Archived items accumulate
+// forever (every delete adds one), so the query + payload must stay bounded;
+// search narrows beyond the cap. Kept small for a snappy modal + light DOM.
+const ARCHIVED_LIMIT = 50;
+
 // Archived (soft-deleted) products, newest-archived first. Mirrors getAll but
 // for is_active = 0 — the data layer for the "Archived" view, so deleted items
 // stay recoverable instead of being silently re-created as duplicates.
+// Returns { rows, hasMore }: we fetch one extra row to tell the client there
+// are older archived items beyond the cap (so it can prompt the owner to
+// search) without paying for a separate COUNT query.
 const getArchived = async (filters = {}) => {
   let sql = 'SELECT * FROM products WHERE is_active = 0';
   const params = [];
@@ -61,9 +69,11 @@ const getArchived = async (filters = {}) => {
     sql += ' AND LOWER(name) LIKE ?';
     params.push(`%${filters.search.toLowerCase()}%`);
   }
-  sql += ' ORDER BY updated_at DESC';
+  sql += ' ORDER BY updated_at DESC LIMIT ?';
+  params.push(ARCHIVED_LIMIT + 1);
   const [rows] = await db.query(sql, params);
-  return rows;
+  const hasMore = rows.length > ARCHIVED_LIMIT;
+  return { rows: hasMore ? rows.slice(0, ARCHIVED_LIMIT) : rows, hasMore };
 };
 
 // Look up an archived twin by exact (case-insensitive) name. Used on create to

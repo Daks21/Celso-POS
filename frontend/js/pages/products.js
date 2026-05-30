@@ -403,6 +403,9 @@ const viewArchivedButton = document.getElementById('view-archived-button');
 const archivedModal = document.getElementById('archived-modal');
 const archivedCloseButton = document.getElementById('archived-close-button');
 const archivedList = document.getElementById('archived-list');
+const archivedSearchInput = document.getElementById('archived-search');
+const archivedHint = document.getElementById('archived-hint');
+let archivedSearchTimer = null;
 
 const archivedTwinModal = document.getElementById('archived-twin-modal');
 const twinCloseButton = document.getElementById('twin-close-button');
@@ -416,20 +419,33 @@ let pendingArchivedMatch = null;
 
 function openArchivedModal() {
   if (!archivedModal) return;
+  if (archivedSearchInput) archivedSearchInput.value = '';
   archivedModal.style.display = 'flex';
-  loadArchived();
+  loadArchived('');
 }
 
 function closeArchivedModal() {
   archivedModal.style.display = 'none';
 }
 
-async function loadArchived() {
+// Current archived search term (empty = show the most-recent page).
+function currentArchivedSearch() {
+  return archivedSearchInput ? archivedSearchInput.value.trim() : '';
+}
+
+async function loadArchived(search) {
+  const term = (search || '').trim();
   archivedList.innerHTML = '<p class="archived-empty">Loading…</p>';
+  if (archivedHint) archivedHint.textContent = '';
   try {
-    const result = await getArchivedProducts();
+    const result = await getArchivedProducts(term ? { search: term } : {});
     if (result && result.success) {
-      renderArchived(result.data || []);
+      renderArchived(result.data || [], term);
+      // The query is capped; tell the owner to search if there are older items
+      // beyond the cap (only meaningful on the unfiltered list).
+      if (archivedHint && result.hasMore) {
+        archivedHint.textContent = 'Showing the 50 most recent. Search to find older items.';
+      }
     } else {
       archivedList.innerHTML = '<p class="archived-empty">Failed to load archived products.</p>';
     }
@@ -438,10 +454,11 @@ async function loadArchived() {
   }
 }
 
-function renderArchived(list) {
+function renderArchived(list, term) {
   if (!list.length) {
-    archivedList.innerHTML =
-      '<p class="archived-empty">No archived products. Deleted items will appear here.</p>';
+    archivedList.innerHTML = term
+      ? '<p class="archived-empty">No archived products match “' + escapeHtml(term) + '”.</p>'
+      : '<p class="archived-empty">No archived products. Deleted items will appear here.</p>';
     return;
   }
 
@@ -474,7 +491,7 @@ async function restoreFromList(productId, btn) {
     if (result && result.success) {
       showApiSuccess('Product restored');
       await refreshProducts();
-      await loadArchived();
+      await loadArchived(currentArchivedSearch());
     } else {
       showApiError(result ? result.message : 'Failed to restore product.');
       btn.disabled = false;
@@ -562,6 +579,15 @@ if (viewArchivedButton && archivedModal && archivedCloseButton && archivedList) 
   archivedModal.addEventListener('click', function (event) {
     if (event.target === archivedModal) closeArchivedModal();
   });
+
+  if (archivedSearchInput) {
+    archivedSearchInput.addEventListener('input', function () {
+      clearTimeout(archivedSearchTimer);
+      archivedSearchTimer = setTimeout(function () {
+        loadArchived(archivedSearchInput.value);
+      }, 250);
+    });
+  }
 }
 
 if (archivedTwinModal && twinCloseButton && twinRestoreButton && twinAddNewButton) {

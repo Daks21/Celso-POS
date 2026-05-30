@@ -88,8 +88,8 @@ const create = async (req, res, next) => {
 const getArchived = async (req, res, next) => {
   try {
     const { search } = req.query;
-    const data = await model.getArchived({ search });
-    res.status(200).json({ success: true, data });
+    const { rows, hasMore } = await model.getArchived({ search });
+    res.status(200).json({ success: true, data: rows, hasMore });
   } catch (err) {
     next(err);
   }

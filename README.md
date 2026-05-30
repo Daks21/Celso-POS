@@ -508,10 +508,13 @@
 
     GET    /archived       Auth required
       Query: ?search=<string>
-      → 200 { success, data: Product[] }
+      → 200 { success, data: Product[], hasMore }
       Soft-deleted products (is_active = 0), newest-archived first.
       Backs the Products page "Archived" view so deleted items stay
       recoverable instead of being silently re-created as duplicates.
+      Capped at 50 rows (archived items grow unbounded over time);
+      hasMore = true means older items exist beyond the cap — narrow
+      with ?search. Search matches the product name (case-insensitive).
 
     GET    /:id            Public
       → 200 { success, data: Product }
