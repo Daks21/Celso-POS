@@ -192,7 +192,9 @@
   └── assets/
       ├── images/              ← Logos, product placeholder images
       ├── icons/               ← UI icons (SVG or PNG)
-      ├── fonts/               ← Custom fonts if needed
+      ├── fonts/               ← Self-hosted DM Sans (woff2, latin + latin-ext
+                                  variable subsets) loaded via @font-face in
+                                  main.css — no Google Fonts CDN
       └── vendor/              ← Self-hosted third-party libs (lucide icons +
                                   Chart.js — no CDN, so they load offline / under
                                   strict tracking-prevention)

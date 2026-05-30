@@ -63,8 +63,17 @@ const ALLOWED_ORIGINS = (process.env.FRONTEND_URL || 'http://localhost:5173')
 
 app.use(cors({
   origin: (origin, cb) => {
+    // Allow requests with no Origin (same-origin navigations, curl) and any
+    // allow-listed cross-origin caller. For anything else, DON'T throw — a
+    // thrown error here surfaces as a 500. Instead withhold the CORS headers
+    // (cb(null, false)): same-origin requests don't need them and still
+    // succeed, while a genuinely cross-origin disallowed caller is blocked by
+    // the browser. This matters now that the backend serves the frontend on
+    // one origin: the page's own fetch() calls and @font-face loads send an
+    // Origin header (e.g. http://localhost:3000) that isn't in the allowlist,
+    // and the old throw turned every one of them into a 500.
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    cb(new Error(`CORS: origin '${origin}' not allowed`));
+    cb(null, false);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
