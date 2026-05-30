@@ -488,6 +488,17 @@ html[data-theme="dark"] .heatmap-cell[data-level="4"] { background-color: #6bb38
     align-items: flex-start;
   }
 
+  /* The goal card's header action is a small "Edit goal" link, not a wide
+     pin-toggle — so unlike the chart cards it should stay inline (top-right)
+     with the title instead of stacking, saving a full row of vertical space. */
+  .goal-card .chart-card-header {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .goal-card .chart-card-title { flex: 1; min-width: 0; }
+  .goal-card #goal-edit-btn    { flex-shrink: 0; }
+
   .pin-toggle-wrap { width: 100%; }
 
   /* Single-column date bar at tablet widths — keeps the preset row clean
@@ -1002,6 +1013,12 @@ html[data-theme="dark"] .analytics-kpi-card.kpi-card-accent {
 
 @media (max-width: 480px) {
   .goal-numbers { grid-template-columns: 1fr; }
+
+  /* Collapse "Edit goal" to the gear icon alone on narrow phones — the label
+     is redundant beside the card title and costs horizontal space. The button
+     keeps its accessible name via aria-label. */
+  .goal-card #goal-edit-btn span { display: none; }
+  .goal-card #goal-edit-btn      { padding: 8px; }
 
   /* Health Badge mobile polish */
   .health-badge { padding: 12px 14px; gap: 10px; }
