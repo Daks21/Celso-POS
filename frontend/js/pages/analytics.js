@@ -901,15 +901,27 @@ function renderGoalProgress(projection) {
   document.getElementById('goal-percent').textContent    = pct.toFixed(0) + '%';
   document.getElementById('goal-projection').textContent = formatPeso(projected);
 
+  var clampedPct = Math.min(100, Math.max(0, pct));
+
   var bar = document.getElementById('goal-bar-fill');
-  bar.style.width = Math.min(100, Math.max(0, pct)).toFixed(2) + '%';
+  bar.style.width = clampedPct.toFixed(2) + '%';
   bar.dataset.state = pct >= 100 ? 'reached'
                     : projPct >= 100 ? 'ontrack'
                     : projPct >= 70  ? 'close'
                     : 'behind';
 
+  // Mirror progress onto the progressbar container for screen readers.
+  var barWrap = document.getElementById('goal-bar');
+  if (barWrap) {
+    barWrap.setAttribute('aria-valuenow', clampedPct.toFixed(0));
+    barWrap.setAttribute('aria-valuetext', pct.toFixed(0) + '% of goal achieved');
+  }
+
   var projMark = document.getElementById('goal-bar-projection');
-  if (projected > 0 && projMark) {
+  // Only show the end-of-month marker when the projection is meaningfully
+  // ahead of what's already achieved — otherwise it would render behind the
+  // fill and read as a contradiction ("projected to finish below where I am").
+  if (projMark && projected > 0 && projPct > pct) {
     projMark.hidden = false;
     projMark.style.left = Math.min(100, projPct).toFixed(2) + '%';
     projMark.title = 'Projected end-of-month: ' + formatPeso(projected);
@@ -920,12 +932,14 @@ function renderGoalProgress(projection) {
   var status = document.getElementById('goal-status');
   if (pct >= 100) {
     status.textContent = 'Goal reached! Anything beyond this is extra.';
+  } else if (daysRemaining === 0) {
+    // Last day of the month — no remaining runway to project into, so report
+    // the final standing instead of a "pick up the pace this week" nudge.
+    status.textContent = 'Month closed — you finished at ' + pct.toFixed(0) + '% of the goal.';
   } else if (projPct >= 100) {
     status.textContent = 'On track — at your current pace, you\'ll hit your goal by end of month.';
   } else if (projPct >= 70) {
     status.textContent = 'Close — picking up the pace this week would get you across the line.';
-  } else if (daysRemaining === 0) {
-    status.textContent = 'Final results for the month — projection no longer applies.';
   } else {
     status.textContent = 'Behind pace — at the current rhythm, you\'ll finish at about '
                        + projPct.toFixed(0) + '% of the goal.';
@@ -1023,4 +1037,34 @@ document.addEventListener('DOMContentLoaded', function () {
   applyAdvancedMode();
   renderAll();
   attachDatePresetEvents();
+
+  // The monthly goal and the Advanced toggle live in user prefs, which are
+  // only hydrated from the server at login (and that fetch can silently fail
+  // or be stale — e.g. a goal set on another device). Reconcile in the
+  // background so the goal card self-heals without forcing a re-login. We
+  // render immediately from cache first to avoid blocking first paint, then
+  // re-render only if reconciliation actually changed something.
+  reconcilePreferences();
 });
+
+// Best-effort: re-pull server preferences and re-cache them. Falls back to the
+// existing localStorage cache when offline or on error.
+async function hydratePreferences() {
+  if (typeof getPreferences !== 'function' || typeof _cachePreferences !== 'function') return;
+  var uid = getCurrentUserId();
+  if (!uid) return;
+  try {
+    var res = await getPreferences();
+    if (res && res.success) _cachePreferences(res.data || {}, uid);
+  } catch (_) { /* offline-tolerant — cached prefs remain in effect */ }
+}
+
+async function reconcilePreferences() {
+  var before = JSON.stringify({ goal: getMonthlyGoal(), advanced: isAdvancedEnabled() });
+  await hydratePreferences();
+  var after  = JSON.stringify({ goal: getMonthlyGoal(), advanced: isAdvancedEnabled() });
+  if (after !== before) {
+    applyAdvancedMode();
+    renderAll();
+  }
+}
