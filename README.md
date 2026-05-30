@@ -1160,8 +1160,10 @@
       - Sidebar user card with popup dropdown
       - Account settings page: profile info, theme toggle,
         custom tax rate input (any percentage, 0–100), customizable stock status colors
-      - Store Info: store name + address, auto-saved and synced to the DB;
-        rendered as the header on printed receipts (POS + History)
+      - Store Info: store name (max 21 chars) + address (max 80), auto-saved
+        and synced to the DB; rendered as the header on printed receipts
+        (POS + History). The store name also drives the sidebar brand,
+        falling back to "Celso POS" when blank.
       - New Order: a single "numpad on desktop" toggle (off by default);
         phones & tablets always use the numpad. Desktop owners type directly.
       - Dashboard row count controls: separate selectors for
@@ -2052,4 +2054,16 @@
                  .pos-search-wrapper). The POS Enter-to-add / barcode-scanner
                  hook is preserved, and its ESC clear is scoped so it never
                  closes an open payment numpad.
+    • Store branding — the Store Name (Account → Store Info) now drives the
+                 sidebar brand on desktop and mobile, falling back to
+                 "Celso POS" when blank; the mobile navLabel "brand" option
+                 maps to it. Name capped at 21 chars, address at 80. A long
+                 name wraps to a smaller two-line label on desktop (toggled by
+                 measuring real overflow) instead of truncating; rendered via
+                 textContent so a user-set name can't inject markup on the
+                 shared device.
+    • Restock modal — the validation error line is now reserved (and visible:
+                 it was display:none, so messages never showed) so a failed
+                 entry no longer shifts the Add Stock button, which also gained
+                 spacing from the quantity field.
 ================================================================
