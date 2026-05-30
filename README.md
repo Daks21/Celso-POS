@@ -1057,11 +1057,27 @@
         here (?restock=<id>) and auto-opens that item's restock box.
 
     Module 1.6 — POS / Sales Interface (order.html)
-      - Two-panel layout: product grid + cart
-      - Category pill filters (collapses to dropdown on mobile)
-      - Cart with quantity controls, tax toggle
-      - Payment input with live change calculation
-      - Stock deduction on checkout
+      - Two-panel layout: product grid + cart (stacks on mobile)
+      - Product search + category pill filters (collapse to a dropdown when
+        the panel is narrow). Pressing Enter in the search box adds the first
+        in-stock match and clears the box — fast search-and-add, and the hook
+        a USB barcode scanner uses (it types the code and sends Enter).
+      - Per-card stock dot (in-stock / low / out); out-of-stock cards are
+        disabled. Dots update live as the cart consumes stock.
+      - Cart with quantity controls and an optional tax toggle
+      - On-screen payment numpad — the field is readonly, so the OS keyboard
+        never covers the total/checkout. Opens as a bottom sheet on mobile /
+        centered popover on desktop, with a live Total/Payment/Change readout,
+        additive denomination chips (₱5–₱1000) + an "Exact" shortcut, decimal
+        entry, and physical-keyboard support. Live change calculation.
+      - Sticky mobile cart bar (item count + total + "View Cart") once the
+        cart has items
+      - Checkout is disabled while the cart is empty and guarded against
+        double-submit; stock is deducted server-side on checkout
+      - Receipt header shows the configurable store name + address
+        (set in Account → Store Info)
+      - Hardened: product/item names are HTML-escaped before render (no
+        stored XSS); all prices, stock, and tax are re-validated server-side
 
     Module 1.7 — Sales History Page
       - Filter by date range and payment method
@@ -1079,6 +1095,8 @@
       - Sidebar user card with popup dropdown
       - Account settings page: profile info, theme toggle,
         custom tax rate input (any percentage, 0–100), customizable stock status colors
+      - Store Info: store name + address, auto-saved and synced to the DB;
+        rendered as the header on printed receipts (POS + History)
       - Dashboard row count controls: separate selectors for
         Low Stock Alerts rows and Recent Transactions rows
       - Items popover toggle: show or hide the transaction detail
@@ -1130,8 +1148,9 @@
 
     Mobile Design
       - Responsive at five breakpoints: 1000px (POS stacks),
-        800px (product grid compacts), 768px (primary mobile
-        breakpoint), 600px (reduced padding)
+        800px (product grid compacts), 768px (primary mobile breakpoint
+        + payment numpad becomes a bottom sheet), 600px (reduced padding,
+        2-column grid), 480px (numpad denomination chips tighten to one row)
       - At ≤768px: sidebar hidden; hamburger menu appears in
         topbar and opens a slide-down nav panel with all six
         main pages; panel closes on navigation or outside tap
@@ -1141,6 +1160,9 @@
         one-tap access to New Order
       - POS product grid: 4–6 columns on desktop → 2 columns on
         mobile; category pills collapse to a select dropdown
+      - POS payment uses an on-screen numpad (bottom sheet) instead of
+        the OS keyboard, plus a sticky cart bar pinned to the bottom of
+        the screen once the cart has items
       - Items popover uses tap-to-toggle on touch devices instead
         of hover
       - Touch targets sized to ≥28px minimum throughout

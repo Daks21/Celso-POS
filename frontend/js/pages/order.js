@@ -109,13 +109,15 @@ function currentGrandTotal() {
 function syncNumpad() {
   if (!numpadTotalEl) return;
   var total = currentGrandTotal();
+  var isEmpty = paymentAmountInput.value === '';
   var paid = Number(paymentAmountInput.value) || 0;
   var change = paid - total;
   numpadTotalEl.textContent   = formatPeso(total);
   numpadPaymentEl.textContent = formatPeso(paid);
-  numpadChangeEl.textContent  = formatPeso(change);
-  numpadChangeEl.classList.toggle('change-negative', change < 0);
-  numpadChangeEl.classList.toggle('change-positive', change >= 0 && paymentAmountInput.value !== '');
+  numpadChangeEl.textContent  = formatPeso(isEmpty ? 0 : change);
+  // No alarming red shortfall until the cashier has actually entered something.
+  numpadChangeEl.classList.toggle('change-negative', !isEmpty && change < 0);
+  numpadChangeEl.classList.toggle('change-positive', !isEmpty && change >= 0);
 }
 
 function setPayment(raw) {
@@ -142,13 +144,16 @@ function numpadPress(key) {
 function openNumpad() {
   if (!numpadBackdrop) return;
   numpadBackdrop.hidden = false;
+  document.body.classList.add('numpad-open');
   if (paymentField) paymentField.setAttribute('aria-expanded', 'true');
   syncNumpad();
+  if (numpadSheet) numpadSheet.focus();
 }
 
 function closeNumpad() {
   if (!numpadBackdrop) return;
   numpadBackdrop.hidden = true;
+  document.body.classList.remove('numpad-open');
   if (paymentField) {
     paymentField.setAttribute('aria-expanded', 'false');
     paymentField.focus();

@@ -835,6 +835,14 @@
   animation: numpadPop 0.18s var(--transition-bounce, ease-out);
 }
 
+.numpad-sheet:focus {
+  outline: none;
+}
+
+body.numpad-open {
+  overflow: hidden;
+}
+
 .numpad-summary {
   padding: 10px 12px;
   background-color: var(--color-background);
