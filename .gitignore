@@ -5,6 +5,9 @@ node_modules/
 .env
 *.env
 .env.*
+# ...but the template (no real secrets) IS committed:
+!.env.example
+!backend/.env.example
 
 # OS files
 .DS_Store

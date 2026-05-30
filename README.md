@@ -971,6 +971,15 @@
   HTTP SECURITY HEADERS
     helmet.js sets OWASP-recommended headers on every response:
     X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, CSP.
+    Because the backend serves the frontend on the same origin, the CSP applies
+    to the pages. It keeps helmet's strict defaults (default-src/connect-src/
+    img-src locked to 'self', no external origins — all libs are self-hosted)
+    with one deliberate relaxation: script-src allows 'unsafe-inline' so the two
+    inline page scripts (pre-paint theme applier + lucide.createIcons) run.
+    script-src-attr stays 'none' (no inline event handlers in the markup). The
+    app's primary XSS defense remains escaping user content on render
+    (textContent), not the CSP. A future hardening pass can move those inline
+    scripts to files + nonces and drop 'unsafe-inline'.
 
   CORS RESTRICTION
     Only the configured FRONTEND_URL origin is allowed. All other

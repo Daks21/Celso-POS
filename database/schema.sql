@@ -52,7 +52,9 @@ CREATE TABLE IF NOT EXISTS products (
              NOT NULL DEFAULT 'piece',
   is_active  TINYINT(1) DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_products_name     (name),
+  KEY idx_products_category (category)
 );
 
 -- 3. Sales
@@ -68,7 +70,9 @@ CREATE TABLE IF NOT EXISTS sales (
   change_given DECIMAL(10,2) NOT NULL,
   cashier_id   INT NOT NULL,
   created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (cashier_id) REFERENCES users(id) ON DELETE RESTRICT
+  FOREIGN KEY (cashier_id) REFERENCES users(id) ON DELETE RESTRICT,
+  KEY idx_sales_created (created_at)
+  -- receipt_no is already indexed by its UNIQUE constraint above
 );
 
 -- 4. Sale Items (junction table)
@@ -81,7 +85,9 @@ CREATE TABLE IF NOT EXISTS sale_items (
   quantity     INT NOT NULL,
   line_total   DECIMAL(10,2) NOT NULL,
   FOREIGN KEY (sale_id)    REFERENCES sales(id)    ON DELETE CASCADE,
-  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL,
+  KEY idx_sale_items_sale    (sale_id),
+  KEY idx_sale_items_product (product_id)
 );
 
 -- 5. Inventory Adjustments (audit log)
@@ -100,7 +106,9 @@ CREATE TABLE IF NOT EXISTS inventory_adjustments (
   supplier_name  VARCHAR(100)  DEFAULT NULL,
   created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (product_id)  REFERENCES products(id) ON DELETE SET NULL,
-  FOREIGN KEY (adjusted_by) REFERENCES users(id)    ON DELETE SET NULL
+  FOREIGN KEY (adjusted_by) REFERENCES users(id)    ON DELETE SET NULL,
+  KEY idx_inv_adj_product (product_id),
+  KEY idx_inv_adj_created (created_at)
 );
 
 -- Migration for existing databases (run once):
@@ -129,19 +137,15 @@ CREATE TABLE IF NOT EXISTS cash_movements (
   recorded_by INT DEFAULT NULL,
   is_active   TINYINT(1) DEFAULT 1,
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE SET NULL
+  FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE SET NULL,
+  KEY idx_cash_type     (type),
+  KEY idx_cash_category (category),
+  KEY idx_cash_occurred (occurred_at),
+  KEY idx_cash_source   (source_id)
 );
 
--- Indexes for performance
-CREATE INDEX idx_products_name      ON products(name);
-CREATE INDEX idx_products_category  ON products(category);
-CREATE INDEX idx_sales_created      ON sales(created_at);
-CREATE INDEX idx_sales_receipt      ON sales(receipt_no);
-CREATE INDEX idx_sale_items_sale    ON sale_items(sale_id);
-CREATE INDEX idx_sale_items_product ON sale_items(product_id);
-CREATE INDEX idx_inv_adj_product    ON inventory_adjustments(product_id);
-CREATE INDEX idx_inv_adj_created    ON inventory_adjustments(created_at);
-CREATE INDEX idx_cash_type          ON cash_movements(type);
-CREATE INDEX idx_cash_category      ON cash_movements(category);
-CREATE INDEX idx_cash_occurred      ON cash_movements(occurred_at);
-CREATE INDEX idx_cash_source        ON cash_movements(source_id);
+-- Indexes are declared inline in each CREATE TABLE above (as KEY clauses) so
+-- this whole file stays idempotent: MySQL has no CREATE INDEX IF NOT EXISTS, so
+-- standalone CREATE INDEX statements would throw "Duplicate key name" on a
+-- second run, whereas CREATE TABLE IF NOT EXISTS skips an existing table (and
+-- its inline keys) cleanly.

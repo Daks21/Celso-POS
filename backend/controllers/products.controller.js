@@ -11,6 +11,8 @@ const validate = (body) => {
     return 'Name must be 100 characters or fewer';
   if (!category || typeof category !== 'string' || category.trim() === '')
     return 'Category is required';
+  if (category.length > 100)
+    return 'Category must be 100 characters or fewer';
   if (price === undefined || typeof price !== 'number' || price <= 0)
     return 'Price must be a number greater than 0';
   if (cost === undefined || typeof cost !== 'number' || cost < 0)
