@@ -934,4 +934,30 @@
     padding-bottom: max(16px, env(safe-area-inset-bottom));
     animation: numpadSlideUp 0.2s ease-out;
   }
+
+  /* Chips collapse to a single, edge-safe row: flex:1 + min-width:0 forces
+     8 equal shares that exactly fill the sheet width (never overflow). */
+  .numpad-chips {
+    flex-wrap: nowrap;
+    gap: 5px;
+  }
+
+  .numpad-chips .denom-chip {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 7px 3px;
+    font-size: 11px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .numpad-chips {
+    gap: 4px;
+  }
+
+  .numpad-chips .denom-chip {
+    padding: 7px 2px;
+    font-size: 10px;
+  }
 }
