@@ -221,11 +221,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const storeNameInput    = document.getElementById('store-name-input');
     const storeAddressInput = document.getElementById('store-address-input');
 
+    // Store Info auto-saves on blur (the `change` event). Surface a subtle
+    // confirmation toast so the silent save is trusted — the event only fires
+    // when the value actually changed, so no toast spam on a plain tab-through.
+    function flashStoreInfoSaved() {
+      if (typeof showApiSuccess === 'function') showApiSuccess('Store info saved');
+    }
+
     if (storeNameInput) {
       storeNameInput.value = localStorage.getItem('storeName') || '';
       storeNameInput.addEventListener('change', function () {
         localStorage.setItem('storeName', storeNameInput.value.trim());
         syncToDb();
+        flashStoreInfoSaved();
       });
     }
     if (storeAddressInput) {
@@ -233,6 +241,7 @@ document.addEventListener('DOMContentLoaded', function() {
       storeAddressInput.addEventListener('change', function () {
         localStorage.setItem('storeAddress', storeAddressInput.value.trim());
         syncToDb();
+        flashStoreInfoSaved();
       });
     }
 
