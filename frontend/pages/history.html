@@ -146,13 +146,25 @@
 
             <div class="filter-group receipt-search">
               <label for="receipt-search">Receipt #</label>
-              <input
-                type="text"
-                id="receipt-search"
-                class="search-input"
-                placeholder="Search receipt number"
-                autocomplete="off"
-              >
+              <div class="search-field">
+                <input
+                  type="text"
+                  id="receipt-search"
+                  class="search-input"
+                  placeholder="Search receipt number"
+                  autocomplete="off"
+                >
+                <!-- Tap to clear on touch; ESC clears via keyboard. Hidden until typed. -->
+                <button
+                  type="button"
+                  class="search-clear"
+                  id="receipt-search-clear"
+                  aria-label="Clear search"
+                  hidden
+                >
+                  <i data-lucide="x"></i>
+                </button>
+              </div>
             </div>
 
             <button type="button" class="secondary-button reset-filter-button" id="reset-filters-button">

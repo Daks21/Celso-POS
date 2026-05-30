@@ -10,6 +10,7 @@ const tableWrapper = document.querySelector(".table-wrapper");
 const fromDateInput = document.getElementById("from-date");
 const toDateInput = document.getElementById("to-date");
 const receiptSearchInput = document.getElementById("receipt-search");
+const receiptSearchClear = document.getElementById("receipt-search-clear");
 const resetFiltersButton = document.getElementById("reset-filters-button");
 
 let sales = [];
@@ -19,12 +20,44 @@ const PAGE_SIZE = 20;
 
 fromDateInput.addEventListener("change", function () { filterSales(); });
 toDateInput.addEventListener("change", function () { filterSales(); });
-receiptSearchInput.addEventListener("input", function () { filterSales(); });
+// Show the clear ("X") button only while the field has text.
+function syncReceiptSearchClear() {
+  if (receiptSearchClear) receiptSearchClear.hidden = receiptSearchInput.value === "";
+}
+
+receiptSearchInput.addEventListener("input", function () {
+  filterSales();
+  syncReceiptSearchClear();
+});
+
+// ESC clears the field (keyboard). Stop it here so it never reaches the
+// global Escape handler that closes modals.
+receiptSearchInput.addEventListener("keydown", function (e) {
+  if (e.key === "Escape" && receiptSearchInput.value !== "") {
+    e.preventDefault();
+    e.stopPropagation();
+    receiptSearchInput.value = "";
+    filterSales();
+    syncReceiptSearchClear();
+    receiptSearchInput.focus();
+  }
+});
+
+// Tap-to-clear (touch / mouse).
+if (receiptSearchClear) {
+  receiptSearchClear.addEventListener("click", function () {
+    receiptSearchInput.value = "";
+    filterSales();
+    syncReceiptSearchClear();
+    receiptSearchInput.focus();
+  });
+}
 
 resetFiltersButton.addEventListener("click", async function () {
   fromDateInput.value = "";
   toDateInput.value = "";
   receiptSearchInput.value = "";
+  syncReceiptSearchClear();
   currentPage = 1;
 
   showLoading('#sales-table-body');

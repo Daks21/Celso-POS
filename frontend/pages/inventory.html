@@ -146,13 +146,25 @@
 
           <!-- Filter -->
           <div class="products-toolbar">
-            <input
-              type="text"
-              id="inventory-search"
-              class="search-input"
-              placeholder="Search products..."
-              autocomplete="off"
-            />
+            <div class="search-field">
+              <input
+                type="text"
+                id="inventory-search"
+                class="search-input"
+                placeholder="Search products..."
+                autocomplete="off"
+              />
+              <!-- Tap to clear on touch; ESC clears via keyboard. Hidden until typed. -->
+              <button
+                type="button"
+                class="search-clear"
+                id="inventory-search-clear"
+                aria-label="Clear search"
+                hidden
+              >
+                <i data-lucide="x"></i>
+              </button>
+            </div>
             <select id="inventory-category-select" class="filter-select">
               <!-- Options rendered by JS -->
             </select>

@@ -36,52 +36,6 @@
   flex-shrink: 0;
 }
 
-/* Search box with an inline clear ("X") button overlaid on the right. */
-.search-field {
-  position: relative;
-  display: block;
-}
-
-.search-field .search-input {
-  width: 100%;
-  /* leave room so typed text never slides under the clear button */
-  padding-right: 38px;
-}
-
-.search-clear {
-  position: absolute;
-  top: 50%;
-  right: 6px;
-  transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: color 0.2s, background-color 0.2s;
-}
-
-.search-clear:hover {
-  color: var(--color-text);
-  background-color: var(--color-background);
-}
-
-.search-clear svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* [hidden] must beat the inline-flex above when the field is empty. */
-.search-clear[hidden] {
-  display: none;
-}
-
 /* "Archived" toolbar button — compact, sits to the right of the filter */
 .archived-toggle {
   display: inline-flex;

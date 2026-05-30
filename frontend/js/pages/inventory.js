@@ -5,6 +5,7 @@ const userName    = document.getElementById('user-name');
 
 const inventoryTableBody      = document.getElementById('inventory-table-body');
 const inventorySearch         = document.getElementById('inventory-search');
+const inventorySearchClear    = document.getElementById('inventory-search-clear');
 const inventorySummary        = document.getElementById('inventory-summary');
 const restockColHeader        = document.getElementById('restock-col-header');
 const inventoryCategorySelect = document.getElementById('inventory-category-select');
@@ -310,10 +311,39 @@ if (currentUser && userName) {
   userName.textContent = currentUser.fullName;
 }
 
-inventorySearch.addEventListener('input', function () {
+// Show the clear ("X") button only while the field has text.
+function syncSearchClear() {
+  if (inventorySearchClear) inventorySearchClear.hidden = inventorySearch.value === '';
+}
+
+function runInventorySearch() {
   currentPage = 1;
   applyFilters();
+  syncSearchClear();
+}
+
+function clearInventorySearch() {
+  inventorySearch.value = '';
+  runInventorySearch();
+  inventorySearch.focus();
+}
+
+inventorySearch.addEventListener('input', runInventorySearch);
+
+// ESC clears the field (keyboard). Stop it here so it never reaches the
+// global Escape handler that closes modals.
+inventorySearch.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && inventorySearch.value !== '') {
+    e.preventDefault();
+    e.stopPropagation();
+    clearInventorySearch();
+  }
 });
+
+// Tap-to-clear (touch / mouse).
+if (inventorySearchClear) {
+  inventorySearchClear.addEventListener('click', clearInventorySearch);
+}
 
 if (inventoryCategorySelect) {
   inventoryCategorySelect.addEventListener('change', function () {
