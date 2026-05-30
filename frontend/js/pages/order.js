@@ -21,6 +21,7 @@ const saleMessage = document.getElementById("sale-message");
 let products = [];
 let cart = [];
 let activeCategory = 'All';
+let isSubmitting = false;
 
 let taxEnabled   = localStorage.getItem('taxEnabled')   === 'true';
 let taxDefaultOn = localStorage.getItem('taxDefaultOn') === 'true';
@@ -209,7 +210,7 @@ function renderProductGrid(productList) {
 
     productCard.innerHTML =
       '<div class="pos-card-name-row">' +
-        '<h3>' + product.name + '</h3>' +
+        '<h3>' + escapeHtml(product.name) + '</h3>' +
         '<span class="stock-dot ' + dotCls + '" title="' + dotTitle + '"></span>' +
       '</div>' +
       '<p class="pos-product-price">' + formatPeso(product.price) + '</p>';
@@ -393,7 +394,7 @@ function renderCart() {
 
       cartItem.innerHTML =
         '<div class="cart-item-info">' +
-          '<h3>' + item.name + maxedDot + '</h3>' +
+          '<h3>' + escapeHtml(item.name) + maxedDot + '</h3>' +
           '<p>' + formatPeso(item.price) + ' each</p>' +
         '</div>' +
         '<div class="cart-item-controls">' +
@@ -464,6 +465,8 @@ function updateChangeDisplay() {
 }
 
 async function completeSale() {
+  if (isSubmitting) return;
+
   const subtotal = getCartTotal();
   const tax = (taxEnabled && cartTaxOn) ? subtotal * taxRate : 0;
   const total = subtotal + tax;
@@ -509,6 +512,7 @@ async function completeSale() {
     cashier: currentUser ? currentUser.fullName : "Unknown Cashier"
   };
 
+  isSubmitting = true;
   completeSaleButton.disabled = true;
   try {
     const result = await createSale(saleRecord);
@@ -543,6 +547,7 @@ async function completeSale() {
   } catch (err) {
     showApiError('Network error. Is the server running?');
   } finally {
+    isSubmitting = false;
     updateCheckoutButtonState();
   }
 }
@@ -632,7 +637,7 @@ function renderCategoryPills() {
   }
 }
 
-function applyFilters() {
+function getFilteredProducts() {
   const searchTerm = document.getElementById('pos-product-search')
     .value.trim().toLowerCase();
 
@@ -646,10 +651,40 @@ function applyFilters() {
     filtered = filtered.filter(function (p) { return p.name.toLowerCase().includes(searchTerm); });
   }
 
-  renderProductGrid(filtered);
+  return filtered;
 }
 
-document.getElementById('pos-product-search').addEventListener('keyup', applyFilters);
+function applyFilters() {
+  renderProductGrid(getFilteredProducts());
+}
+
+var posSearchInput = document.getElementById('pos-product-search');
+posSearchInput.addEventListener('keyup', function (e) {
+  // Enter is handled on keydown (add-to-cart); keyup only live-filters.
+  if (e.key === 'Enter') return;
+  applyFilters();
+});
+
+// Enter in the search box adds the first in-stock match to the cart, then
+// clears the box — lets a cashier rapid-fire search-and-add (and is the
+// hook a USB barcode scanner uses: it types the code and sends Enter).
+posSearchInput.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (posSearchInput.value.trim() === '') return;
+
+  var addable = getFilteredProducts().find(function (p) {
+    var ci = cart.find(function (i) { return i.productId === p.id; });
+    var qty = ci ? ci.quantity : 0;
+    return (p.stock - qty) > 0;
+  });
+
+  if (addable) {
+    addToCart(addable.id);
+    posSearchInput.value = '';
+    applyFilters();
+  }
+});
 
 var posCategorySelect = document.getElementById('pos-category-select');
 if (posCategorySelect) {
