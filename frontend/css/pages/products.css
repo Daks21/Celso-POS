@@ -40,6 +40,7 @@
 .archived-toggle {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   flex-shrink: 0;
   margin-left: auto;
@@ -49,6 +50,7 @@
 .archived-toggle svg {
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
 }
 
 /* ── Archived products modal ── */
@@ -283,6 +285,20 @@
     font-size: 13px;
     white-space: nowrap;
     flex-shrink: 0;
+  }
+
+  /* Phones: with three controls in one no-wrap row, the "Archived" text label
+     starves the search box. Collapse to an icon-only square (label hidden but
+     kept accessible via the button's title) so search keeps usable width. */
+  .archived-toggle {
+    gap: 0;
+    padding: 0;
+    width: 38px;
+    height: 38px;
+  }
+
+  .archived-toggle span {
+    display: none;
   }
 }
 
