@@ -71,7 +71,16 @@ function applyStoreBrand() {
   var brand = getStoreBrand();
 
   var deskEl = document.querySelector('.sidebar-header .sidebar-app-name');
-  if (deskEl) deskEl.textContent = brand;
+  if (deskEl) {
+    deskEl.textContent = brand;
+    // Desktop only (the sidebar has 0 width while hidden on mobile): if the
+    // name overflows one line, switch to the smaller two-line treatment.
+    deskEl.classList.remove('is-long');
+    if (window.matchMedia('(min-width: 769px)').matches &&
+        deskEl.scrollWidth > deskEl.clientWidth) {
+      deskEl.classList.add('is-long');
+    }
+  }
 
   var mobEl = document.querySelector('.mobile-topbar-logo .sidebar-app-name');
   if (mobEl && getNavPrefs().navLabel !== 'page') mobEl.textContent = brand;
