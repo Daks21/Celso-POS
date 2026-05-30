@@ -72,7 +72,8 @@ const getArchived = async (filters = {}) => {
 // duplicate that splits that product's history across two ids.
 const findArchivedByName = async (name) => {
   const [rows] = await db.query(
-    'SELECT * FROM products WHERE is_active = 0 AND LOWER(name) = ? LIMIT 1',
+    'SELECT * FROM products WHERE is_active = 0 AND LOWER(name) = ?'
+    + ' ORDER BY updated_at DESC LIMIT 1',
     [String(name).trim().toLowerCase()]
   );
   return rows[0] || null;

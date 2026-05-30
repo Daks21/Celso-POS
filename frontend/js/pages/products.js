@@ -415,6 +415,7 @@ let pendingProductData = null;
 let pendingArchivedMatch = null;
 
 function openArchivedModal() {
+  if (!archivedModal) return;
   archivedModal.style.display = 'flex';
   loadArchived();
 }
@@ -487,6 +488,12 @@ async function restoreFromList(productId, btn) {
 function openArchivedTwinPrompt(productData, archivedProduct) {
   pendingProductData = productData;
   pendingArchivedMatch = archivedProduct;
+  if (!archivedTwinModal || !twinMessage) {
+    // Twin modal markup missing (shouldn't happen) — fail safe by adding as new
+    // rather than dead-ending the owner with an unhandled error.
+    confirmTwinAddNew();
+    return;
+  }
   twinMessage.textContent =
     'You archived "' + archivedProduct.name + '" before. Restoring brings it ' +
     'back with all its past sales history. Adding it as new starts a separate ' +
@@ -546,19 +553,24 @@ async function confirmTwinAddNew() {
   }
 }
 
-if (viewArchivedButton) {
+// The archived + twin modals are progressive enhancements. Guard their wiring
+// so a missing element can never throw here and block the core product table
+// (refreshProducts) below from rendering.
+if (viewArchivedButton && archivedModal && archivedCloseButton && archivedList) {
   viewArchivedButton.addEventListener('click', openArchivedModal);
+  archivedCloseButton.addEventListener('click', closeArchivedModal);
+  archivedModal.addEventListener('click', function (event) {
+    if (event.target === archivedModal) closeArchivedModal();
+  });
 }
-archivedCloseButton.addEventListener('click', closeArchivedModal);
-archivedModal.addEventListener('click', function (event) {
-  if (event.target === archivedModal) closeArchivedModal();
-});
 
-twinCloseButton.addEventListener('click', closeArchivedTwinPrompt);
-archivedTwinModal.addEventListener('click', function (event) {
-  if (event.target === archivedTwinModal) closeArchivedTwinPrompt();
-});
-twinRestoreButton.addEventListener('click', confirmTwinRestore);
-twinAddNewButton.addEventListener('click', confirmTwinAddNew);
+if (archivedTwinModal && twinCloseButton && twinRestoreButton && twinAddNewButton) {
+  twinCloseButton.addEventListener('click', closeArchivedTwinPrompt);
+  archivedTwinModal.addEventListener('click', function (event) {
+    if (event.target === archivedTwinModal) closeArchivedTwinPrompt();
+  });
+  twinRestoreButton.addEventListener('click', confirmTwinRestore);
+  twinAddNewButton.addEventListener('click', confirmTwinAddNew);
+}
 
 refreshProducts();
