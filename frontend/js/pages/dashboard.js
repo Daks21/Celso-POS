@@ -179,35 +179,47 @@ function renderDashboardWidgets() {
           return 4;
         }
 
-        var today    = new Date();
-        var todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-        var startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        startDate.setDate(startDate.getDate() - (52 * 7) - today.getDay());
+        // Build the grid entirely in store-local date space so the "today"
+        // boundary, weekday alignment, and month labels match how the backend
+        // buckets sales — even when the viewer's device is in a different
+        // timezone (e.g. an owner checking in from abroad). We walk YYYY-MM-DD
+        // strings anchored at noon UTC (DST-proof) and read weekday/month off
+        // the anchor's UTC getters; the keys index dayRevenue directly.
+        var todayStr = todayStrTz();
+        function _anchor(ds) { return new Date(ds + 'T12:00:00Z'); }
+        function _addDays(ds, n) {
+          var a = _anchor(ds);
+          a.setUTCDate(a.getUTCDate() + n);
+          return a.toISOString().slice(0, 10);
+        }
+
+        var todayDow = _anchor(todayStr).getUTCDay();          // 0=Sun … 6=Sat
+        var curStr   = _addDays(todayStr, -(52 * 7) - todayDow); // align to a Sunday
 
         var weeks       = [];
         var monthLabels = [];
-        var cur         = new Date(startDate);
         var lastMonth   = -1;
+        var done        = false;
 
-        while (cur <= todayEnd) {
+        while (!done) {
           var week = [];
           for (var d = 0; d < 7; d++) {
-            if (cur > todayEnd) {
+            if (curStr > todayStr) {
               week.push({ date: null, key: null, revenue: 0, level: -1 });
-              cur.setDate(cur.getDate() + 1);
               continue;
             }
-            var key = new Intl.DateTimeFormat('en-CA', { timeZone: getStoreTz() }).format(cur);
-            var m   = cur.getMonth();
+            var anchor = _anchor(curStr);
+            var m      = anchor.getUTCMonth();
             if (d === 0 && m !== lastMonth) {
               monthLabels.push({ label: DASH_MONTHS[m], weekIndex: weeks.length });
               lastMonth = m;
             }
-            var rev = dayRevenue[key] || 0;
-            week.push({ date: new Date(cur), key: key, revenue: rev, level: hlevel(rev) });
-            cur.setDate(cur.getDate() + 1);
+            var rev = dayRevenue[curStr] || 0;
+            week.push({ date: anchor, key: curStr, revenue: rev, level: hlevel(rev) });
+            curStr = _addDays(curStr, 1);
           }
           weeks.push(week);
+          if (curStr > todayStr) done = true;
         }
 
         if (monthsEl) {

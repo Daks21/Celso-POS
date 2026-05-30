@@ -103,7 +103,8 @@
       "Read(//c/c/Users/Sonsuman/OneDrive/Desktop/Celso_pos/backend/**)",
       "Read(//c/c/Users/Sonsuman/OneDrive/Desktop/Celso_pos/backend/models/**)",
       "Bash(Select-String -Pattern \"updateSale\" -Context 0,30)",
-      "PowerShell(Invoke-WebRequest -Uri \"https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js\" -OutFile \"frontend\\\\assets\\\\vendor\\\\chart.umd.min.js\"; Get-Item \"frontend\\\\assets\\\\vendor\\\\chart.umd.min.js\" | Select-Object Name,Length)"
+      "PowerShell(Invoke-WebRequest -Uri \"https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js\" -OutFile \"frontend\\\\assets\\\\vendor\\\\chart.umd.min.js\"; Get-Item \"frontend\\\\assets\\\\vendor\\\\chart.umd.min.js\" | Select-Object Name,Length)",
+      "PowerShell(node --check frontend\\\\js\\\\pages\\\\dashboard.js; if \\($?\\) { \"OK: dashboard.js parses clean\" })"
     ]
   }
 }
