@@ -1940,15 +1940,83 @@
                       3 low-stock alert rows
       
   ──────────────────────────────────────────────────────────────
-  PHASE 7: DEPLOYMENT
+  PHASE 7: WEB APP DEPLOYMENT
   ──────────────────────────────────────────────────────────────
 
+  DEPLOYMENT TOPOLOGY (important — drives every module below):
+    The frontend is served BY the backend as a single origin, NOT split
+    across two hosts. frontend/js/core/api.js derives its API base from
+    `window.location.origin + '/api'`, so the page and the API must share
+    one origin. The app therefore deploys as ONE Node service that serves
+    both the static frontend and the /api routes. Benefits: api.js needs no
+    change, CORS is a non-issue (same origin), one URL, one TLS cert. A
+    CDN can be layered in front later if static-asset load ever matters.
+
   MODULES:
-    Module 7.1 — Deploy Frontend (Vercel or Netlify)
-    Module 7.2 — Deploy Backend (Railway or Render)
-    Module 7.3 — Deploy Database (Supabase or PlanetScale)
-    Module 7.4 — Set environment variables in production
-    Module 7.5 — Final testing and go-live
+    Module 7.1 — Pre-deploy prep
+      - Serve the frontend from the backend (express.static on frontend/)
+        so the app is single-origin (see topology note above)
+      - Generate a NEW production JWT_SECRET (≥64 random chars; never
+        reuse the dev secret)
+      - Confirm host runs Node >=18 (bcrypt is a native module, compiled
+        on the host at install)
+      - Bump cache-bust version: node scripts/bust-cache.js
+
+    Module 7.2 — Provision the database (MySQL host)
+      - Create a managed MySQL 8 instance. MUST be MySQL — Supabase
+        (PostgreSQL) is NOT compatible with this app (mysql2 + MySQL-only
+        SQL such as CONVERT_TZ). Options: Railway MySQL (co-located with
+        the backend = lowest latency, single provider), Aiven for MySQL,
+        or AWS RDS MySQL.
+      - Load database/schema.sql ONCE (fresh install). It is self-sufficient
+        — it creates app_settings and its singleton row via INSERT IGNORE.
+      - Do NOT load seed.sql in production (it is demo data).
+      - Create the least-privilege app user (SELECT/INSERT/UPDATE on the
+        app DB only; no DDL — schema/migrations are run by a privileged user).
+      - The migrate_*.sql files are only for UPGRADING an existing database,
+        not for a fresh install.
+      - Verify whether MySQL named-timezone tables are loaded; expect the
+        offset fallback on hosts that lack them (logged on boot — see
+        Timezone note below).
+
+    Module 7.3 — Deploy the app (single Node service)
+      - Push the backend (now also serving the frontend) to Railway/Render
+      - Enable automatic HTTPS and attach the custom domain
+      - Configure the platform health check to GET /api/health
+
+    Module 7.4 — Production environment variables
+      - Required (server fails fast if any are missing): JWT_SECRET,
+        DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME, GROQ_API_KEY
+      - FRONTEND_URL = the production origin (used for CORS; extend with the
+        Capacitor origin in Phase 8). With single-origin web, same-origin
+        requests don't need it, but set it correctly anyway.
+      - Set every secret as a platform env var — never commit .env
+
+    Module 7.5 — First-run setup (otherwise the owner can't run the store)
+      - Owner registers the first account via the register page
+      - PROMOTE that account to admin: registration defaults role='cashier'
+        (user.model.js), and cashiers are blocked from restock, Finance, and
+        deletes. Run once in the DB console:
+          UPDATE users SET role='admin' WHERE email='<owner-email>';
+      - In Account Settings: set store name + address and the store timezone
+
+    Module 7.6 — Backups & recovery (financial data — non-negotiable)
+      - Enable automated daily database backups on the MySQL host
+      - Perform ONE test restore BEFORE go-live to prove backups work
+
+    Module 7.7 — Monitoring & logging
+      - Uptime monitor pinging GET /api/health
+      - Confirm the platform captures morgan's stdout request logs
+      - NOTE: the auth/inventory rate limiters and the AI per-user limiter
+        are IN-MEMORY. Run a SINGLE backend instance — do not horizontally
+        autoscale yet, or limits/counters fragment across instances.
+
+    Module 7.8 — Go-live verification
+      - Run backend/test-integration.js against the deployed stack
+      - Walk the critical path manually: register → promote admin →
+        add product → restock → sale → receipt → history → finance entry →
+        Os chat
+      - Confirm HTTPS, CORS behavior, and a known rollback path
 
   TIMEZONE MIGRATION (run once when upgrading an existing database):
     Order: stop API → back up DB → run database/migrate_timezone.sql →
@@ -1959,6 +2027,73 @@
     AWS RDS / Railway / Render, NOT on PlanetScale. The backend detects this
     on boot and falls back to a fixed offset when they're absent (logged as
     "[TZ] ... offset fallback").
+    (Fresh installs skip this entirely — schema.sql already stores UTC and
+    seeds the app_settings row.)
+
+  ──────────────────────────────────────────────────────────────
+  PHASE 8: MOBILE APP DEPLOYMENT (Android, cloud)
+  ──────────────────────────────────────────────────────────────
+
+  SCOPE:
+    A "cloud" Android app: the existing web frontend wrapped natively and
+    talking to the SAME Phase 7 backend over HTTPS. No rewrite, no second
+    codebase. True offline operation (local DB + sync) is explicitly OUT of
+    scope here — see the Phase 9 note at the end.
+
+  KEY PREREQUISITE (the thing that breaks if missed):
+    Inside a Capacitor app the page origin is capacitor://localhost (Android),
+    NOT the backend. So `window.location.origin + '/api'` resolves to the
+    device, not the server. The packaged build MUST point api.js at the real
+    backend URL, and the backend CORS (FRONTEND_URL) MUST allow the Capacitor
+    origin. The web build keeps its same-origin behavior unchanged.
+
+  MODULES:
+    Module 8.1 — PWA foundation (also makes the web app installable + faster)
+      - Add manifest.json (name, icons, theme color, display: standalone)
+      - Add a service worker that caches the app shell (HTML/CSS/JS) for
+        instant repeat loads and resilience to flaky signal
+      - Verify "Add to Home Screen" works from the mobile browser
+
+    Module 8.2 — Configurable API base URL
+      - Replace the same-origin assumption with a configured backend URL for
+        packaged builds (build-time constant / env), keeping the web build
+        on same-origin
+      - Add the Capacitor origin to the backend FRONTEND_URL (CORS allowlist)
+
+    Module 8.3 — Capacitor wrap (Windows-only; no Mac needed for Android)
+      - Install Capacitor, init the project, add the Android platform
+      - Install Android Studio + JDK + Android SDK on Windows
+
+    Module 8.4 — App identity
+      - App icon, splash screen, package name (e.g. com.<you>.celsopos),
+        and display name (reuse store branding)
+
+    Module 8.5 — Native behavior pass
+      - Hardware back button handling, status-bar / safe-area insets,
+        no-signal / network-error UX, open external links in the system
+        browser, optional keep-awake on the POS screen
+
+    Module 8.6 — Signed release build
+      - Generate a release keystore and BACK IT UP (losing it blocks all
+        future updates to the listing)
+      - Build the signed AAB/APK
+
+    Module 8.7 — Google Play Console
+      - One-time $25 developer account
+      - Store listing + screenshots
+      - Privacy policy URL + Data Safety form (the app handles business
+        financial data and sends aggregates to an AI provider — disclose it)
+
+    Module 8.8 — Release rollout
+      - Internal testing → closed testing → production track
+      - Verify the installed app reaches the Phase 7 backend over HTTPS
+
+  PHASE 9 NOTE (deferred — do NOT bundle into Phase 8):
+    True offline-first — local SQLite mirror of products/stock, a local
+    sale queue, and a sync engine with an explicit stock-conflict policy —
+    is its own project. It conflicts with the current server-authoritative
+    price/stock enforcement, so scope it separately once real usage confirms
+    connectivity is the blocker.
 
 ================================================================
 [11. DEPENDENCIES]
