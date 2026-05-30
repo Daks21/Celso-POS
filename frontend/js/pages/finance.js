@@ -681,11 +681,15 @@ function renderMovements(list) {
       notesHtml   = '<span style="color:var(--color-text-muted);font-size:0.82em;">' + entry.count + ' transaction' + (entry.count !== 1 ? 's' : '') + '</span>';
       actionsHtml = '<td class="actions-cell"></td>';
     } else {
-      var catLabel = entry.category ? entry.category.replace(/_/g, ' ') : '';
+      // category (free-form for opex/capex) and description are user-entered, so
+      // they MUST be HTML-escaped before going into innerHTML — otherwise a note
+      // like "<img src=x onerror=...>" is stored XSS that runs in whoever opens
+      // Finance next (admin included, on a shared store device).
+      var catLabel = entry.category ? escapeHtml(String(entry.category).replace(/_/g, ' ')) : '';
       descHtml = '<span class="type-label">' + typeLabel + '</span>' +
         (catLabel ? '<span class="cat-label"> · ' + catLabel + '</span>' : '') +
         sourceChipHtml;
-      notesHtml   = (entry.description || '—');
+      notesHtml   = entry.description ? escapeHtml(entry.description) : '—';
       actionsHtml = '<td class="actions-cell"></td>';
       if (isAdmin() && entry.source === 'manual') {
         actionsHtml =
