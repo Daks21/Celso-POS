@@ -1111,9 +1111,8 @@
         popover on the dashboard Recent Transactions table
       - Advanced Analytics toggle (off by default): unlocks the
         Tier 2 section on the Analytics page (monthly revenue goal,
-        cashflow snapshot, inventory health)
-      - Monthly revenue goal: optional numeric target used by the
-        Tier 2 goal-tracking card on Analytics
+        cashflow snapshot, inventory health). The goal's target value
+        is set in-context on the goal card itself, not in Settings.
       - Settings sync to the backend database — persist across
         devices and sessions (localStorage is a cache only)
 

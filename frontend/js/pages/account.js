@@ -501,42 +501,18 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
-    // ── Advanced Analytics Toggle + Monthly Goal ──
+    // ── Advanced Analytics Toggle ──
+    // The monthly revenue goal itself is set in-context on the Analytics card
+    // (analytics.js inline editor), not here — this is just the feature gate.
     var advToggle = document.getElementById('advanced-analytics-toggle');
-    var goalInput = document.getElementById('monthly-goal-input');
-    var goalSave  = document.getElementById('monthly-goal-save');
-    var goalRow   = document.getElementById('monthly-goal-row');
 
     if (advToggle) {
       var prefs2 = loadUserPrefs();
       advToggle.checked = prefs2.advancedAnalytics === true;
-      if (goalRow) goalRow.style.opacity = advToggle.checked ? '1' : '0.5';
       advToggle.addEventListener('change', function () {
         prefs2.advancedAnalytics = advToggle.checked;
         saveUserPrefs(prefs2);
         syncToDb();
-        if (goalRow) goalRow.style.opacity = advToggle.checked ? '1' : '0.5';
-      });
-    }
-
-    if (goalInput && goalSave) {
-      var prefs3 = loadUserPrefs();
-      if (prefs3.monthlyRevenueGoal != null && prefs3.monthlyRevenueGoal !== '') {
-        goalInput.value = prefs3.monthlyRevenueGoal;
-      }
-      goalSave.addEventListener('click', function () {
-        var p = loadUserPrefs();
-        var v = goalInput.value.trim();
-        if (v === '') {
-          delete p.monthlyRevenueGoal;
-        } else {
-          var n = parseFloat(v);
-          if (isNaN(n) || n < 0) { goalInput.focus(); return; }
-          p.monthlyRevenueGoal = n;
-        }
-        saveUserPrefs(p);
-        syncToDb();
-        flashSaved(goalSave);
       });
     }
 
