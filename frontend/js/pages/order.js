@@ -265,11 +265,16 @@ function attachCartEvents() {
 function renderProductGrid(productList) {
   productGrid.innerHTML = "";
 
-  const list = productList || products;
+  const source = productList || products;
+  // Hide out-of-stock items — an operator can't sell what isn't there, and a
+  // greyed, un-tappable card is just clutter. They reappear once restocked.
+  const list = source.filter(function (p) { return p.stock > 0; });
 
   if (list.length === 0) {
     if (products.length === 0 && typeof OnboardingCore !== 'undefined') {
       OnboardingCore.renderEmptyState(productGrid, 'order', null);
+    } else if (source.length > 0) {
+      productGrid.innerHTML = '<p class="cart-empty-message">All matching products are out of stock.</p>';
     } else {
       productGrid.innerHTML = '<p class="cart-empty-message">No products match your search.</p>';
     }

@@ -1062,8 +1062,9 @@
         the panel is narrow). Pressing Enter in the search box adds the first
         in-stock match and clears the box — fast search-and-add, and the hook
         a USB barcode scanner uses (it types the code and sends Enter).
-      - Per-card stock dot (in-stock / low / out); out-of-stock cards are
-        disabled. Dots update live as the cart consumes stock.
+      - Per-card stock dot (in-stock / low); out-of-stock products are hidden
+        from the grid until restocked (an item fully added to the current cart
+        shows disabled). Dots update live as the cart consumes stock.
       - Cart with quantity controls and an optional tax toggle
       - On-screen payment numpad — the field is readonly, so the OS keyboard
         never covers the total/checkout. Opens as a bottom sheet on mobile /
