@@ -72,6 +72,19 @@
   color: var(--color-text-muted);
 }
 
+/* Restock error: this modal sets textContent directly (no .has-error class),
+   so override the global display:none and keep the line always reserved —
+   showing a validation message never shifts the Add Stock button below it. */
+#restock-error {
+  display: block;
+  min-height: 1.25rem;
+}
+
+/* Separate the primary action from the field group (it sits outside it). */
+#confirm-restock {
+  margin-top: 8px;
+}
+
 /* ── Product name: constrain cell, then truncate to 1 line with ellipsis ── */
 
 #inventory-table td:nth-child(1) {
