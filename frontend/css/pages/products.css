@@ -36,6 +36,98 @@
   flex-shrink: 0;
 }
 
+/* "Archived" toolbar button — compact, sits to the right of the filter */
+.archived-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.archived-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ── Archived products modal ── */
+
+.archived-intro {
+  margin: 0 0 16px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.archived-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.archived-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.archived-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.archived-name {
+  font-weight: 600;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.archived-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.archived-restore {
+  flex-shrink: 0;
+  width: auto;
+  padding: 8px 14px;
+}
+
+.archived-empty {
+  padding: 24px 8px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+/* ── Re-add twin prompt ── */
+
+.twin-message {
+  margin: 0 0 20px;
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.twin-actions {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.twin-actions .submit-button,
+.twin-actions .secondary-button {
+  width: 100%;
+}
+
 
 /* ── Products summary: peso values are wider, use a smaller font ── */
 

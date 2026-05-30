@@ -51,6 +51,55 @@ const remove = async (id) => {
   return result.affectedRows > 0;
 };
 
+// Archived (soft-deleted) products, newest-archived first. Mirrors getAll but
+// for is_active = 0 — the data layer for the "Archived" view, so deleted items
+// stay recoverable instead of being silently re-created as duplicates.
+const getArchived = async (filters = {}) => {
+  let sql = 'SELECT * FROM products WHERE is_active = 0';
+  const params = [];
+  if (filters.search) {
+    sql += ' AND LOWER(name) LIKE ?';
+    params.push(`%${filters.search.toLowerCase()}%`);
+  }
+  sql += ' ORDER BY updated_at DESC';
+  const [rows] = await db.query(sql, params);
+  return rows;
+};
+
+// Look up an archived twin by exact (case-insensitive) name. Used on create to
+// catch an owner re-adding a previously deleted item, so we can offer Restore
+// (keeps the sale history tied to the original id) instead of spawning a
+// duplicate that splits that product's history across two ids.
+const findArchivedByName = async (name) => {
+  const [rows] = await db.query(
+    'SELECT * FROM products WHERE is_active = 0 AND LOWER(name) = ? LIMIT 1',
+    [String(name).trim().toLowerCase()]
+  );
+  return rows[0] || null;
+};
+
+// Un-archive a product. `data` is optional: when the owner restores via the
+// re-add flow we refresh name/category/price/cost/unit to what they just typed
+// (months-old pricing is usually stale); a bare restore from the Archived list
+// brings the item back exactly as it was. Stock is intentionally untouched —
+// it stays at its archived value (typically 0) and is replenished on Inventory.
+const restore = async (id, data = null) => {
+  let result;
+  if (data) {
+    [result] = await db.query(
+      'UPDATE products SET name=?, category=?, price=?, cost=?, unit=?, is_active=1'
+      + ' WHERE id=? AND is_active=0',
+      [data.name, data.category, data.price, data.cost, data.unit, id]
+    );
+  } else {
+    [result] = await db.query(
+      'UPDATE products SET is_active=1 WHERE id=? AND is_active=0', [id]
+    );
+  }
+  if (result.affectedRows === 0) return null;
+  return getById(id);
+};
+
 const getLowStock = async (threshold = 50) => {
   const [rows] = await db.query(
     'SELECT * FROM products'
@@ -185,6 +234,7 @@ const getAdjustmentLog = async (productId) => {
 
 module.exports = {
   getAll, getById, create, update, remove,
+  getArchived, findArchivedByName, restore,
   getLowStock, getOutOfStock, getStockLevels,
   getInventoryCounts, adjustStock, getAdjustmentLog,
 };

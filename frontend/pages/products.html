@@ -147,6 +147,10 @@
             <select id="product-category-select" class="filter-select">
               <!-- Options rendered by JS -->
             </select>
+            <button type="button" class="secondary-button archived-toggle" id="view-archived-button" title="View archived products">
+              <i data-lucide="archive"></i>
+              <span>Archived</span>
+            </button>
           </div>
 
           <div class="table-wrapper">
@@ -270,6 +274,48 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Archived products: deleted items are soft-deleted, so they live here and
+       can be restored (keeping their sale history) instead of re-created. -->
+  <div class="modal-overlay" id="archived-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Archived Products</h2>
+        <button type="button" class="modal-close-button" id="archived-close-button">
+          ×
+        </button>
+      </div>
+      <p class="archived-intro">
+        Products you deleted are kept here with their sales history. Restore one
+        to put it back in your catalog — it keeps all its past records.
+      </p>
+      <div class="archived-list" id="archived-list">
+        <!-- Rendered by products.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Re-add guard: when a new product's name matches an archived one, offer to
+       restore it (keeps history) rather than create a duplicate. -->
+  <div class="modal-overlay" id="archived-twin-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>You archived this before</h2>
+        <button type="button" class="modal-close-button" id="twin-close-button">
+          ×
+        </button>
+      </div>
+      <p class="twin-message" id="twin-message"></p>
+      <div class="modal-actions twin-actions">
+        <button type="button" class="submit-button" id="twin-restore-button">
+          Restore it (keep history)
+        </button>
+        <button type="button" class="secondary-button" id="twin-addnew-button">
+          Add as new instead
+        </button>
+      </div>
     </div>
   </div>
 

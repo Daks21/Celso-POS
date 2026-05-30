@@ -109,6 +109,20 @@ async function deleteProduct(id) {
   return apiCall(`/products/${id}`, { method: 'DELETE' });
 }
 
+async function getArchivedProducts(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return apiCall('/products/archived' + (query ? '?' + query : ''));
+}
+
+// Un-archive a product. Pass `data` (the re-add form fields) to also refresh its
+// pricing/details; omit it for a bare restore from the Archived list.
+async function restoreProduct(id, data) {
+  return apiCall(`/products/${id}/restore`, {
+    method: 'POST',
+    ...(data ? { body: JSON.stringify(data) } : {}),
+  });
+}
+
 // --- Sales ---
 
 async function createSale(saleData) {

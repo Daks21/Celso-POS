@@ -506,25 +506,51 @@
       → 200 { success, data: Product[] }
       Returns only active products, sorted A→Z
 
+    GET    /archived       Auth required
+      Query: ?search=<string>
+      → 200 { success, data: Product[] }
+      Soft-deleted products (is_active = 0), newest-archived first.
+      Backs the Products page "Archived" view so deleted items stay
+      recoverable instead of being silently re-created as duplicates.
+
     GET    /:id            Public
       → 200 { success, data: Product }
       → 404 not found
 
     POST   /               Auth required
-      Body: { name, category, price, cost, unit }
+      Body: { name, category, price, cost, unit, allowDuplicate? }
       Initial stock is always 0 — stock is added exclusively via the
       restock endpoint (POST /api/inventory/:productId/adjust). Product
       cost is captured here on the product record (the source for
       COGS/profit); quantity is added later on the Inventory page.
+      Archived-twin guard: if an archived product with the same name
+      exists, creation is blocked so the client can offer Restore (keeps
+      sale history on the original id) vs. Add new — a duplicate would
+      split that product's history across two ids and drop the old half
+      from profit-by-product (which filters is_active = 1). Pass
+      allowDuplicate: true to override and create a separate item.
       → 201 { success, data: Product }
       → 400 validation error
+      → 409 { success: false, archivedMatch: true, data: Product }
+            (archived twin found; not created)
+
+    POST   /:id/restore    Auth required
+      Body: { name, category, price, cost, unit }  (optional)
+      Un-archives a soft-deleted product (is_active → 1), preserving its
+      id and all linked sale history. With a body, also refreshes the
+      product's details/pricing to the supplied values (used by the
+      re-add "Restore" choice); without one, restores it exactly as
+      archived (used by the Archived list). Stock is left untouched.
+      → 200 { success, data: Product }
+      → 404 archived product not found
 
     PUT    /:id            Auth required
       Body: Same as POST (full update)
       → 200 { success, data: Product }
 
     DELETE /:id            Auth required
-      Soft delete (sets is_active = 0, data is preserved)
+      Soft delete (sets is_active = 0, data is preserved). Recoverable
+      via GET /archived + POST /:id/restore.
       → 204 no content
 
   ──────────────────────────────────────────────────────────────
@@ -1051,6 +1077,12 @@
       - Full CRUD: add, edit, delete products
       - Search and category filter
       - Per-product price and cost (cost is the source for COGS/profit)
+      - Archive & restore: "delete" is a soft delete, so deleted items
+        live in an "Archived" view (toolbar button) and can be restored
+        with their full sale history intact. Re-adding a product whose
+        name matches an archived one prompts "You archived this before —
+        Restore it (keep history) or Add as new?", preventing silent
+        duplicates that would fragment a product's history across two ids.
       - Note (Phase 5): the create form has no "stock" field — new
         products always start with stock = 0. Stock is added separately
         on the Inventory page via the per-product restock modal. This
@@ -1223,10 +1255,14 @@
       - Replaced all localStorage-based auth from Phase 1
 
     Module 2.3 — Products API (CRUD)
-      - 5 endpoints: GET /api/products, GET /:id, POST, PUT /:id,
-        DELETE /:id
+      - 7 endpoints: GET /api/products, GET /archived, GET /:id, POST,
+        POST /:id/restore, PUT /:id, DELETE /:id
       - Server-side input validation on all write operations
       - JWT-protected writes; query-based filtering on reads
+      - Archive/restore lifecycle: DELETE soft-deletes; GET /archived
+        lists soft-deleted items; POST /:id/restore un-archives them.
+        POST blocks an archived-name collision (409 archivedMatch) unless
+        allowDuplicate is set, so re-adds restore rather than duplicate.
       - Note (Phase 5): POST body no longer accepts a "stock" field.
         New products are created with stock = 0; the controller
         forces this regardless of any client-supplied value.
@@ -1981,6 +2017,18 @@
                   avg × days remaining). Zero DB schema changes.
     • QA fixes — accessibility, step counts, celebration modal,
                  finance.html CSS link
+    • Products — Archive & restore: deleted products (already soft-deleted)
+                   are now recoverable. A new "Archived" view on the Products
+                   page (GET /api/products/archived) lists them with a Restore
+                   action (POST /api/products/:id/restore) that un-archives the
+                   item on its original id, keeping all sale history. Re-adding a
+                   name that matches an archived item returns 409 archivedMatch
+                   and prompts "Restore (keep history) vs Add as new" instead of
+                   silently creating a duplicate — which would split a product's
+                   history across two ids and drop the old half from
+                   profit-by-product (filters is_active = 1). allowDuplicate
+                   overrides to create a separate item; restore-from-re-add also
+                   refreshes pricing to the freshly-typed values.
     • Inventory MVP — restock is quantity-only; the Phase 5 restock
                  cost-capture UI ("Binili ko ito / may gastos") was
                  removed. Money spent on stock is recorded manually as a

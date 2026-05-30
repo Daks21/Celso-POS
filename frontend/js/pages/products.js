@@ -235,6 +235,10 @@ productForm.addEventListener("submit", async function (event) {
         }
         showAddStockToast(result.data);
       }
+    } else if (result && result.archivedMatch && isNewProduct) {
+      // The name matches a previously-deleted product. Let the owner restore it
+      // (keeps history) instead of silently creating a duplicate.
+      openArchivedTwinPrompt(productData, result.data);
     } else {
       showApiError(result ? result.message : 'Failed to save product.');
     }
@@ -392,5 +396,169 @@ function showAddStockToast(product) {
 document.addEventListener('click', function (e) {
   if (!e.target.closest('.kebab-wrapper')) closeAllDropdowns();
 });
+
+// ── Archived products (restore deleted items instead of re-creating) ──
+
+const viewArchivedButton = document.getElementById('view-archived-button');
+const archivedModal = document.getElementById('archived-modal');
+const archivedCloseButton = document.getElementById('archived-close-button');
+const archivedList = document.getElementById('archived-list');
+
+const archivedTwinModal = document.getElementById('archived-twin-modal');
+const twinCloseButton = document.getElementById('twin-close-button');
+const twinMessage = document.getElementById('twin-message');
+const twinRestoreButton = document.getElementById('twin-restore-button');
+const twinAddNewButton = document.getElementById('twin-addnew-button');
+
+// Holds the form data + matched archived row while the twin prompt is open.
+let pendingProductData = null;
+let pendingArchivedMatch = null;
+
+function openArchivedModal() {
+  archivedModal.style.display = 'flex';
+  loadArchived();
+}
+
+function closeArchivedModal() {
+  archivedModal.style.display = 'none';
+}
+
+async function loadArchived() {
+  archivedList.innerHTML = '<p class="archived-empty">Loading…</p>';
+  try {
+    const result = await getArchivedProducts();
+    if (result && result.success) {
+      renderArchived(result.data || []);
+    } else {
+      archivedList.innerHTML = '<p class="archived-empty">Failed to load archived products.</p>';
+    }
+  } catch (err) {
+    archivedList.innerHTML = '<p class="archived-empty">Network error. Is the server running?</p>';
+  }
+}
+
+function renderArchived(list) {
+  if (!list.length) {
+    archivedList.innerHTML =
+      '<p class="archived-empty">No archived products. Deleted items will appear here.</p>';
+    return;
+  }
+
+  archivedList.innerHTML = '';
+  list.forEach(function (product) {
+    const row = document.createElement('div');
+    row.className = 'archived-row';
+    row.innerHTML =
+      '<div class="archived-info">' +
+        '<span class="archived-name">' + escapeHtml(product.name) + '</span>' +
+        '<span class="archived-meta">' + escapeHtml(product.category) +
+          ' · ' + formatPeso(Number(product.price)) + '</span>' +
+      '</div>' +
+      '<button type="button" class="secondary-button archived-restore" data-id="' +
+        product.id + '">Restore</button>';
+    archivedList.appendChild(row);
+  });
+
+  archivedList.querySelectorAll('.archived-restore').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      restoreFromList(btn.dataset.id, btn);
+    });
+  });
+}
+
+async function restoreFromList(productId, btn) {
+  btn.disabled = true;
+  try {
+    const result = await restoreProduct(productId);
+    if (result && result.success) {
+      showApiSuccess('Product restored');
+      await refreshProducts();
+      await loadArchived();
+    } else {
+      showApiError(result ? result.message : 'Failed to restore product.');
+      btn.disabled = false;
+    }
+  } catch (err) {
+    showApiError('Network error. Is the server running?');
+    btn.disabled = false;
+  }
+}
+
+function openArchivedTwinPrompt(productData, archivedProduct) {
+  pendingProductData = productData;
+  pendingArchivedMatch = archivedProduct;
+  twinMessage.textContent =
+    'You archived "' + archivedProduct.name + '" before. Restoring brings it ' +
+    'back with all its past sales history. Adding it as new starts a separate ' +
+    'item, so its old records stay with the archived one.';
+  archivedTwinModal.style.display = 'flex';
+}
+
+function closeArchivedTwinPrompt() {
+  archivedTwinModal.style.display = 'none';
+  pendingProductData = null;
+  pendingArchivedMatch = null;
+}
+
+// Shared post-save flow for both twin choices: close everything, refresh, and
+// nudge to add stock (new products always start at 0).
+async function finishTwinSave(result) {
+  closeArchivedTwinPrompt();
+  closeProductModal();
+  await refreshProducts();
+  if (typeof OnboardingChecklist !== 'undefined') {
+    OnboardingChecklist.complete('addProduct');
+  }
+  showAddStockToast(result.data);
+}
+
+async function confirmTwinRestore() {
+  if (!pendingArchivedMatch || !pendingProductData) return;
+  twinRestoreButton.disabled = true;
+  try {
+    const result = await restoreProduct(pendingArchivedMatch.id, pendingProductData);
+    if (result && result.success) {
+      await finishTwinSave(result);
+    } else {
+      showApiError(result ? result.message : 'Failed to restore product.');
+    }
+  } catch (err) {
+    showApiError('Network error. Is the server running?');
+  } finally {
+    twinRestoreButton.disabled = false;
+  }
+}
+
+async function confirmTwinAddNew() {
+  if (!pendingProductData) return;
+  twinAddNewButton.disabled = true;
+  try {
+    const result = await createProduct(Object.assign({}, pendingProductData, { allowDuplicate: true }));
+    if (result && result.success) {
+      await finishTwinSave(result);
+    } else {
+      showApiError(result ? result.message : 'Failed to add product.');
+    }
+  } catch (err) {
+    showApiError('Network error. Is the server running?');
+  } finally {
+    twinAddNewButton.disabled = false;
+  }
+}
+
+if (viewArchivedButton) {
+  viewArchivedButton.addEventListener('click', openArchivedModal);
+}
+archivedCloseButton.addEventListener('click', closeArchivedModal);
+archivedModal.addEventListener('click', function (event) {
+  if (event.target === archivedModal) closeArchivedModal();
+});
+
+twinCloseButton.addEventListener('click', closeArchivedTwinPrompt);
+archivedTwinModal.addEventListener('click', function (event) {
+  if (event.target === archivedTwinModal) closeArchivedTwinPrompt();
+});
+twinRestoreButton.addEventListener('click', confirmTwinRestore);
+twinAddNewButton.addEventListener('click', confirmTwinAddNew);
 
 refreshProducts();
