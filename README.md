@@ -193,9 +193,9 @@
       ├── images/              ← Logos, product placeholder images
       ├── icons/               ← UI icons (SVG or PNG)
       ├── fonts/               ← Custom fonts if needed
-      └── vendor/              ← Self-hosted third-party libs (lucide icons —
-                                  no CDN, so icons load offline / under strict
-                                  tracking-prevention)
+      └── vendor/              ← Self-hosted third-party libs (lucide icons +
+                                  Chart.js — no CDN, so they load offline / under
+                                  strict tracking-prevention)
 
   ─────────────────────────────────────────────────────────────
 

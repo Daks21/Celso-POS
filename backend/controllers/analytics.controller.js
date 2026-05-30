@@ -31,7 +31,12 @@ function priorWindow(from, to) {
 const getSummary = async (req, res, next) => {
   try {
     const dateStr   = req.query.date || storeToday();
-    const threshold = parseInt(req.query.threshold, 10) || 50;
+    // A threshold of 0 is valid ("only flag truly out-of-stock"); don't let a
+    // falsy `|| 50` swallow it. Fall back to 50 only when absent/invalid.
+    const parsedThreshold = parseInt(req.query.threshold, 10);
+    const threshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0
+      ? parsedThreshold
+      : 50;
 
     const [saleSummary, products] = await Promise.all([
       saleModel.getSummary(dateStr),

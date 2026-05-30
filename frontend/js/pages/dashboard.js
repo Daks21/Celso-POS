@@ -301,6 +301,10 @@ function renderDashboardWidgets() {
           if (emptyEl) emptyEl.style.display = hasData ? 'none' : 'flex';
         }
 
+        // Chart.js may be unavailable (offline / blocked CDN-era cache / strict
+        // tracking prevention). Degrade to the empty state instead of throwing.
+        if (typeof Chart === 'undefined') { showOrHide(false); return; }
+
         if (widgetId === 'revenue-chart') {
           var d = _transformRevenue(apiCharts.revenueByDay);
           var hasData = d.data.some(function (v) { return v > 0; });
@@ -522,7 +526,8 @@ function _renderTransactions(sales, page) {
 
 // ── DOM references ──
 
-const currentUser         = JSON.parse(localStorage.getItem("currentUser"));
+let currentUser = null;
+try { currentUser = JSON.parse(localStorage.getItem("currentUser")); } catch (e) { currentUser = null; }
 const totalSalesTodayEl   = document.getElementById("total-sales-today");
 const totalProductsEl     = document.getElementById("total-products");
 const lowStockItemsEl     = document.getElementById("low-stock-items");
