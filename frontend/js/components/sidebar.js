@@ -53,6 +53,32 @@ function setActiveNavLink() {
   });
 }
 
+// ── Store brand ──
+// The sidebar brand reflects the owner's store name (set in Account settings),
+// falling back to "Celso POS" when blank. The name is user input, so callers
+// must render it via textContent — never interpolate it into an HTML string.
+function getStoreBrand() {
+  try {
+    return (localStorage.getItem('storeName') || '').trim() || 'Celso POS';
+  } catch (e) {
+    return 'Celso POS';
+  }
+}
+
+// Paints the brand into both the desktop (static) and mobile (injected) spans.
+// Mobile is left alone when navLabel === 'page', which shows the page title.
+function applyStoreBrand() {
+  var brand = getStoreBrand();
+
+  var deskEl = document.querySelector('.sidebar-header .sidebar-app-name');
+  if (deskEl) deskEl.textContent = brand;
+
+  var mobEl = document.querySelector('.mobile-topbar-logo .sidebar-app-name');
+  if (mobEl && getNavPrefs().navLabel !== 'page') mobEl.textContent = brand;
+}
+
+window.SidebarBrand = { apply: applyStoreBrand, get: getStoreBrand };
+
 function populateUserInfo() {
   var currentUser = JSON.parse(localStorage.getItem('currentUser'));
   if (!currentUser) return;
@@ -118,13 +144,15 @@ function initMobileNav() {
   logo.className = 'mobile-topbar-logo';
   var h1El = topbar.querySelector('h1');
   var labelText = prefs.navLabel === 'page' && h1El
-    ? (h1El.textContent || 'Celso POS')
-    : 'Celso POS';
+    ? (h1El.textContent || getStoreBrand())
+    : getStoreBrand();
   logo.innerHTML =
     '<a href="' + prefs.logoTarget + '" class="sidebar-logo-box mobile-logo-link" aria-label="Go to home">' +
       '<i data-lucide="leaf"></i>' +
     '</a>' +
-    '<span class="sidebar-app-name">' + labelText + '</span>';
+    '<span class="sidebar-app-name"></span>';
+  // textContent (not interpolation) — labelText may be the user's store name.
+  logo.querySelector('.sidebar-app-name').textContent = labelText;
   topbar.insertBefore(logo, topbar.firstChild);
 
   // Inject hamburger into topbar-actions (right side, after theme toggle)
@@ -357,6 +385,7 @@ var SidebarProgress = (function () {
 document.addEventListener('DOMContentLoaded', function() {
   applyNavPrefs();    // hide/show topbar elements before first paint
   initMobileNav();
+  applyStoreBrand();  // paint the desktop brand from the saved store name
   setActiveNavLink();
   populateUserInfo();
   initUserPopup();

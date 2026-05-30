@@ -234,6 +234,8 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('storeName', storeNameInput.value.trim());
         syncToDb();
         flashStoreInfoSaved();
+        // Reflect the new name in the sidebar brand immediately (desktop + mobile)
+        if (window.SidebarBrand) window.SidebarBrand.apply();
       });
     }
     if (storeAddressInput) {
@@ -340,7 +342,10 @@ document.addEventListener('DOMContentLoaded', function() {
           var h1 = document.querySelector('.topbar h1');
           logoLabel.textContent = h1 ? h1.textContent : 'Celso POS';
         } else {
-          logoLabel.textContent = 'Celso POS';
+          // "Brand" = the store name, falling back to "Celso POS" when blank
+          logoLabel.textContent = window.SidebarBrand
+            ? window.SidebarBrand.get()
+            : 'Celso POS';
         }
       }
     });

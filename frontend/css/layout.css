@@ -57,6 +57,11 @@
   font-size: 18px;
   font-weight: 700;
   color: var(--color-text);
+  /* Safety guard: never let a long store name break the layout in either view */
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .sidebar-nav {
