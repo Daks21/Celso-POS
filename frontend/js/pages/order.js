@@ -821,16 +821,41 @@ function applyFilters() {
 }
 
 var posSearchInput = document.getElementById('pos-product-search');
+var posSearchClearBtn = document.getElementById('pos-search-clear');
+
+// Show the clear ("X") button only while the field has text.
+function syncPosSearchClear() {
+  if (posSearchClearBtn) posSearchClearBtn.hidden = posSearchInput.value === '';
+}
+
+function clearPosSearch() {
+  posSearchInput.value = '';
+  applyFilters();
+  syncPosSearchClear();
+  posSearchInput.focus();
+}
+
 posSearchInput.addEventListener('keyup', function (e) {
   // Enter is handled on keydown (add-to-cart); keyup only live-filters.
   if (e.key === 'Enter') return;
   applyFilters();
+  syncPosSearchClear();
 });
 
-// Enter in the search box adds the first in-stock match to the cart, then
-// clears the box — lets a cashier rapid-fire search-and-add (and is the
-// hook a USB barcode scanner uses: it types the code and sends Enter).
 posSearchInput.addEventListener('keydown', function (e) {
+  // ESC clears the field. Stop it here so it never reaches the numpad's
+  // global Escape handler (which would close an open payment pad).
+  if (e.key === 'Escape') {
+    if (posSearchInput.value === '') return;
+    e.preventDefault();
+    e.stopPropagation();
+    clearPosSearch();
+    return;
+  }
+
+  // Enter adds the first in-stock match to the cart, then clears the box —
+  // lets a cashier rapid-fire search-and-add (and is the hook a USB barcode
+  // scanner uses: it types the code and sends Enter).
   if (e.key !== 'Enter') return;
   e.preventDefault();
   if (posSearchInput.value.trim() === '') return;
@@ -845,8 +870,14 @@ posSearchInput.addEventListener('keydown', function (e) {
     addToCart(addable.id);
     posSearchInput.value = '';
     applyFilters();
+    syncPosSearchClear();
   }
 });
+
+// Tap-to-clear (touch / mouse).
+if (posSearchClearBtn) {
+  posSearchClearBtn.addEventListener('click', clearPosSearch);
+}
 
 var posCategorySelect = document.getElementById('pos-category-select');
 if (posCategorySelect) {

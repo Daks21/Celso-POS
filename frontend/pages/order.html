@@ -142,6 +142,16 @@
                   placeholder="Search products..."
                   autocomplete="off"
                 />
+                <!-- Tap to clear on touch; ESC clears via keyboard. Hidden until typed. -->
+                <button
+                  type="button"
+                  class="search-clear"
+                  id="pos-search-clear"
+                  aria-label="Clear search"
+                  hidden
+                >
+                  <i data-lucide="x"></i>
+                </button>
               </div>
               <div class="pos-category-pills" id="pos-category-pills">
                 <!-- Pills rendered by JS -->

@@ -546,7 +546,8 @@
 }
 
 .pos-search-input {
-  padding: 8px 12px 8px 34px;
+  /* right padding leaves room for the clear ("X") button */
+  padding: 8px 34px 8px 34px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background-color: var(--color-background);
