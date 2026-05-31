@@ -1951,7 +1951,45 @@
           Dashboard — 4 summary card values (₱5,400.00 revenue,
                       24 products, 3 low stock, 12 transactions);
                       3 low-stock alert rows
-      
+
+  ──────────────────────────────────────────────────────────────
+  PHASE 6.5: MULTI-TENANT SAAS                      [PLANNED]
+  ──────────────────────────────────────────────────────────────
+
+  Converts the app from single-store to a subscription SaaS where each
+  signup creates its own ISOLATED store. Runs BEFORE Phase 7 so the app
+  deploys SaaS-ready. Full build spec — paste-ready code, per-module QA
+  checklists, build order, and the billing/tooling setup — lives in
+  celsopos_P6-5.txt at the repo root. (This phase is PLANNED; the current
+  codebase is still single-tenant.)
+
+  PLANS (monthly, USD):
+    Free  $0   Dashboard(basic), New Order, Inventory, Products, History;
+               0 cashiers.
+    Plus  $8   + Finance + Analytics + dashboard charts;   1 cashier.
+    Pro   $12  + Advanced Analytics + AI Assistant (Os);   2 cashiers.
+    - 14-day Pro trial (no card, auto on signup) → Free on expiry.
+    - Cashiers are sub-accounts the owner creates in a Team page (owner sets
+      a temp password; no email infra in v1). Cashier role = New Order +
+      Sales History + Logout only, on any plan.
+
+  CORE WORK:
+    - Tenancy: a `stores` table + `store_id` on every owned table; every
+      query scoped to the logged-in user's store (a tenant-isolation test
+      suite is the launch gate).
+    - Entitlements map (free/plus/pro) enforced server-side (402 plan /
+      403 role) and mirrored in the UI (hidden nav, page guards).
+    - Per-store timezone (today it is a single global value).
+    - Billing: Lemon Squeezy (Merchant of Record — onboards PH sellers,
+      handles worldwide VAT/tax, pays out via Wise/PayPal): hosted checkout,
+      customer portal, signed webhooks syncing subscription state.
+    - Signup creates a store + its owner-admin (replaces the single-tenant
+      first-account-admin rule). Downgrade SUSPENDS excess cashiers — never
+      deletes data.
+
+  SCOPE (v1): Asia/PH, PHP only. AI stays on the Groq free tier.
+  Deferred: multi-currency, email invites, annual billing, Redis scaling.
+
   ──────────────────────────────────────────────────────────────
   PHASE 7: WEB APP DEPLOYMENT
   ──────────────────────────────────────────────────────────────
