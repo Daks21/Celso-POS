@@ -27,7 +27,7 @@ const getAll = async (req, res, next) => {
   try {
     const { search } = req.query;
     const category = req.query.category === 'All' ? undefined : req.query.category;
-    const data = await model.getAll({ search, category });
+    const data = await model.getAll(req.user.storeId, { search, category });
     res.status(200).json({ success: true, data });
   } catch (err) {
     next(err);
@@ -41,7 +41,7 @@ const getOne = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid product ID' });
     }
 
-    const product = await model.getById(id);
+    const product = await model.getById(req.user.storeId, id);
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
@@ -68,7 +68,7 @@ const create = async (req, res, next) => {
     // archived twin so the client can offer Restore (keeps history) vs Add new.
     // `allowDuplicate` is the client's explicit "Add as new instead" override.
     if (!allowDuplicate) {
-      const archived = await model.findArchivedByName(trimmedName);
+      const archived = await model.findArchivedByName(req.user.storeId, trimmedName);
       if (archived) {
         return res.status(409).json({
           success: false,
@@ -79,7 +79,7 @@ const create = async (req, res, next) => {
       }
     }
 
-    const product = await model.create({ name: trimmedName, category: category.trim(), price, cost, unit });
+    const product = await model.create(req.user.storeId, { name: trimmedName, category: category.trim(), price, cost, unit });
 
     res.status(201).json({ success: true, data: product });
   } catch (err) {
@@ -90,7 +90,7 @@ const create = async (req, res, next) => {
 const getArchived = async (req, res, next) => {
   try {
     const { search } = req.query;
-    const { rows, hasMore } = await model.getArchived({ search });
+    const { rows, hasMore } = await model.getArchived(req.user.storeId, { search });
     res.status(200).json({ success: true, data: rows, hasMore });
   } catch (err) {
     next(err);
@@ -117,7 +117,7 @@ const restore = async (req, res, next) => {
       data = { name: name.trim(), category: category.trim(), price, cost, unit };
     }
 
-    const product = await model.restore(id, data);
+    const product = await model.restore(req.user.storeId, id, data);
     if (!product) {
       return res.status(404).json({ success: false, message: 'Archived product not found' });
     }
@@ -135,7 +135,7 @@ const update = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid product ID' });
     }
 
-    if (!await model.getById(id)) {
+    if (!await model.getById(req.user.storeId, id)) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
@@ -145,7 +145,7 @@ const update = async (req, res, next) => {
     }
 
     const { name, category, price, cost, unit } = req.body;
-    const product = await model.update(id, { name: name.trim(), category: category.trim(), price, cost, unit });
+    const product = await model.update(req.user.storeId, id, { name: name.trim(), category: category.trim(), price, cost, unit });
 
     res.status(200).json({ success: true, data: product });
   } catch (err) {
@@ -160,7 +160,7 @@ const remove = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid product ID' });
     }
 
-    const deleted = await model.remove(id);
+    const deleted = await model.remove(req.user.storeId, id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }

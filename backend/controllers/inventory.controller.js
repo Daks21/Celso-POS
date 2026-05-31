@@ -5,7 +5,7 @@ const REMOVING_TYPES = ['damage', 'adjustment'];
 
 const getAll = async (req, res, next) => {
   try {
-    const levels = await Product.getStockLevels();
+    const levels = await Product.getStockLevels(req.user.storeId);
     res.json({ success: true, data: levels });
   } catch (err) {
     next(err);
@@ -18,7 +18,7 @@ const getLowStock = async (req, res, next) => {
     if (threshold <= 0) {
       return res.status(400).json({ success: false, message: 'threshold must be a positive number' });
     }
-    const items = await Product.getLowStock(threshold);
+    const items = await Product.getLowStock(req.user.storeId, threshold);
     res.json({ success: true, threshold, count: items.length, data: items });
   } catch (err) {
     next(err);
@@ -29,7 +29,7 @@ const getSummary = async (req, res, next) => {
   try {
     const parsed    = parseInt(req.query.threshold, 10);
     const threshold = (!isNaN(parsed) && parsed > 0) ? parsed : 50;
-    const counts    = await Product.getInventoryCounts(threshold);
+    const counts    = await Product.getInventoryCounts(req.user.storeId, threshold);
     res.json({ success: true, data: counts });
   } catch (err) {
     next(err);
@@ -59,7 +59,7 @@ const adjust = async (req, res, next) => {
       });
     }
 
-    const product = await Product.getById(productId);
+    const product = await Product.getById(req.user.storeId, productId);
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
@@ -76,7 +76,7 @@ const adjust = async (req, res, next) => {
         }
       : null;
 
-    const result = await Product.adjustStock(productId, delta, type, notes || null, req.user.id, expenseData);
+    const result = await Product.adjustStock(req.user.storeId, productId, delta, type, notes || null, req.user.id, expenseData, req.store.timezone);
 
     res.json({
       success: true,

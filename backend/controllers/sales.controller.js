@@ -5,7 +5,11 @@ const getSales = async (req, res, next) => {
   try {
     const { from, to, limit } = req.query;
     const parsedLimit = limit ? parseInt(limit, 10) : undefined;
-    const sales = await saleModel.getAll({ from, to, limit: parsedLimit && parsedLimit > 0 ? parsedLimit : undefined });
+    const sales = await saleModel.getAll(
+      req.user.storeId,
+      { from, to, limit: parsedLimit && parsedLimit > 0 ? parsedLimit : undefined },
+      req.store.timezone
+    );
     res.status(200).json({ success: true, data: sales });
   } catch (err) {
     next(err);
@@ -18,7 +22,7 @@ const getOne = async (req, res, next) => {
     if (isNaN(id)) {
       return res.status(400).json({ success: false, message: 'Invalid sale ID' });
     }
-    const sale = await saleModel.getById(id);
+    const sale = await saleModel.getById(req.user.storeId, id);
     if (!sale) {
       return res.status(404).json({ success: false, message: 'Sale not found' });
     }
@@ -60,7 +64,7 @@ const createSale = async (req, res, next) => {
         return res.status(400).json({ success: false, message: 'Item quantity must be a positive whole number' });
       }
       if (!productCache[productId]) {
-        productCache[productId] = await productModel.getById(productId);
+        productCache[productId] = await productModel.getById(req.user.storeId, productId);
       }
       const product = productCache[productId];
       if (!product) {
@@ -119,7 +123,7 @@ const createSale = async (req, res, next) => {
     };
 
     // Phase 3 — atomic transaction handles sale + stock + audit log
-    const sale = await saleModel.create(saleRecord, req.user.id);
+    const sale = await saleModel.create(req.user.storeId, saleRecord, req.user.id, req.store.timezone);
     res.status(201).json({ success: true, data: sale });
   } catch (err) {
     next(err);
@@ -141,7 +145,7 @@ const updateSale = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Payment must be a number' });
     }
 
-    const sale = await saleModel.update(id, { items, payment, cartTaxOn }, req.user.id);
+    const sale = await saleModel.update(req.user.storeId, id, { items, payment, cartTaxOn }, req.user.id);
     res.status(200).json({ success: true, data: sale });
   } catch (err) {
     if (err && err.status) {
@@ -153,7 +157,7 @@ const updateSale = async (req, res, next) => {
 
 const getSummary = async (req, res, next) => {
   try {
-    const summary = await saleModel.getTodaySummary();
+    const summary = await saleModel.getTodaySummary(req.user.storeId, req.store.timezone);
     res.status(200).json({ success: true, data: summary });
   } catch (err) {
     next(err);

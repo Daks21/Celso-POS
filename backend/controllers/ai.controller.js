@@ -2,7 +2,6 @@
 const { fetchContext, buildContextText } = require('../../ai/context-builder');
 const { OS_SYSTEM_PROMPT }               = require('../../ai/prompts/system');
 const assistant                          = require('../../ai/assistant');
-const settings                           = require('../models/settings.model');
 
 // ── Per-user rate limiter ──────────────────────────────────────
 const userLimits = new Map();
@@ -20,8 +19,8 @@ function checkRateLimit(userId) {
 }
 
 // ── Shared context builder ─────────────────────────────────────
-async function getContextMessage() {
-  const ctx = await fetchContext();
+async function getContextMessage(req) {
+  const ctx = await fetchContext(req.user.storeId, req.store.timezone);
   return buildContextText(ctx);
 }
 
@@ -35,12 +34,12 @@ const chat = async (req, res, next) => {
       return res.status(429).json({ success: false,
         message: 'Too many requests. Wait a moment and try again.' });
 
-    const contextText = history.length === 0 ? await getContextMessage() : null;
+    const contextText = history.length === 0 ? await getContextMessage(req) : null;
     const userMessage = contextText
       ? contextText + '\n\n' + message
       : message;
 
-    const result = await assistant.ask(OS_SYSTEM_PROMPT, history, userMessage);
+    const result = await assistant.ask(OS_SYSTEM_PROMPT, history, userMessage, { storeId: req.user.storeId, storeTz: req.store.timezone });
     res.json({ success: true,
       data: { answer: result.text, cached: result.cached,
               tokensUsed: result.tokensUsed } });
@@ -68,13 +67,14 @@ const chatStream = async (req, res, next) => {
     const upstream = new AbortController();
     req.on('close', () => upstream.abort());
 
-    const contextText = history.length === 0 ? await getContextMessage() : null;
+    const contextText = history.length === 0 ? await getContextMessage(req) : null;
     const userMessage = contextText
       ? contextText + '\n\n' + message
       : message;
 
     const response = await assistant.ask(
-      OS_SYSTEM_PROMPT, history, userMessage, { stream: true, signal: upstream.signal }
+      OS_SYSTEM_PROMPT, history, userMessage,
+      { stream: true, signal: upstream.signal, storeId: req.user.storeId, storeTz: req.store.timezone }
     );
 
     const reader  = response.body.getReader();
@@ -130,7 +130,7 @@ const chatStream = async (req, res, next) => {
 // ── GET /api/ai/summary ────────────────────────────────────────
 const dailySummary = async (req, res, next) => {
   try {
-    const contextText = await getContextMessage();
+    const contextText = await getContextMessage(req);
     const question    =
       contextText + '\n\nGive a brief daily business summary. ' +
       'Include today\'s performance, top selling item, and one ' +
@@ -138,7 +138,7 @@ const dailySummary = async (req, res, next) => {
       '{ "summary": "...", "urgency": "low|medium|high", ' +
       '"tip": "..." }. ' +
       'Respond ONLY with the JSON object.';
-    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question);
+    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question, { storeId: req.user.storeId, storeTz: req.store.timezone });
     let parsed;
     try {
       const jsonMatch = result.text.match(/\{[\s\S]*\}/);
@@ -154,14 +154,14 @@ const dailySummary = async (req, res, next) => {
 // ── GET /api/ai/restock ────────────────────────────────────────
 const restockAdvice = async (req, res, next) => {
   try {
-    const contextText = await getContextMessage();
+    const contextText = await getContextMessage(req);
     const question    =
       contextText + '\n\nProvide a ranked restock list based on ' +
       'low stock levels and sales velocity. Return JSON: ' +
       '{ "items": [{ "name": "...", "stock": N, "priority": ' +
       '"urgent|soon|monitor", "reason": "..." }] }. ' +
       'Respond ONLY with the JSON object.';
-    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question);
+    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question, { storeId: req.user.storeId, storeTz: req.store.timezone });
     let parsed;
     try {
       const jsonMatch = result.text.match(/\{[\s\S]*\}/);
@@ -177,11 +177,11 @@ const restockAdvice = async (req, res, next) => {
 // ── GET /api/ai/forecast ───────────────────────────────────────
 const forecast = async (req, res, next) => {
   try {
-    const contextText = await getContextMessage();
+    const contextText = await getContextMessage(req);
     // Tomorrow's weekday in the store timezone (not the server's).
     const tomorrow    = new Date(Date.now() + 86400000);
     const dowName     = new Intl.DateTimeFormat('en-US', {
-      timeZone: settings.getTimezone(), weekday: 'long',
+      timeZone: req.store.timezone, weekday: 'long',
     }).format(tomorrow);
     const question    =
       contextText + '\n\nBased on day-of-week patterns, forecast ' +
@@ -189,7 +189,7 @@ const forecast = async (req, res, next) => {
       '{ "day": "' + dowName + '", "expectedRevenue": "₱X", ' +
       '"confidence": "low|medium|high", "note": "..." }. ' +
       'Respond ONLY with the JSON object.';
-    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question);
+    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question, { storeId: req.user.storeId, storeTz: req.store.timezone });
     let parsed;
     try {
       const jsonMatch = result.text.match(/\{[\s\S]*\}/);
@@ -205,14 +205,14 @@ const forecast = async (req, res, next) => {
 // ── GET /api/ai/profit ─────────────────────────────────────────
 const profitCoaching = async (req, res, next) => {
   try {
-    const contextText = await getContextMessage();
+    const contextText = await getContextMessage(req);
     const question    =
       contextText + '\n\nAnalyze product margins and identify ' +
       'opportunities to improve profitability. Return JSON: ' +
       '{ "insights": [{ "product": "...", "finding": "...", ' +
       '"action": "..." }], "summary": "..." }. ' +
       'Respond ONLY with the JSON object.';
-    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question);
+    const result = await assistant.ask(OS_SYSTEM_PROMPT, [], question, { storeId: req.user.storeId, storeTz: req.store.timezone });
     let parsed;
     try {
       const jsonMatch = result.text.match(/\{[\s\S]*\}/);

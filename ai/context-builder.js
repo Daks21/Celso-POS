@@ -3,7 +3,6 @@ const path          = require('path');
 const saleModel     = require(path.join(__dirname, '../backend/models/sale.model'));
 const productModel  = require(path.join(__dirname, '../backend/models/product.model'));
 const cashflowModel = require(path.join(__dirname, '../backend/models/cashflow.model'));
-const settings      = require(path.join(__dirname, '../backend/models/settings.model'));
 const { dateInTz }  = require(path.join(__dirname, '../backend/utils/tz'));
 
 const DAYS = ['Sunday','Monday','Tuesday','Wednesday',
@@ -14,8 +13,8 @@ function peso(n) {
     { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-async function fetchContext() {
-  const tz        = settings.getTimezone();
+async function fetchContext(storeId, storeTz) {
+  const tz        = storeTz;
   const now       = new Date();
   const from30    = new Date(now.getTime() - 30 * 86400000);
   const nowStr    = dateInTz(tz, now);
@@ -24,13 +23,13 @@ async function fetchContext() {
   const [today, allProducts, kpis,
          topRevenue, topQty, byDow, finance] =
     await Promise.all([
-      saleModel.getTodaySummary(),
-      productModel.getAll(),
-      saleModel.getKPIs(fromStr, nowStr),
-      saleModel.getTopByRevenue(fromStr, nowStr, 5),
-      saleModel.getTopByQty(fromStr, nowStr, 5),
-      saleModel.getByDayOfWeek(fromStr, nowStr),
-      cashflowModel.getSummary({}),  // all-time for utang balance
+      saleModel.getTodaySummary(storeId, tz),
+      productModel.getAll(storeId),
+      saleModel.getKPIs(storeId, fromStr, nowStr, tz),
+      saleModel.getTopByRevenue(storeId, fromStr, nowStr, 5, tz),
+      saleModel.getTopByQty(storeId, fromStr, nowStr, 5, tz),
+      saleModel.getByDayOfWeek(storeId, fromStr, nowStr, tz),
+      cashflowModel.getSummary(storeId, {}),  // all-time for utang balance
     ]);
 
   const lowStock = allProducts.filter(p => p.stock > 0 && p.stock <= 50);

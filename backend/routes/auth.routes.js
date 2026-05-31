@@ -2,13 +2,13 @@ const express    = require('express');
 const router     = express.Router();
 const { login, register, getPreferencesHandler, savePreferencesHandler } = require('../controllers/auth.controller');
 const { authMiddleware: auth } = require('../middleware/auth.middleware');
+const { loadStore } = require('../middleware/tenant.middleware');
 const { findById } = require('../models/user.model');
-const settings = require('../models/settings.model');
 
 router.post('/register', register);
 router.post('/login',    login);
 
-router.get('/me', auth, async (req, res, next) => {
+router.get('/me', auth, loadStore, async (req, res, next) => {
   try {
     const user = await findById(req.user.id);
     if (!user) {
@@ -17,7 +17,7 @@ router.get('/me', auth, async (req, res, next) => {
     res.json({
       success: true,
       user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt },
-      timezone: settings.getTimezone()
+      timezone: req.store.timezone
     });
   } catch (err) {
     next(err);

@@ -2,7 +2,15 @@ const db = require('../config/db.config');
 const settings = require('./settings.model');
 const { localExpr, tzParam, dateInTz } = require('../utils/tz');
 
-// Helper: fetch all sale_items rows for a list of sale IDs in one query
+// Phase 6.5 — every function is store-scoped: storeId is the FIRST argument and
+// every sales/inventory_adjustments/cash_movements query filters or sets it.
+// sale_items carries no store_id; it is scoped transitively through its parent
+// sale (we only ever touch items whose sale we've already confirmed is in-store).
+// Day-bucketing uses the STORE timezone (storeTz, last arg) rather than a global.
+
+// Helper: fetch all sale_items rows for a list of sale IDs in one query.
+// Safe without a store filter: saleIds always come from an already store-scoped
+// sales query, so these items belong to the caller's store by construction.
 const _fetchItems = async (saleIds) => {
   if (saleIds.length === 0) return [];
   const placeholders = saleIds.map(() => '?').join(',');
@@ -39,13 +47,13 @@ const _buildSaleObject = (saleRow, itemRows) => ({
 
 // ─── Read ──────────────────────────────────────────────────────────────────
 
-const getById = async (id) => {
+const getById = async (storeId, id) => {
   const [rows] = await db.query(
     `SELECT s.*, u.full_name AS cashierName
      FROM sales s
      INNER JOIN users u ON s.cashier_id = u.id
-     WHERE s.id = ?`,
-    [id]
+     WHERE s.id = ? AND s.store_id = ?`,
+    [id, storeId]
   );
   if (!rows[0]) return null;
   const [items] = await db.query(
@@ -55,17 +63,18 @@ const getById = async (id) => {
   return _buildSaleObject(rows[0], items);
 };
 
-const getAll = async (filters = {}) => {
+const getAll = async (storeId, filters = {}, storeTz = settings.getTimezone()) => {
   let sql = `SELECT s.*, u.full_name AS cashierName
              FROM sales s
              INNER JOIN users u ON s.cashier_id = u.id`;
   const params = [];
-  const conds  = [];
+  const conds  = ['s.store_id = ?'];
+  params.push(storeId);
 
-  const tzp = tzParam();
+  const tzp = tzParam(storeTz);
   if (filters.from) { conds.push(`DATE(${localExpr('s.created_at')}) >= ?`); params.push(tzp, filters.from); }
   if (filters.to)   { conds.push(`DATE(${localExpr('s.created_at')}) <= ?`); params.push(tzp, filters.to); }
-  if (conds.length) sql += ' WHERE ' + conds.join(' AND ');
+  sql += ' WHERE ' + conds.join(' AND ');
   sql += ' ORDER BY s.created_at DESC';
   if (filters.limit) { sql += ' LIMIT ?'; params.push(filters.limit); }
 
@@ -80,7 +89,7 @@ const getAll = async (filters = {}) => {
 
 // ─── Create (full transaction) ─────────────────────────────────────────────
 
-const create = async (saleRecord, userId) => {
+const create = async (storeId, saleRecord, userId, storeTz = settings.getTimezone()) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -88,10 +97,11 @@ const create = async (saleRecord, userId) => {
     // Step 1: Insert the sale header
     const [saleResult] = await connection.query(
       `INSERT INTO sales
-       (subtotal, tax, tax_rate, cart_tax_on,
+       (store_id, subtotal, tax, tax_rate, cart_tax_on,
         total, payment, change_given, cashier_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        storeId,
         saleRecord.subtotal,  saleRecord.tax,
         saleRecord.taxRate,   saleRecord.cartTaxOn ? 1 : 0,
         saleRecord.total,     saleRecord.payment,
@@ -101,8 +111,8 @@ const create = async (saleRecord, userId) => {
     const saleId    = saleResult.insertId;
     const receiptNo = `RCPT-${String(saleId).padStart(6, '0')}`;
     await connection.query(
-      'UPDATE sales SET receipt_no = ? WHERE id = ?',
-      [receiptNo, saleId]
+      'UPDATE sales SET receipt_no = ? WHERE id = ? AND store_id = ?',
+      [receiptNo, saleId, storeId]
     );
 
     // Step 2: deduct stock + log adjustments. Product rows are locked with
@@ -112,29 +122,30 @@ const create = async (saleRecord, userId) => {
     // sufficiency check is authoritative HERE, inside the transaction: a failure
     // rolls the whole sale back instead of silently flooring stock at 0. (The
     // controller's pre-check stays as a fast, friendly rejection but is no
-    // longer what guarantees correctness.)
+    // longer what guarantees correctness.) The lock is store-scoped so a
+    // productId from another store can never match (treated as out-of-stock).
     const stockOps = [...saleRecord.items].sort((a, b) => a.productId - b.productId);
     for (const item of stockOps) {
       const [stockRows] = await connection.query(
-        'SELECT stock FROM products WHERE id = ? FOR UPDATE',
-        [item.productId]
+        'SELECT stock FROM products WHERE id = ? AND store_id = ? FOR UPDATE',
+        [item.productId, storeId]
       );
       const stockBefore = stockRows[0] ? stockRows[0].stock : 0;
-      if (stockBefore < item.quantity) {
+      if (!stockRows[0] || stockBefore < item.quantity) {
         const e = new Error(`Insufficient stock for ${item.name}`);
         e.status = 400;
         throw e;
       }
       const stockAfter = stockBefore - item.quantity;
       await connection.query(
-        'UPDATE products SET stock = ? WHERE id = ?',
-        [stockAfter, item.productId]
+        'UPDATE products SET stock = ? WHERE id = ? AND store_id = ?',
+        [stockAfter, item.productId, storeId]
       );
       await connection.query(
         `INSERT INTO inventory_adjustments
-         (product_id, type, qty, stock_before, stock_after, notes, adjusted_by)
-         VALUES (?, 'sale', ?, ?, ?, ?, ?)`,
-        [item.productId, item.quantity, stockBefore, stockAfter, `Sale ${receiptNo}`, userId]
+         (store_id, product_id, type, qty, stock_before, stock_after, notes, adjusted_by)
+         VALUES (?, ?, 'sale', ?, ?, ?, ?, ?)`,
+        [storeId, item.productId, item.quantity, stockBefore, stockAfter, `Sale ${receiptNo}`, userId]
       );
     }
 
@@ -152,17 +163,17 @@ const create = async (saleRecord, userId) => {
     // Step 3: Record sale revenue in cash_movements (atomic with the sale).
     // occurred_at is the store-local calendar day of the sale (created_at is
     // stored UTC), so it matches what the History page shows in store time.
-    const occurredAt = dateInTz(settings.getTimezone());
+    const occurredAt = dateInTz(storeTz);
     await connection.query(
       `INSERT INTO cash_movements
-         (type, category, amount, description, occurred_at, source, source_id, recorded_by)
-       VALUES ('sales_revenue', NULL, ?, ?, ?, 'sale', ?, ?)`,
-      [saleRecord.total, `Sale ${receiptNo}`, occurredAt, saleId, userId]
+         (store_id, type, category, amount, description, occurred_at, source, source_id, recorded_by)
+       VALUES (?, 'sales_revenue', NULL, ?, ?, ?, 'sale', ?, ?)`,
+      [storeId, saleRecord.total, `Sale ${receiptNo}`, occurredAt, saleId, userId]
     );
 
     await connection.commit();
     connection.release();
-    return getById(saleId);
+    return getById(storeId, saleId);
   } catch (err) {
     await connection.rollback();
     connection.release();
@@ -172,15 +183,15 @@ const create = async (saleRecord, userId) => {
 
 // ─── Aggregations ──────────────────────────────────────────────────────────
 
-const getTodaySummary = async () => {
-  const today = dateInTz(settings.getTimezone());
+const getTodaySummary = async (storeId, storeTz = settings.getTimezone()) => {
+  const today = dateInTz(storeTz);
   const [rows] = await db.query(
     `SELECT
        COALESCE(SUM(total), 0) AS totalRevenue,
        COUNT(*)                AS transactionCount,
        COALESCE(AVG(total), 0) AS avgSaleValue
-     FROM sales WHERE DATE(${localExpr('created_at')}) = ?`,
-    [tzParam(), today]
+     FROM sales WHERE store_id = ? AND DATE(${localExpr('created_at')}) = ?`,
+    [storeId, tzParam(storeTz), today]
   );
   return {
     totalRevenue:     parseFloat(rows[0].totalRevenue),
@@ -189,14 +200,14 @@ const getTodaySummary = async () => {
   };
 };
 
-const getSummary = async (dateStr) => {
+const getSummary = async (storeId, dateStr, storeTz = settings.getTimezone()) => {
   const [rows] = await db.query(
     `SELECT
        COALESCE(SUM(total), 0) AS totalRevenue,
        COUNT(*)                AS transactionCount,
        COALESCE(AVG(total), 0) AS avgSaleValue
-     FROM sales WHERE DATE(${localExpr('created_at')}) = ?`,
-    [tzParam(), dateStr]
+     FROM sales WHERE store_id = ? AND DATE(${localExpr('created_at')}) = ?`,
+    [storeId, tzParam(storeTz), dateStr]
   );
   return {
     totalRevenue:     parseFloat(rows[0].totalRevenue),
@@ -205,19 +216,20 @@ const getSummary = async (dateStr) => {
   };
 };
 
-const getDailyMap = async () => {
-  const tzp = tzParam();
+const getDailyMap = async (storeId, storeTz = settings.getTimezone()) => {
+  const tzp = tzParam(storeTz);
   const [rows] = await db.query(
     `SELECT DATE_FORMAT(${localExpr('created_at')}, '%Y-%m-%d') AS saleDate, SUM(total) AS totalRevenue
-     FROM sales GROUP BY DATE_FORMAT(${localExpr('created_at')}, '%Y-%m-%d') ORDER BY saleDate ASC`,
-    [tzp, tzp]
+     FROM sales WHERE store_id = ?
+     GROUP BY DATE_FORMAT(${localExpr('created_at')}, '%Y-%m-%d') ORDER BY saleDate ASC`,
+    [tzp, storeId, tzp]
   );
   const map = {};
   rows.forEach(r => { map[r.saleDate] = parseFloat(r.totalRevenue); });
   return map;
 };
 
-const getKPIs = async (from, to) => {
+const getKPIs = async (storeId, from, to, storeTz = settings.getTimezone()) => {
   const [rows] = await db.query(
     `SELECT COALESCE(SUM(sub.total), 0)   AS totalRevenue,
             COUNT(*)                       AS transactionCount,
@@ -227,9 +239,9 @@ const getKPIs = async (from, to) => {
        SELECT s.id, s.total, COALESCE(SUM(si.quantity), 0) AS qty
        FROM sales s
        LEFT JOIN sale_items si ON s.id = si.sale_id
-       WHERE DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
+       WHERE s.store_id = ? AND DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
        GROUP BY s.id, s.total
-     ) sub`, [tzParam(), from, to]
+     ) sub`, [storeId, tzParam(storeTz), from, to]
   );
   return {
     totalRevenue:     parseFloat(rows[0].totalRevenue),
@@ -239,36 +251,36 @@ const getKPIs = async (from, to) => {
   };
 };
 
-const getTopByRevenue = async (from, to, limit = 5) => {
+const getTopByRevenue = async (storeId, from, to, limit = 5, storeTz = settings.getTimezone()) => {
   const [rows] = await db.query(
     `SELECT si.product_name AS name, SUM(si.line_total) AS revenue
      FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id
-     WHERE DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
-     GROUP BY si.product_name ORDER BY revenue DESC LIMIT ?`, [tzParam(), from, to, limit]
+     WHERE s.store_id = ? AND DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
+     GROUP BY si.product_name ORDER BY revenue DESC LIMIT ?`, [storeId, tzParam(storeTz), from, to, limit]
   );
   return rows.map(r => ({ name: r.name, revenue: parseFloat(r.revenue) }));
 };
 
-const getTopByQty = async (from, to, limit = 5) => {
+const getTopByQty = async (storeId, from, to, limit = 5, storeTz = settings.getTimezone()) => {
   const [rows] = await db.query(
     `SELECT si.product_name AS name, SUM(si.quantity) AS qty
      FROM sale_items si
      INNER JOIN sales s ON si.sale_id = s.id
-     WHERE DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
+     WHERE s.store_id = ? AND DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
      GROUP BY si.product_name
      ORDER BY qty DESC
-     LIMIT ?`, [tzParam(), from, to, limit]
+     LIMIT ?`, [storeId, tzParam(storeTz), from, to, limit]
   );
   return rows.map(r => ({ name: r.name, qty: parseInt(r.qty, 10) }));
 };
 
-const getByDayOfWeek = async (from, to) => {
-  const tzp = tzParam();
+const getByDayOfWeek = async (storeId, from, to, storeTz = settings.getTimezone()) => {
+  const tzp = tzParam(storeTz);
   const [rows] = await db.query(
     `SELECT (DAYOFWEEK(${localExpr('created_at')}) - 1) AS dayIndex, SUM(total) AS total
-     FROM sales WHERE DATE(${localExpr('created_at')}) BETWEEN ? AND ?
+     FROM sales WHERE store_id = ? AND DATE(${localExpr('created_at')}) BETWEEN ? AND ?
      GROUP BY (DAYOFWEEK(${localExpr('created_at')}) - 1) ORDER BY dayIndex ASC`,
-    [tzp, tzp, from, to, tzp]
+    [tzp, storeId, tzp, from, to, tzp]
   );
   const totals = [0, 0, 0, 0, 0, 0, 0];
   rows.forEach(r => { totals[r.dayIndex] = parseFloat(r.total); });
@@ -280,7 +292,7 @@ const getByDayOfWeek = async (from, to) => {
 // schema change, and for MSME analytics today's cost is the closest signal we
 // have to the original purchase cost).
 
-const getProfit = async (from, to) => {
+const getProfit = async (storeId, from, to, storeTz = settings.getTimezone()) => {
   const [rows] = await db.query(
     `SELECT
        COALESCE(SUM(si.line_total),                      0) AS revenue,
@@ -288,8 +300,8 @@ const getProfit = async (from, to) => {
      FROM sale_items si
      INNER JOIN sales    s ON si.sale_id    = s.id
      LEFT  JOIN products p ON si.product_id = p.id
-     WHERE DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?`,
-    [tzParam(), from, to]
+     WHERE s.store_id = ? AND DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?`,
+    [storeId, tzParam(storeTz), from, to]
   );
   const revenue = parseFloat(rows[0].revenue);
   const cogs    = parseFloat(rows[0].cogs);
@@ -303,7 +315,7 @@ const getProfit = async (from, to) => {
   };
 };
 
-const getProfitByProduct = async (from, to, limit = 10) => {
+const getProfitByProduct = async (storeId, from, to, limit = 10, storeTz = settings.getTimezone()) => {
   const [rows] = await db.query(
     `SELECT
        si.product_name                                     AS name,
@@ -313,11 +325,11 @@ const getProfitByProduct = async (from, to, limit = 10) => {
      FROM sale_items si
      INNER JOIN sales    s ON si.sale_id    = s.id
      LEFT  JOIN products p ON si.product_id = p.id
-     WHERE DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
+     WHERE s.store_id = ? AND DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
      GROUP BY si.product_name
      ORDER BY (SUM(si.line_total) - SUM(si.quantity * COALESCE(p.cost, 0))) DESC
      LIMIT ?`,
-    [tzParam(), from, to, limit]
+    [storeId, tzParam(storeTz), from, to, limit]
   );
   return rows.map(r => {
     const revenue = parseFloat(r.revenue);
@@ -336,8 +348,9 @@ const getProfitByProduct = async (from, to, limit = 10) => {
 
 // ─── Inventory health (last N days movement vs current stock) ─────────────
 
-const getInventoryHealth = async (from, to) => {
-  // Per-product unit velocity over the window
+const getInventoryHealth = async (storeId, from, to, storeTz = settings.getTimezone()) => {
+  // Per-product unit velocity over the window. Scoped on p.store_id; the joined
+  // sale_items/sales are this store's by construction (they hang off p).
   const [rows] = await db.query(
     `SELECT
        p.id,
@@ -353,10 +366,11 @@ const getInventoryHealth = async (from, to) => {
             ON si.product_id = p.id
      LEFT JOIN sales s
             ON s.id = si.sale_id
+           AND s.store_id = p.store_id
            AND DATE(${localExpr('s.created_at')}) BETWEEN ? AND ?
-     WHERE p.is_active = 1
+     WHERE p.store_id = ? AND p.is_active = 1
      GROUP BY p.id, p.name, p.stock, p.unit, p.category, p.price, p.cost`,
-    [tzParam(), from, to]
+    [tzParam(storeTz), from, to, storeId]
   );
 
   const windowDays = Math.max(1,
@@ -425,14 +439,14 @@ const getInventoryHealth = async (from, to) => {
 //   - daysOfHistory       : Distinct sales-day count in that 30-day window.
 //                           Frontend uses this to caveat "limited data"
 //                           when the store is brand new.
-const getGoalProjectionInputs = async (storeToday) => {
+const getGoalProjectionInputs = async (storeId, storeToday, storeTz = settings.getTimezone()) => {
   // Calendar month-to-date revenue.
   const firstOfMonth = storeToday.slice(0, 7) + '-01';
   const [[mtdRow]] = await db.query(
     `SELECT COALESCE(SUM(total), 0) AS revenue
      FROM sales
-     WHERE DATE(${localExpr('created_at')}) BETWEEN ? AND ?`,
-    [tzParam(), firstOfMonth, storeToday]
+     WHERE store_id = ? AND DATE(${localExpr('created_at')}) BETWEEN ? AND ?`,
+    [storeId, tzParam(storeTz), firstOfMonth, storeToday]
   );
 
   // Trailing 30-day daily average. Window ends YESTERDAY (today is partial
@@ -440,15 +454,16 @@ const getGoalProjectionInputs = async (storeToday) => {
   // evening). If the store is younger than 30 days, the SUM/COUNT just
   // reflects what data we have — the daysOfHistory field tells the
   // frontend how confident to be.
-  const tzp = tzParam();
+  const tzp = tzParam(storeTz);
   const [[trailRow]] = await db.query(
     `SELECT
        COALESCE(SUM(total), 0) AS revenue,
        COUNT(DISTINCT DATE(${localExpr('created_at')})) AS days_with_sales
      FROM sales
-     WHERE DATE(${localExpr('created_at')}) >= DATE_SUB(?, INTERVAL 30 DAY)
+     WHERE store_id = ?
+       AND DATE(${localExpr('created_at')}) >= DATE_SUB(?, INTERVAL 30 DAY)
        AND DATE(${localExpr('created_at')}) <  ?`,
-    [tzp, tzp, storeToday, tzp, storeToday]
+    [tzp, storeId, tzp, storeToday, tzp, storeToday]
   );
   const trailingSum     = parseFloat(trailRow.revenue) || 0;
   const daysOfHistory   = parseInt(trailRow.days_with_sales, 10) || 0;
@@ -476,13 +491,13 @@ const getGoalProjectionInputs = async (storeToday) => {
 // rate is the sale's own stored rate — so totals can't be tampered with or
 // silently re-priced. Removing a line = quantity 0. At least one line must remain
 // (clearing a whole sale is a void, which is a separate flow).
-const update = async (saleId, edits, userId) => {
+const update = async (storeId, saleId, edits, userId) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
     const [saleRows] = await connection.query(
-      'SELECT * FROM sales WHERE id = ? FOR UPDATE', [saleId]
+      'SELECT * FROM sales WHERE id = ? AND store_id = ? FOR UPDATE', [saleId, storeId]
     );
     if (!saleRows[0]) {
       const e = new Error('Sale not found'); e.status = 404; throw e;
@@ -517,11 +532,11 @@ const update = async (saleId, edits, userId) => {
     // Lock every product this sale touches, in ascending id order, before
     // touching stock — so a sale edit and a concurrent checkout (or another
     // edit) acquire product locks in the SAME order and can't deadlock. Matches
-    // the ascending lock order used by create().
+    // the ascending lock order used by create(). Store-scoped lock.
     const lockIds = [...new Set(itemRows.map(r => r.product_id).filter(id => id != null))]
       .sort((a, b) => a - b);
     for (const pid of lockIds) {
-      await connection.query('SELECT id FROM products WHERE id = ? FOR UPDATE', [pid]);
+      await connection.query('SELECT id FROM products WHERE id = ? AND store_id = ? FOR UPDATE', [pid, storeId]);
     }
 
     let subtotal = 0;
@@ -533,7 +548,7 @@ const update = async (saleId, edits, userId) => {
 
       if (delta !== 0) {
         const [stockRows] = await connection.query(
-          'SELECT stock FROM products WHERE id = ?', [row.product_id]
+          'SELECT stock FROM products WHERE id = ? AND store_id = ?', [row.product_id, storeId]
         );
         // Product may be soft-deleted; the row (and its stock) still exists.
         if (stockRows[0]) {
@@ -544,13 +559,13 @@ const update = async (saleId, edits, userId) => {
             e.status = 400; throw e;
           }
           await connection.query(
-            'UPDATE products SET stock = ? WHERE id = ?', [stockAfter, row.product_id]
+            'UPDATE products SET stock = ? WHERE id = ? AND store_id = ?', [stockAfter, row.product_id, storeId]
           );
           await connection.query(
             `INSERT INTO inventory_adjustments
-               (product_id, type, qty, stock_before, stock_after, notes, adjusted_by)
-             VALUES (?, 'adjustment', ?, ?, ?, ?, ?)`,
-            [row.product_id, Math.abs(delta), stockBefore, stockAfter, `Sale edit ${receiptNo}`, userId]
+               (store_id, product_id, type, qty, stock_before, stock_after, notes, adjusted_by)
+             VALUES (?, ?, 'adjustment', ?, ?, ?, ?, ?)`,
+            [storeId, row.product_id, Math.abs(delta), stockBefore, stockAfter, `Sale edit ${receiptNo}`, userId]
           );
         }
       }
@@ -584,21 +599,21 @@ const update = async (saleId, edits, userId) => {
 
     await connection.query(
       `UPDATE sales SET subtotal = ?, tax = ?, cart_tax_on = ?, total = ?, payment = ?, change_given = ?
-       WHERE id = ?`,
-      [subtotal, tax, cartTaxOn ? 1 : 0, total, payment, change, saleId]
+       WHERE id = ? AND store_id = ?`,
+      [subtotal, tax, cartTaxOn ? 1 : 0, total, payment, change, saleId, storeId]
     );
 
     // Keep Finance "Money In" in sync with the corrected revenue (no-op for any
     // legacy sale that predates the cash_movements link).
     await connection.query(
       `UPDATE cash_movements SET amount = ?
-       WHERE source = 'sale' AND source_id = ? AND type = 'sales_revenue' AND is_active = 1`,
-      [total, saleId]
+       WHERE store_id = ? AND source = 'sale' AND source_id = ? AND type = 'sales_revenue' AND is_active = 1`,
+      [total, storeId, saleId]
     );
 
     await connection.commit();
     connection.release();
-    return getById(saleId);
+    return getById(storeId, saleId);
   } catch (err) {
     await connection.rollback();
     connection.release();

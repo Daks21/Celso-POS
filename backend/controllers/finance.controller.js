@@ -1,6 +1,5 @@
 const Cashflow  = require('../models/cashflow.model');
 const saleModel = require('../models/sale.model');
-const settings  = require('../models/settings.model');
 const { dateInTz } = require('../utils/tz');
 
 const DATE_RE          = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/;
@@ -12,7 +11,7 @@ const PAST_YEARS_OK    = 10;           // accept up to 10 years behind
 const MAX_TERM_MONTHS  = 120;          // 10 years — generous ceiling for informal loans
 
 // Store-local date in YYYY-MM-DD. Avoids server-TZ drift on Profit defaults.
-const storeToday = () => dateInTz(settings.getTimezone());
+const storeToday = (tz) => dateInTz(tz);
 
 // Same-length window ending the day before `from`. Used for prior-period delta.
 function priorWindow(from, to) {
@@ -99,7 +98,7 @@ const getAll = async (req, res, next) => {
     if (category) filters.category = category;
     if (from)     filters.from     = from;
     if (to)       filters.to       = to;
-    const data = await Cashflow.getAll(filters);
+    const data = await Cashflow.getAll(req.user.storeId, filters);
     res.json({ success: true, data });
   } catch (err) {
     next(err);
@@ -112,7 +111,7 @@ const getSummary = async (req, res, next) => {
     const filters = {};
     if (from) filters.from = from;
     if (to)   filters.to   = to;
-    const data = await Cashflow.getSummary(filters);
+    const data = await Cashflow.getSummary(req.user.storeId, filters);
     res.json({ success: true, data });
   } catch (err) {
     next(err);
@@ -150,7 +149,7 @@ const create = async (req, res, next) => {
     const terms = resolveLoanTerms(type, category, monthly_due, term_months);
     if (terms.error) return res.status(400).json({ success: false, message: terms.error });
 
-    const entry = await Cashflow.create({
+    const entry = await Cashflow.create(req.user.storeId, {
       type,
       category:    category    || null,
       amount,
@@ -173,7 +172,7 @@ const update = async (req, res, next) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid ID' });
 
-    const existing = await Cashflow.getById(id);
+    const existing = await Cashflow.getById(req.user.storeId, id);
     if (!existing)                    return res.status(404).json({ success: false, message: 'Entry not found' });
     if (existing.source !== 'manual') return res.status(400).json({ success: false, message: 'Auto-created entries cannot be edited' });
 
@@ -203,7 +202,7 @@ const update = async (req, res, next) => {
     const terms = resolveLoanTerms(type, category, monthly_due, term_months);
     if (terms.error) return res.status(400).json({ success: false, message: terms.error });
 
-    const entry = await Cashflow.update(id, {
+    const entry = await Cashflow.update(req.user.storeId, id, {
       type,
       category:    category    || null,
       amount,
@@ -225,11 +224,11 @@ const remove = async (req, res, next) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid ID' });
 
-    const existing = await Cashflow.getById(id);
+    const existing = await Cashflow.getById(req.user.storeId, id);
     if (!existing)                    return res.status(404).json({ success: false, message: 'Entry not found' });
     if (existing.source !== 'manual') return res.status(400).json({ success: false, message: 'Auto-created entries cannot be deleted' });
 
-    const deleted = await Cashflow.softDelete(id);
+    const deleted = await Cashflow.softDelete(req.user.storeId, id);
     if (!deleted) return res.status(404).json({ success: false, message: 'Entry not found' });
 
     res.status(204).send();
@@ -248,16 +247,18 @@ const remove = async (req, res, next) => {
 // double-charge the owner against the same purchase.
 const getProfit = async (req, res, next) => {
   try {
-    const today = storeToday();
+    const storeId = req.user.storeId;
+    const tz      = req.store.timezone;
+    const today = storeToday(tz);
     const from  = (req.query.from && DATE_RE.test(req.query.from)) ? req.query.from : today.slice(0, 7) + '-01';
     const to    = (req.query.to   && DATE_RE.test(req.query.to))   ? req.query.to   : today;
 
     const prev = priorWindow(from, to);
     const [current, currentExp, previous, previousExp] = await Promise.all([
-      saleModel.getProfit(from, to),
-      Cashflow.getPeriodOpex(from, to),
-      saleModel.getProfit(prev.from, prev.to),
-      Cashflow.getPeriodOpex(prev.from, prev.to),
+      saleModel.getProfit(storeId, from, to, tz),
+      Cashflow.getPeriodOpex(storeId, from, to),
+      saleModel.getProfit(storeId, prev.from, prev.to, tz),
+      Cashflow.getPeriodOpex(storeId, prev.from, prev.to),
     ]);
 
     const profit          = current.grossProfit  - currentExp.operatingExpense  - currentExp.capitalExpense;

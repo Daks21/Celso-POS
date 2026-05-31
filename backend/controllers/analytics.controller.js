@@ -1,13 +1,13 @@
 const saleModel    = require('../models/sale.model');
 const productModel = require('../models/product.model');
-const settings     = require('../models/settings.model');
 const { dateInTz } = require('../utils/tz');
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-// Store-local date helpers — keep all default date ranges in the store
-// timezone so YYYY-MM-DD keys line up with sale buckets and frontend display.
-const storeToday    = () => dateInTz(settings.getTimezone());
-const storeDaysAgo  = (n) => dateInTz(settings.getTimezone(), new Date(Date.now() - n * 86400000));
+// Store-local date helpers — keep all default date ranges in the STORE
+// timezone (req.store.timezone, passed in) so YYYY-MM-DD keys line up with
+// sale buckets and frontend display.
+const storeToday    = (tz)    => dateInTz(tz);
+const storeDaysAgo  = (tz, n) => dateInTz(tz, new Date(Date.now() - n * 86400000));
 
 // Returns the immediately-prior same-length window given a [from, to] pair.
 // Both inputs and outputs are YYYY-MM-DD strings. The prior window ends the
@@ -30,7 +30,9 @@ function priorWindow(from, to) {
 
 const getSummary = async (req, res, next) => {
   try {
-    const dateStr   = req.query.date || storeToday();
+    const storeId = req.user.storeId;
+    const tz      = req.store.timezone;
+    const dateStr = req.query.date || storeToday(tz);
     // A threshold of 0 is valid ("only flag truly out-of-stock"); don't let a
     // falsy `|| 50` swallow it. Fall back to 50 only when absent/invalid.
     const parsedThreshold = parseInt(req.query.threshold, 10);
@@ -39,8 +41,8 @@ const getSummary = async (req, res, next) => {
       : 50;
 
     const [saleSummary, products] = await Promise.all([
-      saleModel.getSummary(dateStr),
-      productModel.getAll(),
+      saleModel.getSummary(storeId, dateStr, tz),
+      productModel.getAll(storeId),
     ]);
 
     const { totalRevenue, transactionCount, avgSaleValue } = saleSummary;
@@ -67,7 +69,7 @@ const getSummary = async (req, res, next) => {
 
 const getHeatmap = async (req, res, next) => {
   try {
-    const data = await saleModel.getDailyMap();
+    const data = await saleModel.getDailyMap(req.user.storeId, req.store.timezone);
     res.status(200).json({ success: true, data });
   } catch (err) {
     next(err);
@@ -76,13 +78,15 @@ const getHeatmap = async (req, res, next) => {
 
 const getKPIs = async (req, res, next) => {
   try {
-    const from = req.query.from || storeDaysAgo(30);
-    const to   = req.query.to   || storeToday();
+    const storeId = req.user.storeId;
+    const tz      = req.store.timezone;
+    const from = req.query.from || storeDaysAgo(tz, 30);
+    const to   = req.query.to   || storeToday(tz);
 
     const prev = priorWindow(from, to);
     const [current, previous] = await Promise.all([
-      saleModel.getKPIs(from, to),
-      saleModel.getKPIs(prev.from, prev.to),
+      saleModel.getKPIs(storeId, from, to, tz),
+      saleModel.getKPIs(storeId, prev.from, prev.to, tz),
     ]);
 
     // Keep current keys at the top level for backward compatibility,
@@ -106,14 +110,16 @@ const getKPIs = async (req, res, next) => {
 // Compared against the immediately-prior same-length window.
 const getProfit = async (req, res, next) => {
   try {
-    const from = req.query.from || storeDaysAgo(30);
-    const to   = req.query.to   || storeToday();
+    const storeId = req.user.storeId;
+    const tz      = req.store.timezone;
+    const from = req.query.from || storeDaysAgo(tz, 30);
+    const to   = req.query.to   || storeToday(tz);
 
     const prev = priorWindow(from, to);
     const [current, previous, byProduct] = await Promise.all([
-      saleModel.getProfit(from, to),
-      saleModel.getProfit(prev.from, prev.to),
-      saleModel.getProfitByProduct(from, to),
+      saleModel.getProfit(storeId, from, to, tz),
+      saleModel.getProfit(storeId, prev.from, prev.to, tz),
+      saleModel.getProfitByProduct(storeId, from, to, undefined, tz),
     ]);
 
     res.json({
@@ -132,9 +138,11 @@ const getProfit = async (req, res, next) => {
 //   - turnover:     days-of-stock remaining at current sell rate (high → low)
 const getInventoryHealth = async (req, res, next) => {
   try {
-    const today  = storeToday();
-    const since  = storeDaysAgo(90);
-    const data   = await saleModel.getInventoryHealth(since, today);
+    const storeId = req.user.storeId;
+    const tz      = req.store.timezone;
+    const today  = storeToday(tz);
+    const since  = storeDaysAgo(tz, 90);
+    const data   = await saleModel.getInventoryHealth(storeId, since, today, tz);
     res.json({ success: true, data });
   } catch (err) {
     next(err);
@@ -143,8 +151,10 @@ const getInventoryHealth = async (req, res, next) => {
 
 const getCharts = async (req, res, next) => {
   try {
-    const from = req.query.from || storeDaysAgo(30);
-    const to   = req.query.to   || storeToday();
+    const storeId = req.user.storeId;
+    const tz      = req.store.timezone;
+    const from = req.query.from || storeDaysAgo(tz, 30);
+    const to   = req.query.to   || storeToday(tz);
 
     // Seed zero for every date in range so the chart has no gaps.
     // Iterate as date strings to stay in store-local time — avoids UTC key mismatch.
@@ -159,10 +169,10 @@ const getCharts = async (req, res, next) => {
     }
 
     const [dailyMap, topByRevenue, topByQty, byDayOfWeek] = await Promise.all([
-      saleModel.getDailyMap(),
-      saleModel.getTopByRevenue(from, to),
-      saleModel.getTopByQty(from, to),
-      saleModel.getByDayOfWeek(from, to),
+      saleModel.getDailyMap(storeId, tz),
+      saleModel.getTopByRevenue(storeId, from, to, undefined, tz),
+      saleModel.getTopByQty(storeId, from, to, undefined, tz),
+      saleModel.getByDayOfWeek(storeId, from, to, tz),
     ]);
 
     Object.entries(dailyMap).forEach(([date, rev]) => {
@@ -186,10 +196,12 @@ const getCharts = async (req, res, next) => {
 // client where it was previously naive.
 const getGoalProjection = async (req, res, next) => {
   try {
-    const today = storeToday();
+    const storeId = req.user.storeId;
+    const tz      = req.store.timezone;
+    const today = storeToday(tz);
 
     const { currentMonthRevenue, trailingDailyAvg, daysOfHistory } =
-      await saleModel.getGoalProjectionInputs(today);
+      await saleModel.getGoalProjectionInputs(storeId, today, tz);
 
     // Days remaining in the current calendar month (inclusive of today).
     // Derive year/month from the store-local date so the month boundary

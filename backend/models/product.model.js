@@ -2,9 +2,14 @@ const db = require('../config/db.config');
 const settings = require('./settings.model');
 const { dateInTz } = require('../utils/tz');
 
-const getAll = async (filters = {}) => {
-  let sql = 'SELECT * FROM products WHERE is_active = 1';
-  const params = [];
+// Phase 6.5 — every function is scoped to a store. storeId is the FIRST argument
+// on each so call sites read as obviously tenant-scoped, and every WHERE filters
+// store_id / every INSERT sets it. getById is store-scoped too because checkout
+// validation relies on it (a sale must never reference another store's product).
+
+const getAll = async (storeId, filters = {}) => {
+  let sql = 'SELECT * FROM products WHERE store_id = ? AND is_active = 1';
+  const params = [storeId];
   if (filters.search) {
     sql += ' AND LOWER(name) LIKE ?';
     params.push(`%${filters.search.toLowerCase()}%`);
@@ -18,35 +23,35 @@ const getAll = async (filters = {}) => {
   return rows;
 };
 
-const getById = async (id) => {
+const getById = async (storeId, id) => {
   const [rows] = await db.query(
-    'SELECT * FROM products WHERE id = ? AND is_active = 1', [id]
+    'SELECT * FROM products WHERE id = ? AND store_id = ? AND is_active = 1', [id, storeId]
   );
   return rows[0] || null;
 };
 
-const create = async (data) => {
+const create = async (storeId, data) => {
   const [result] = await db.query(
-    'INSERT INTO products (name, category, price, cost, stock, unit)'
-    + ' VALUES (?,?,?,?,?,?)',
-    [data.name, data.category, data.price, data.cost, 0, data.unit]
+    'INSERT INTO products (store_id, name, category, price, cost, stock, unit)'
+    + ' VALUES (?,?,?,?,?,?,?)',
+    [storeId, data.name, data.category, data.price, data.cost, 0, data.unit]
   );
-  return getById(result.insertId);
+  return getById(storeId, result.insertId);
 };
 
-const update = async (id, data) => {
+const update = async (storeId, id, data) => {
   const [result] = await db.query(
     'UPDATE products SET name=?, category=?, price=?, cost=?, unit=?'
-    + ' WHERE id=? AND is_active = 1',
-    [data.name, data.category, data.price, data.cost, data.unit, id]
+    + ' WHERE id=? AND store_id=? AND is_active = 1',
+    [data.name, data.category, data.price, data.cost, data.unit, id, storeId]
   );
   if (result.affectedRows === 0) return null;
-  return getById(id);
+  return getById(storeId, id);
 };
 
-const remove = async (id) => {
+const remove = async (storeId, id) => {
   const [result] = await db.query(
-    'UPDATE products SET is_active = 0 WHERE id = ? AND is_active = 1', [id]
+    'UPDATE products SET is_active = 0 WHERE id = ? AND store_id = ? AND is_active = 1', [id, storeId]
   );
   return result.affectedRows > 0;
 };
@@ -62,9 +67,9 @@ const ARCHIVED_LIMIT = 50;
 // Returns { rows, hasMore }: we fetch one extra row to tell the client there
 // are older archived items beyond the cap (so it can prompt the owner to
 // search) without paying for a separate COUNT query.
-const getArchived = async (filters = {}) => {
-  let sql = 'SELECT * FROM products WHERE is_active = 0';
-  const params = [];
+const getArchived = async (storeId, filters = {}) => {
+  let sql = 'SELECT * FROM products WHERE store_id = ? AND is_active = 0';
+  const params = [storeId];
   if (filters.search) {
     sql += ' AND LOWER(name) LIKE ?';
     params.push(`%${filters.search.toLowerCase()}%`);
@@ -79,12 +84,13 @@ const getArchived = async (filters = {}) => {
 // Look up an archived twin by exact (case-insensitive) name. Used on create to
 // catch an owner re-adding a previously deleted item, so we can offer Restore
 // (keeps the sale history tied to the original id) instead of spawning a
-// duplicate that splits that product's history across two ids.
-const findArchivedByName = async (name) => {
+// duplicate that splits that product's history across two ids. Store-scoped:
+// two different stores may legitimately have a product of the same name.
+const findArchivedByName = async (storeId, name) => {
   const [rows] = await db.query(
-    'SELECT * FROM products WHERE is_active = 0 AND LOWER(name) = ?'
+    'SELECT * FROM products WHERE store_id = ? AND is_active = 0 AND LOWER(name) = ?'
     + ' ORDER BY updated_at DESC LIMIT 1',
-    [String(name).trim().toLowerCase()]
+    [storeId, String(name).trim().toLowerCase()]
   );
   return rows[0] || null;
 };
@@ -94,44 +100,46 @@ const findArchivedByName = async (name) => {
 // (months-old pricing is usually stale); a bare restore from the Archived list
 // brings the item back exactly as it was. Stock is intentionally untouched —
 // it stays at its archived value (typically 0) and is replenished on Inventory.
-const restore = async (id, data = null) => {
+const restore = async (storeId, id, data = null) => {
   let result;
   if (data) {
     [result] = await db.query(
       'UPDATE products SET name=?, category=?, price=?, cost=?, unit=?, is_active=1'
-      + ' WHERE id=? AND is_active=0',
-      [data.name, data.category, data.price, data.cost, data.unit, id]
+      + ' WHERE id=? AND store_id=? AND is_active=0',
+      [data.name, data.category, data.price, data.cost, data.unit, id, storeId]
     );
   } else {
     [result] = await db.query(
-      'UPDATE products SET is_active=1 WHERE id=? AND is_active=0', [id]
+      'UPDATE products SET is_active=1 WHERE id=? AND store_id=? AND is_active=0', [id, storeId]
     );
   }
   if (result.affectedRows === 0) return null;
-  return getById(id);
+  return getById(storeId, id);
 };
 
-const getLowStock = async (threshold = 50) => {
+const getLowStock = async (storeId, threshold = 50) => {
   const [rows] = await db.query(
     'SELECT * FROM products'
-    + ' WHERE is_active = 1 AND stock > 0 AND stock < ?'
+    + ' WHERE store_id = ? AND is_active = 1 AND stock > 0 AND stock < ?'
     + ' ORDER BY stock ASC',
-    [threshold]
+    [storeId, threshold]
   );
   return rows;
 };
 
-const getOutOfStock = async () => {
+const getOutOfStock = async (storeId) => {
   const [rows] = await db.query(
-    'SELECT * FROM products WHERE is_active = 1 AND stock = 0'
+    'SELECT * FROM products WHERE store_id = ? AND is_active = 1 AND stock = 0',
+    [storeId]
   );
   return rows;
 };
 
-const getStockLevels = async (threshold = 50) => {
+const getStockLevels = async (storeId, threshold = 50) => {
   const [rows] = await db.query(
     'SELECT id, name, category, stock, unit FROM products'
-    + ' WHERE is_active = 1 ORDER BY name ASC'
+    + ' WHERE store_id = ? AND is_active = 1 ORDER BY name ASC',
+    [storeId]
   );
   return rows.map(p => ({
     ...p,
@@ -141,8 +149,8 @@ const getStockLevels = async (threshold = 50) => {
   }));
 };
 
-const adjustStock = async (id, qty, type, notes = null, userId = null, expenseData = null) => {
-  const product = await getById(id);
+const adjustStock = async (storeId, id, qty, type, notes = null, userId = null, expenseData = null, storeTz = settings.getTimezone()) => {
+  const product = await getById(storeId, id);
   if (!product) return null;
 
   const conn = await db.getConnection();
@@ -153,16 +161,16 @@ const adjustStock = async (id, qty, type, notes = null, userId = null, expenseDa
     const stockAfter  = Math.max(0, stockBefore + qty);
 
     await conn.query(
-      'UPDATE products SET stock = ? WHERE id = ?', [stockAfter, id]
+      'UPDATE products SET stock = ? WHERE id = ? AND store_id = ?', [stockAfter, id, storeId]
     );
 
     const [adjResult] = await conn.query(
       `INSERT INTO inventory_adjustments
-         (product_id, type, qty, stock_before, stock_after, notes, adjusted_by,
+         (store_id, product_id, type, qty, stock_before, stock_after, notes, adjusted_by,
           unit_cost, total_paid, payment_method, supplier_name)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
-        id, type, Math.abs(qty), stockBefore, stockAfter, notes, userId,
+        storeId, id, type, Math.abs(qty), stockBefore, stockAfter, notes, userId,
         expenseData ? (expenseData.unitCost      || null) : null,
         expenseData ? (expenseData.totalPaid     || null) : null,
         expenseData ? (expenseData.paymentMethod || null) : null,
@@ -178,19 +186,19 @@ const adjustStock = async (id, qty, type, notes = null, userId = null, expenseDa
       // Store-local YYYY-MM-DD. created_at is stored UTC, so derive the
       // occurred_at calendar day in the store timezone to avoid day-drift
       // when an owner restocks in the evening local time.
-      const storeToday = dateInTz(settings.getTimezone());
+      const storeToday = dateInTz(storeTz);
       const [cmResult] = await conn.query(
         `INSERT INTO cash_movements
-           (type, category, amount, description, occurred_at, source, source_id, recorded_by)
-         VALUES ('opex', 'restock', ?, ?, ?, 'restock', ?, ?)`,
-        [expenseData.totalPaid, desc, storeToday, adjResult.insertId, userId]
+           (store_id, type, category, amount, description, occurred_at, source, source_id, recorded_by)
+         VALUES (?, 'opex', 'restock', ?, ?, ?, 'restock', ?, ?)`,
+        [storeId, expenseData.totalPaid, desc, storeToday, adjResult.insertId, userId]
       );
       cashMovement = { id: cmResult.insertId, type: 'opex', category: 'restock', amount: expenseData.totalPaid };
     }
 
     await conn.commit();
 
-    const updatedProduct = await getById(id);
+    const updatedProduct = await getById(storeId, id);
     return { product: updatedProduct, cashMovement };
   } catch (err) {
     await conn.rollback();
@@ -200,7 +208,7 @@ const adjustStock = async (id, qty, type, notes = null, userId = null, expenseDa
   }
 };
 
-const getInventoryCounts = async (threshold = 50) => {
+const getInventoryCounts = async (storeId, threshold = 50) => {
   const [[row]] = await db.query(
     `SELECT
        COUNT(*)                                                   AS totalProducts,
@@ -208,8 +216,8 @@ const getInventoryCounts = async (threshold = 50) => {
        SUM(CASE WHEN stock = 0              THEN 1 ELSE 0 END)    AS outOfStockCount,
        SUM(CASE WHEN stock > 0 AND stock <= ? THEN 1 ELSE 0 END)  AS lowStockCount
      FROM products
-     WHERE is_active = 1`,
-    [threshold]
+     WHERE store_id = ? AND is_active = 1`,
+    [threshold, storeId]
   );
   return {
     totalProducts:   Number(row.totalProducts),
@@ -219,7 +227,7 @@ const getInventoryCounts = async (threshold = 50) => {
   };
 };
 
-const getAdjustmentLog = async (productId) => {
+const getAdjustmentLog = async (storeId, productId) => {
   let sql = `
     SELECT ia.id, ia.product_id AS productId,
            ia.type, ia.qty,
@@ -232,10 +240,11 @@ const getAdjustmentLog = async (productId) => {
     FROM inventory_adjustments ia
     LEFT JOIN products p ON ia.product_id = p.id
     LEFT JOIN users    u ON ia.adjusted_by = u.id
+    WHERE ia.store_id = ?
   `;
-  const params = [];
+  const params = [storeId];
   if (productId !== undefined) {
-    sql += ' WHERE ia.product_id = ?';
+    sql += ' AND ia.product_id = ?';
     params.push(productId);
   }
   sql += ' ORDER BY ia.created_at DESC';

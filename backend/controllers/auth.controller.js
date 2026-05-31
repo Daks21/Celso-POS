@@ -1,8 +1,9 @@
 const bcrypt  = require('bcrypt');
 const jwt     = require('jsonwebtoken');
 const { findByEmail, getPreferences, savePreferences } = require('../models/user.model');
-const settings = require('../models/settings.model');
-const pool     = require('../config/db.config');
+const settings   = require('../models/settings.model');
+const storeModel = require('../models/store.model');
+const pool       = require('../config/db.config');
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -103,11 +104,16 @@ const login = async (req, res, next) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
     );
 
+    // Return THIS store's timezone so the client renders dates in store-local
+    // time without an extra call (falls back to the global default only if the
+    // store row is somehow missing).
+    const store = await storeModel.findById(user.storeId);
+
     return res.status(200).json({
       success: true,
       token,
       user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt },
-      timezone: settings.getTimezone()
+      timezone: store ? store.timezone : settings.getTimezone()
     });
   } catch (err) {
     next(err);

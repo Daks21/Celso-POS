@@ -8,12 +8,13 @@ const { dateInTz } = require('../backend/utils/tz');
 const cache   = new Map();
 const TTL_MS  = (parseInt(process.env.AI_CACHE_TTL_SEC) || 300) * 1000;
 
-function cacheKey(question) {
-  // Roll the daily cache over at the store's local midnight, and scope it to
-  // the store timezone so a timezone change can't serve stale day-based answers.
-  const tz    = settings.getTimezone();
+function cacheKey(question, storeId, tz) {
+  // Scope the cache to the STORE so two tenants asking the same question on the
+  // same day never share an answer (the cached text contains that store's own
+  // business numbers). Roll over at the store's local midnight, and include the
+  // timezone so a tz change can't serve stale day-based answers.
   const today = dateInTz(tz);
-  return crypto.createHash('md5').update(question + today + tz).digest('hex');
+  return crypto.createHash('md5').update(question + '|' + storeId + '|' + today + '|' + tz).digest('hex');
 }
 
 function getCache(key) {
@@ -40,6 +41,8 @@ async function callProvider(messages, options) {
 }
 
 async function ask(systemPrompt, history, userMessage, options = {}) {
+  const { storeId, storeTz = settings.getTimezone() } = options;
+
   if (options.stream) {
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -49,7 +52,7 @@ async function ask(systemPrompt, history, userMessage, options = {}) {
     return callProvider(messages, { ...options, stream: true });
   }
 
-  const key    = cacheKey(userMessage);
+  const key    = cacheKey(userMessage, storeId, storeTz);
   const cached = getCache(key);
   if (cached) return { ...cached, cached: true };
 
