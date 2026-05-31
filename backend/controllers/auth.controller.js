@@ -1,7 +1,8 @@
 const bcrypt  = require('bcrypt');
 const jwt     = require('jsonwebtoken');
-const { findByEmail, createUser, countUsers, getPreferences, savePreferences } = require('../models/user.model');
+const { findByEmail, getPreferences, savePreferences } = require('../models/user.model');
 const settings = require('../models/settings.model');
+const pool     = require('../config/db.config');
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -27,12 +28,40 @@ const register = async (req, res, next) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // The first account to register is the store owner — auto-promote it to
-    // admin so they can actually set the store up (restock, Finance, settings)
-    // without a manual DB `UPDATE users SET role='admin'`. Every later signup is
-    // staff on the shared device and stays 'cashier'.
-    const role = (await countUsers()) === 0 ? 'admin' : 'cashier';
-    await createUser({ fullName, email, password: hashedPassword, role });
+    // Phase 6.5: every signup creates its OWN isolated store, and the signer is
+    // that store's owner-admin (this replaces the single-tenant "first account
+    // is admin" rule). The store starts on a 14-day, no-card Pro trial; on
+    // expiry effectivePlan() drops it to Free with zero billing involvement.
+    // Store row, owner user, and the owner back-link are written in one
+    // transaction so a half-created store can never exist.
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      const [store] = await conn.query(
+        `INSERT INTO stores (subscription_status, trial_ends_at)
+         VALUES ('trialing', DATE_ADD(NOW(), INTERVAL 14 DAY))`
+      );
+      const storeId = store.insertId;
+      const [user] = await conn.query(
+        `INSERT INTO users (full_name, email, password, role, store_id, is_active)
+         VALUES (?, ?, ?, 'admin', ?, 1)`,
+        [fullName, email, hashedPassword, storeId]
+      );
+      await conn.query(
+        `UPDATE stores SET owner_user_id = ? WHERE id = ?`,
+        [user.insertId, storeId]
+      );
+      await conn.commit();
+    } catch (txErr) {
+      await conn.rollback();
+      // A race past the pre-check still hits the UNIQUE(email) constraint.
+      if (txErr.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ success: false, message: 'Email is already registered' });
+      }
+      throw txErr;
+    } finally {
+      conn.release();
+    }
 
     return res.status(201).json({ success: true, message: 'Account created successfully' });
   } catch (err) {
@@ -60,8 +89,14 @@ const login = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
+    // Suspended accounts (e.g. cashiers freed up by a downgrade) keep their row
+    // and history but cannot obtain a token until reactivated by the owner.
+    if (user.isActive === 0) {
+      return res.status(403).json({ success: false, message: 'Account suspended — ask your store owner.' });
+    }
+
     const token = jwt.sign(
-      { id: user.id, fullName: user.fullName, email: user.email, role: user.role },
+      { id: user.id, fullName: user.fullName, email: user.email, role: user.role, storeId: user.storeId },
       process.env.JWT_SECRET,
       // Short-lived by default: store devices are shared, so a long-lived token
       // left signed in is a risk. Tunable per-deployment via JWT_EXPIRES_IN.

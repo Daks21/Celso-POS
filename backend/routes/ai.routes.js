@@ -3,12 +3,17 @@ const express            = require('express');
 const router             = express.Router();
 const ai                 = require('../controllers/ai.controller');
 const { authMiddleware } = require('../middleware/auth.middleware');
+const { loadStore, requireFeature } = require('../middleware/tenant.middleware');
 
-router.post('/chat',        authMiddleware, ai.chat);
-router.post('/chat/stream', authMiddleware, ai.chatStream);
-router.get('/summary',      authMiddleware, ai.dailySummary);
-router.get('/restock',      authMiddleware, ai.restockAdvice);
-router.get('/forecast',     authMiddleware, ai.forecast);
-router.get('/profit',       authMiddleware, ai.profitCoaching);
+// Os (AI) is a Pro-only feature: auth + loadStore + requireFeature('ai') on
+// every route (402 for Free/Plus and for cashiers).
+router.use(authMiddleware, loadStore, requireFeature('ai'));
+
+router.post('/chat',        ai.chat);
+router.post('/chat/stream', ai.chatStream);
+router.get('/summary',      ai.dailySummary);
+router.get('/restock',      ai.restockAdvice);
+router.get('/forecast',     ai.forecast);
+router.get('/profit',       ai.profitCoaching);
 
 module.exports = router;
