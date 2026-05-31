@@ -332,9 +332,11 @@
   DRIVER: mysql2/promise (connection pool, size: 5)
 
   TIME CONVENTION:
-    All DATETIME columns store UTC. The DB connection pins the session to
-    UTC ('Z'). Day-bucketing and display happen in the store timezone
-    (app_settings.timezone) via CONVERT_TZ in the aggregation queries.
+    All DATETIME columns store UTC. The DB pool sets every connection's session
+    time zone to UTC (SET time_zone='+00:00') and mysql2 parses/serialises
+    datetimes as UTC ('Z'), so CURRENT_TIMESTAMP is true UTC regardless of the
+    host's system zone. Day-bucketing and display happen in the PER-STORE
+    timezone (stores.timezone) via CONVERT_TZ in the aggregation queries.
     When MySQL's named-timezone tables aren't loaded (e.g. PlanetScale),
     the backend falls back to a fixed numeric offset computed in Node.
     Exception: cash_movements.occurred_at is a user-picked calendar DATE
@@ -377,6 +379,7 @@
                               (sub-account created on the Team page)
     is_active   TINYINT(1)    0 = suspended (can't log in); 1 = active
     must_change_password TINYINT(1)  reserved (unused — passwords are admin-managed)
+    session_id  VARCHAR(64)   id of the most recent login (single active session)
     created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
     updated_at  TIMESTAMP     AUTO UPDATE
 
@@ -962,6 +965,10 @@
     3. morgan('dev')             HTTP request logging to stdout
                                  (method, path, status, response time)
 
+    *  /api/billing/webhook      Lemon Squeezy webhook, mounted with
+                                 express.raw BEFORE the JSON parser so the
+                                 X-Signature HMAC verifies the raw body (6.5).
+
     4. express.json({ limit })   JSON body parser, capped at 10 KB
                                  (protects against oversized payload DoS)
 
@@ -971,13 +978,20 @@
     6. adjustLimiter             Rate limit on /api/inventory:
                                  60 req / 15 min
 
-    7. authMiddleware            Validates Bearer token from Authorization
-                                 header; attaches req.user (id, role, etc.)
+    7. authMiddleware            Validates Bearer token; enforces the single
+                                 active session (token session_id == DB) and
+                                 is_active; attaches req.user (id, role,
+                                 storeId, sid). One PK lookup per request.
 
-    8. adminMiddleware           Checks req.user.role === 'admin';
+    8. loadStore + requireFeature  (Phase 6.5, per protected router)
+                                 loadStore attaches req.store/req.plan from the
+                                 DB; requireFeature gates a route behind a plan
+                                 feature (402 UPGRADE_REQUIRED).
+
+    9. adminMiddleware           Checks req.user.role === 'admin';
                                  returns 403 if not (admin-only routes only)
 
-    9. errorMiddleware           Global error handler (last in chain)
+   10. errorMiddleware           Global error handler (last in chain)
                                  → { success: false, message }
 
 ================================================================
@@ -1044,14 +1058,23 @@
   JWT AUTHENTICATION
     Signed with a 128-character cryptographically random JWT_SECRET.
     Token expiry: 1 day (24h), configurable via JWT_EXPIRES_IN. Role
-    (admin/cashier) embedded in payload.
+    (admin/cashier), store_id, and the login session id are embedded in the
+    payload. Entitlements are NOT in the token — they resolve from the DB per
+    request (so a token can't elevate a plan).
+
+  SINGLE ACTIVE SESSION (last-login-wins, Phase 6.5)
+    Each login mints a random session_id, stores it on the user row, and signs
+    it into the JWT. authMiddleware rejects any request whose token session_id
+    != the stored one (or whose account is is_active=0) — so logging in on a
+    second device signs the first one out on its next request, and a suspension
+    takes effect immediately. One account = one active device.
 
   SESSION DATA HYGIENE
     Logout and session-end (expired or invalid token) fully clear client-side
-    state — token, cached user, preferences, and the Os AI conversation held
-    in sessionStorage. Store devices are commonly shared, so this stops the
-    next user from reading the previous user's data. Only non-sensitive
-    cosmetic state is kept: the theme choice and onboarding "seen" flags.
+    state — token, cached user, preferences, entitlements, and the Os AI
+    conversation held in sessionStorage. Store devices are commonly shared, so
+    this stops the next user from reading the previous user's data. Only
+    non-sensitive cosmetic state is kept: the theme choice and onboarding flags.
 
   SQL INJECTION PREVENTION
     All database queries use parameterized prepared statements via
@@ -1168,8 +1191,14 @@
     no DDL rights), e.g.:
          mysql -u root -p celsopos_db < database/migrate_inventory_costs.sql
          mysql -u root -p celsopos_db < database/migrate_loan_terms.sql
+         mysql -u root -p celsopos_db < database/migrate_multitenant.sql
+         mysql -u root -p celsopos_db < database/migrate_single_session.sql
     migrate_inventory_costs adds the Phase 5 cost columns to
     inventory_adjustments — without it, restock and stock adjustments 500.
+    migrate_multitenant adds the stores table + store_id on every owned table
+    (Phase 6.5; idempotent via schema_migrations). migrate_single_session adds
+    users.session_id. Run BOTH before deploying the Phase 6.5 backend, or
+    authenticated requests will 500 on the missing columns.
 
   FRONTEND CACHE BUSTING (per deploy)
     Static assets are referenced with a ?v=<version> query so browsers
