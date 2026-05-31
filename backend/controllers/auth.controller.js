@@ -1,6 +1,7 @@
 const bcrypt  = require('bcrypt');
 const jwt     = require('jsonwebtoken');
-const { findByEmail, getPreferences, savePreferences } = require('../models/user.model');
+const crypto  = require('crypto');
+const { findByEmail, getPreferences, savePreferences, setSessionId } = require('../models/user.model');
 const settings   = require('../models/settings.model');
 const storeModel = require('../models/store.model');
 const { entitlements } = require('../config/plans');
@@ -97,8 +98,14 @@ const login = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Account suspended — ask your store owner.' });
     }
 
+    // Single active session (last-login-wins): mint a fresh session id, store it
+    // on the user, and sign it into the token. Any token from a prior device now
+    // mismatches the stored id and is rejected by authMiddleware on its next call.
+    const sessionId = crypto.randomBytes(16).toString('hex');
+    await setSessionId(user.id, sessionId);
+
     const token = jwt.sign(
-      { id: user.id, fullName: user.fullName, email: user.email, role: user.role, storeId: user.storeId },
+      { id: user.id, fullName: user.fullName, email: user.email, role: user.role, storeId: user.storeId, sid: sessionId },
       process.env.JWT_SECRET,
       // Short-lived by default: store devices are shared, so a long-lived token
       // left signed in is a risk. Tunable per-deployment via JWT_EXPIRES_IN.

@@ -65,7 +65,8 @@ CREATE TABLE IF NOT EXISTS users (
   password    VARCHAR(255) NOT NULL,
   role        ENUM('admin','cashier') DEFAULT 'cashier',
   is_active            TINYINT(1) NOT NULL DEFAULT 1,  -- suspended cashiers can't log in
-  must_change_password TINYINT(1) NOT NULL DEFAULT 0,  -- forces reset on first cashier login
+  must_change_password TINYINT(1) NOT NULL DEFAULT 0,  -- reserved (unused; passwords are admin-managed)
+  session_id           VARCHAR(64) DEFAULT NULL,        -- single active session: id of the most recent login
   preferences JSON DEFAULT NULL,
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (store_id) REFERENCES stores(id),

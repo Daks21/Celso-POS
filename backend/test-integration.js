@@ -47,17 +47,25 @@ async function run() {
   check('Response contains JWT token',   !!login.body.token);
   adminToken = login.body.token;
 
-  // ── STEP 2: Register a cashier ─────────────────────────────
-  console.log('\nSTEP 2 — Register cashier');
+  // The seed admin owns store 1; capture its store_id to scope DB cross-checks
+  // (every owned-table query is now per-store).
+  const [adminRows] = await db.query("SELECT store_id FROM users WHERE email = 'admin@celsopos.com'");
+  const adminStoreId = adminRows[0]?.store_id;
+
+  // ── STEP 2: Register creates a NEW store + owner-admin (Phase 6.5) ──
+  console.log('\nSTEP 2 — Register (creates a new isolated store)');
   const reg = await req('POST', '/api/auth/register', {
-    fullName: 'Test Cashier', email: TEST_EMAIL,
-    password: 'cashier123', role: 'cashier',
-  }, adminToken);
+    fullName: 'Test Owner', email: TEST_EMAIL, password: 'owner12345',
+  });
   check('POST /api/auth/register → 201', reg.status === 201);
   check('Response success flag is true', reg.body.success === true);
 
-  const [userRows] = await db.query('SELECT id, role FROM users WHERE email = ?', [TEST_EMAIL]);
-  check('User persisted in DB with cashier role', userRows.length === 1 && userRows[0].role === 'cashier');
+  const [userRows] = await db.query('SELECT id, role, store_id FROM users WHERE email = ?', [TEST_EMAIL]);
+  check('Registered user is an admin of a NEW store',
+    userRows.length === 1 && userRows[0].role === 'admin' &&
+    !!userRows[0].store_id && userRows[0].store_id !== adminStoreId);
+  const testUserId  = userRows[0]?.id;
+  const testStoreId = userRows[0]?.store_id;
 
   // ── STEP 3: Browse products ────────────────────────────────
   console.log('\nSTEP 3 — Browse products');
@@ -130,9 +138,9 @@ async function run() {
   check('transactionCount ≥ 1',            kpis.body.data?.transactionCount >= 1);
 
   // Cross-check: kpis revenue (all-time window) matches DB SUM(total)
-  const [dbRev] = await db.query('SELECT COALESCE(SUM(total),0) AS rev FROM sales');
+  const [dbRev] = await db.query('SELECT COALESCE(SUM(total),0) AS rev FROM sales WHERE store_id = ?', [adminStoreId]);
   const dbRevNum = parseFloat(dbRev[0].rev);
-  check('KPI revenue matches DB SUM(total)', Math.abs(kpis.body.data?.totalRevenue - dbRevNum) < 0.01,
+  check('KPI revenue matches this store\'s DB SUM(total)', Math.abs(kpis.body.data?.totalRevenue - dbRevNum) < 0.01,
         `(api=${kpis.body.data?.totalRevenue}, db=${dbRevNum})`);
 
   // ── STEP 7: Low-stock inventory ────────────────────────────
@@ -142,6 +150,13 @@ async function run() {
   const names = (lowStock.body.data ?? []).map(p => p.name);
   check('Bear Brand Milk in low-stock',     names.includes('Bear Brand Milk'));
   check('Champion Detergent in low-stock',  names.includes('Champion Detergent'));
+
+  // Cleanup: remove the throwaway store + its owner (no data attached) so test
+  // stores don't accumulate across runs.
+  try {
+    if (testUserId)  await db.query('DELETE FROM users WHERE id = ?', [testUserId]);
+    if (testStoreId) await db.query('DELETE FROM stores WHERE id = ?', [testStoreId]);
+  } catch (_) {}
 
   // ── Summary ────────────────────────────────────────────────
   console.log(`\n${'─'.repeat(45)}`);

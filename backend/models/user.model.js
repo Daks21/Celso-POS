@@ -63,6 +63,24 @@ const savePreferences = async (userId, prefs) => {
   );
 };
 
+// ── Single active session (Phase 6.5) ──
+
+// Store the id of the user's most recent login (rotated on every login). Used by
+// auth.middleware to reject tokens from a device that's been superseded.
+const setSessionId = async (userId, sessionId) => {
+  await db.query('UPDATE users SET session_id = ? WHERE id = ?', [sessionId, userId]);
+};
+
+// The fields auth.middleware needs per request: the current session id + whether
+// the account is still active (so a just-suspended user is kicked immediately).
+const getSessionInfo = async (userId) => {
+  const [rows] = await db.query(
+    'SELECT session_id AS sessionId, is_active AS isActive FROM users WHERE id = ?',
+    [userId]
+  );
+  return rows[0] || null;
+};
+
 // ── Cashier seats (Phase 6.5) ──
 
 const countActiveCashiers = async (storeId) => {
@@ -116,5 +134,6 @@ const reconcileCashierSeats = async (storeId, maxSeats) => {
 
 module.exports = {
   findByEmail, findById, createUser, countUsers, getPreferences, savePreferences,
+  setSessionId, getSessionInfo,
   countActiveCashiers, reconcileCashierSeats,
 };

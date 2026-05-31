@@ -53,6 +53,10 @@ async function run() {
   check('Login → 200', login.status === 200);
   const token = login.body.token;
 
+  // Per-store scoping: cross-check the API against THIS store's rows only.
+  const [adminRows] = await db.query("SELECT store_id FROM users WHERE email = 'admin@celsopos.com'");
+  const adminStoreId = adminRows[0]?.store_id;
+
   const RUN = Date.now();
   const addP = await req('POST', '/api/products', {
     name: `Checkpoint Item ${RUN}`, category: 'Snacks', price: 18, cost: 10, stock: 50, unit: 'pack',
@@ -98,8 +102,8 @@ async function run() {
   // (which would wrongly include historical sales like the seed's).
   const today = dateInTz(settings.getTimezone());
   const [dbTodayRow] = await db.query(
-    `SELECT COALESCE(SUM(total),0) AS rev FROM sales WHERE DATE(${localExpr('created_at')}) = ?`,
-    [tzParam(), today]
+    `SELECT COALESCE(SUM(total),0) AS rev FROM sales WHERE store_id = ? AND DATE(${localExpr('created_at')}) = ?`,
+    [adminStoreId, tzParam(), today]
   );
   const dbToday = parseFloat(dbTodayRow[0].rev);
   check('Endpoint → 200', summary.status === 200);
@@ -129,7 +133,7 @@ async function run() {
   // over all sales (the default 30-day window would exclude older history).
   const kpis = await req('GET', '/api/analytics/kpis?from=2000-01-01&to=' + today, null, token);
   check('GET /api/analytics/kpis → 200',           kpis.status === 200);
-  const [dbAllRow] = await db.query('SELECT COALESCE(SUM(total),0) AS rev FROM sales');
+  const [dbAllRow] = await db.query('SELECT COALESCE(SUM(total),0) AS rev FROM sales WHERE store_id = ?', [adminStoreId]);
   const dbAll = parseFloat(dbAllRow[0].rev);
   check('KPI totalRevenue matches DB (all-time)',  Math.abs((kpis.body.data?.totalRevenue ?? -1) - dbAll) < 0.01,
         `(api=${kpis.body.data?.totalRevenue}, db=${dbAll})`);
