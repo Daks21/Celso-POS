@@ -9,7 +9,17 @@ const pool = mysql.createPool({
   connectionLimit:    parseInt(process.env.DB_POOL_SIZE, 10) || 5,
   waitForConnections: true,
   queueLimit:         0,
-  timezone:           'Z',        // Store/read all timestamps in UTC; day-bucketing & display happen in the store timezone (app_settings.timezone)
+  timezone:           'Z',        // mysql2 parses/serialises DATETIMEs as UTC
+});
+
+// Pin every pooled connection's SESSION time zone to real UTC so NOW() /
+// CURRENT_TIMESTAMP are UTC — matching the `timezone:'Z'` parsing above. Without
+// this, a MySQL server running in a non-UTC system zone (e.g. a dev box set to
+// Asia/Manila) stores local wall-clock time in DEFAULT CURRENT_TIMESTAMP columns,
+// which mysql2 then misreads as UTC — an offset-sized skew that corrupts
+// day-bucketing. This is the SET that actually makes "session pinned to UTC" true.
+pool.on('connection', (conn) => {
+  conn.query("SET time_zone = '+00:00'");
 });
 
 pool.getConnection((err, connection) => {

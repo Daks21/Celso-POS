@@ -114,9 +114,10 @@ async function run() {
   console.log('\n☐  GET /api/inventory/low-stock correct products');
   const lowStock = await req('GET', '/api/inventory/low-stock', null, token);
   check('Endpoint → 200', lowStock.status === 200);
+  // The product we just made (restocked 50, sold 2 → 48, below the 50 threshold)
+  // is now low — a self-contained check that doesn't depend on seed stock levels.
   const names = (lowStock.body.data || []).map(x => x.name);
-  check('Bear Brand Milk present',   names.includes('Bear Brand Milk'));
-  check('Champion Detergent present', names.includes('Champion Detergent'));
+  check('Our checkout product is now low-stock', names.includes(`Checkpoint Item ${RUN}`));
 
   // ── All 5 analytics endpoints ─────────────────────────────────
   console.log('\n☐  All 5 analytics endpoints return correct data');
@@ -133,7 +134,11 @@ async function run() {
   // over all sales (the default 30-day window would exclude older history).
   const kpis = await req('GET', '/api/analytics/kpis?from=2000-01-01&to=' + today, null, token);
   check('GET /api/analytics/kpis → 200',           kpis.status === 200);
-  const [dbAllRow] = await db.query('SELECT COALESCE(SUM(total),0) AS rev FROM sales WHERE store_id = ?', [adminStoreId]);
+  const [dbAllRow] = await db.query(
+    `SELECT COALESCE(SUM(total),0) AS rev FROM sales
+     WHERE store_id = ? AND DATE(${localExpr('created_at')}) BETWEEN ? AND ?`,
+    [adminStoreId, tzParam(), '2000-01-01', today]
+  );
   const dbAll = parseFloat(dbAllRow[0].rev);
   check('KPI totalRevenue matches DB (all-time)',  Math.abs((kpis.body.data?.totalRevenue ?? -1) - dbAll) < 0.01,
         `(api=${kpis.body.data?.totalRevenue}, db=${dbAll})`);

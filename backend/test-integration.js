@@ -2,7 +2,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 const db  = require('./config/db.config');
 const http = require('http');
-const { dateInTz } = require('./utils/tz');
+const { localExpr, tzParam, dateInTz } = require('./utils/tz');
 const settings = require('./models/settings.model');
 
 const BASE = { hostname: 'localhost', port: 3000 };
@@ -138,18 +138,27 @@ async function run() {
   check('transactionCount ≥ 1',            kpis.body.data?.transactionCount >= 1);
 
   // Cross-check: kpis revenue (all-time window) matches DB SUM(total)
-  const [dbRev] = await db.query('SELECT COALESCE(SUM(total),0) AS rev FROM sales WHERE store_id = ?', [adminStoreId]);
+  // Compare against the SAME store + date window + tz the KPI endpoint uses, so
+  // a timezone-midnight-boundary sale can't make a windowed API differ from an
+  // unwindowed raw SUM.
+  const [dbRev] = await db.query(
+    `SELECT COALESCE(SUM(total),0) AS rev FROM sales
+     WHERE store_id = ? AND DATE(${localExpr('created_at')}) BETWEEN ? AND ?`,
+    [adminStoreId, tzParam(), '2000-01-01', today]
+  );
   const dbRevNum = parseFloat(dbRev[0].rev);
-  check('KPI revenue matches this store\'s DB SUM(total)', Math.abs(kpis.body.data?.totalRevenue - dbRevNum) < 0.01,
+  check('KPI revenue matches this store\'s windowed DB SUM(total)', Math.abs(kpis.body.data?.totalRevenue - dbRevNum) < 0.01,
         `(api=${kpis.body.data?.totalRevenue}, db=${dbRevNum})`);
 
   // ── STEP 7: Low-stock inventory ────────────────────────────
+  // Use our own product (restocked to a low qty) so the check doesn't depend on
+  // drifting seed stock levels.
   console.log('\nSTEP 7 — Low-stock inventory');
+  await req('POST', `/api/inventory/${newId}/adjust`, { quantity: 5, type: 'restock', recordExpense: false }, adminToken);
   const lowStock = await req('GET', '/api/inventory/low-stock', null, adminToken);
   check('GET /api/inventory/low-stock → 200', lowStock.status === 200);
   const names = (lowStock.body.data ?? []).map(p => p.name);
-  check('Bear Brand Milk in low-stock',     names.includes('Bear Brand Milk'));
-  check('Champion Detergent in low-stock',  names.includes('Champion Detergent'));
+  check('Restocked-low product appears in low-stock', names.includes(TEST_PRODUCT));
 
   // Cleanup: remove the throwaway store + its owner (no data attached) so test
   // stores don't accumulate across runs.
