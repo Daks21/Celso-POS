@@ -244,12 +244,30 @@ html[data-theme="dark"] .team-seats-inline.is-full {
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
+  cursor: pointer;
 }
 
-/* Store-total summary */
+.ds-date-input:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* Make the native calendar icon clearly tappable (it's the only thing that opens
+   the picker on desktop; JS also opens it on a click anywhere in the field). */
+.ds-date-input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.75; }
+.ds-date-input::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+
+/* Dark mode: without color-scheme the native picker glyph renders near-black on
+   the dark field and looks like there's nothing to click. Matches the app's
+   existing date-input treatment in components.css. */
+html[data-theme="dark"] .ds-date-input { color-scheme: dark; }
+
+/* Store-total summary. auto-fit reflows 3 → 2 columns on narrow desktops/tablets
+   instead of cramming three fixed columns; the 600px rule below drops it to a
+   single stacked column with a compact label-left / value-right layout. */
 .ds-summary {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -320,6 +338,7 @@ html[data-theme="dark"] .team-seats-inline.is-full {
   .ds-summary { grid-template-columns: 1fr; gap: 8px; }
   .ds-stat { flex-direction: row; align-items: baseline; justify-content: space-between; }
   .ds-date-control { width: 100%; }
+  .ds-date-input { width: 100%; box-sizing: border-box; }
   /* Sales count is already in the person sub-line ("3 sales · avg ₱…"), so drop
      the dedicated column on narrow screens to keep the row uncluttered. */
   #ds-table th:nth-child(3),

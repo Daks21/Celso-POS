@@ -263,6 +263,15 @@
     openReceiptsModal(row.getAttribute('data-id'), row.getAttribute('data-name') || 'this person');
   });
   dsDate.addEventListener('change', loadDailySales);
+  // Open the native date picker on a click anywhere in the field — by default
+  // only the small calendar icon opens it, which reads as "the filter is stuck".
+  // showPicker() needs a user gesture (this is one) and throws if already open;
+  // swallow that. Unsupported on older browsers — the icon still works there.
+  dsDate.addEventListener('click', function () {
+    if (typeof dsDate.showPicker === 'function') {
+      try { dsDate.showPicker(); } catch (e) { /* already open / not allowed */ }
+    }
+  });
 
   // Receipts drill-down modal
   var rcModal = document.getElementById('ds-receipts-modal');
