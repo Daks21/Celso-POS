@@ -5,9 +5,11 @@
 --
 -- TIME CONVENTION: all DATETIME columns store UTC. The DB connection
 -- pins the session to UTC ('Z'); day-bucketing/display happen in the
--- store timezone (app_settings.timezone) via CONVERT_TZ. The only
+-- per-store timezone (stores.timezone) via CONVERT_TZ. The only
 -- exception is cash_movements.occurred_at, a user-picked calendar DATE
 -- that carries no time and is never timezone-converted.
+-- (app_settings is retained for now but superseded by stores.timezone;
+--  its reads are retired when loadStore lands in the auth/tenancy step.)
 -- ============================================================
 
 CREATE DATABASE IF NOT EXISTS celsopos_db
@@ -26,15 +28,48 @@ CREATE TABLE IF NOT EXISTS app_settings (
 );
 INSERT IGNORE INTO app_settings (id, timezone) VALUES (1, 'Asia/Manila');
 
+-- 0.5 Stores (Phase 6.5 — multi-tenant SaaS)
+-- One row per tenant store. Every owned table carries a store_id FK back here,
+-- and every query is scoped to the logged-in user's store. Billing state
+-- (plan/subscription_status/trial_ends_at + the Lemon Squeezy ids) is mirrored
+-- from the Merchant of Record by signed webhooks; the effective plan is resolved
+-- from these columns PER REQUEST, never from the JWT. name/address/timezone live
+-- here now (per-store), superseding the single-row app_settings.
+-- owner_user_id is a plain nullable INT (NO FK) on purpose: a FK here would make
+-- stores depend on users while users.store_id already depends on stores, a
+-- circular create-order both schema.sql and the registration txn must avoid.
+CREATE TABLE IF NOT EXISTS stores (
+  id                  INT AUTO_INCREMENT PRIMARY KEY,
+  name                VARCHAR(120) NOT NULL DEFAULT '',
+  address             VARCHAR(120) NOT NULL DEFAULT '',
+  timezone            VARCHAR(64)  NOT NULL DEFAULT 'Asia/Manila',
+  currency            VARCHAR(8)   NOT NULL DEFAULT 'PHP',
+  plan                ENUM('free','plus','pro') NOT NULL DEFAULT 'free',
+  subscription_status ENUM('none','trialing','active','past_due','canceled')
+                        NOT NULL DEFAULT 'none',
+  trial_ends_at       DATETIME    DEFAULT NULL,
+  ls_customer_id      VARCHAR(64) DEFAULT NULL,
+  ls_subscription_id  VARCHAR(64) DEFAULT NULL,
+  owner_user_id       INT         DEFAULT NULL,
+  created_at          DATETIME    DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_stores_ls_customer (ls_customer_id),
+  KEY idx_stores_ls_sub      (ls_subscription_id)
+);
+
 -- 1. Users
 CREATE TABLE IF NOT EXISTS users (
   id          INT AUTO_INCREMENT PRIMARY KEY,
+  store_id    INT NOT NULL,
   full_name   VARCHAR(100) NOT NULL,
-  email       VARCHAR(150) NOT NULL UNIQUE,
+  email       VARCHAR(150) NOT NULL UNIQUE,   -- email stays GLOBALLY unique
   password    VARCHAR(255) NOT NULL,
   role        ENUM('admin','cashier') DEFAULT 'cashier',
+  is_active            TINYINT(1) NOT NULL DEFAULT 1,  -- suspended cashiers can't log in
+  must_change_password TINYINT(1) NOT NULL DEFAULT 0,  -- forces reset on first cashier login
   preferences JSON DEFAULT NULL,
-  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (store_id) REFERENCES stores(id),
+  KEY idx_users_store_role (store_id, role)
 );
 
 -- Migration: run once on existing databases
@@ -43,6 +78,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- 2. Products
 CREATE TABLE IF NOT EXISTS products (
   id         INT AUTO_INCREMENT PRIMARY KEY,
+  store_id   INT NOT NULL,
   name       VARCHAR(150) NOT NULL,
   category   VARCHAR(100) NOT NULL,
   price      DECIMAL(10,2) NOT NULL,
@@ -54,13 +90,16 @@ CREATE TABLE IF NOT EXISTS products (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_products_name     (name),
-  KEY idx_products_category (category)
+  KEY idx_products_category (category),
+  FOREIGN KEY (store_id) REFERENCES stores(id),
+  KEY idx_products_store_name (store_id, name)
 );
 
 -- 3. Sales
 CREATE TABLE IF NOT EXISTS sales (
   id           INT AUTO_INCREMENT PRIMARY KEY,
-  receipt_no   VARCHAR(20) DEFAULT NULL UNIQUE,
+  store_id     INT NOT NULL,
+  receipt_no   VARCHAR(20) DEFAULT NULL UNIQUE,  -- receipt_no stays GLOBALLY unique (per-store sequence deferred)
   subtotal     DECIMAL(10,2) NOT NULL,
   tax          DECIMAL(10,2) DEFAULT 0.00,
   tax_rate     DECIMAL(5,4)  DEFAULT 0.0000,
@@ -71,6 +110,8 @@ CREATE TABLE IF NOT EXISTS sales (
   cashier_id   INT NOT NULL,
   created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (cashier_id) REFERENCES users(id) ON DELETE RESTRICT,
+  FOREIGN KEY (store_id)   REFERENCES stores(id),
+  KEY idx_sales_store_created (store_id, created_at),
   KEY idx_sales_created (created_at)
   -- receipt_no is already indexed by its UNIQUE constraint above
 );
@@ -93,6 +134,7 @@ CREATE TABLE IF NOT EXISTS sale_items (
 -- 5. Inventory Adjustments (audit log)
 CREATE TABLE IF NOT EXISTS inventory_adjustments (
   id             INT AUTO_INCREMENT PRIMARY KEY,
+  store_id       INT NOT NULL,
   product_id     INT,
   type           ENUM('restock','adjustment','damage','return','sale') NOT NULL,
   qty            INT NOT NULL,
@@ -107,6 +149,8 @@ CREATE TABLE IF NOT EXISTS inventory_adjustments (
   created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (product_id)  REFERENCES products(id) ON DELETE SET NULL,
   FOREIGN KEY (adjusted_by) REFERENCES users(id)    ON DELETE SET NULL,
+  FOREIGN KEY (store_id)    REFERENCES stores(id),
+  KEY idx_inv_adj_store_created (store_id, created_at),
   KEY idx_inv_adj_product (product_id),
   KEY idx_inv_adj_created (created_at)
 );
@@ -121,6 +165,7 @@ CREATE TABLE IF NOT EXISTS inventory_adjustments (
 -- 6. Cash Movements (Phase 5 — Finance Module)
 CREATE TABLE IF NOT EXISTS cash_movements (
   id          INT AUTO_INCREMENT PRIMARY KEY,
+  store_id    INT NOT NULL,
   type        ENUM('capital_in','owner_draw','opex','capex','sales_revenue') NOT NULL,
   category    VARCHAR(100)  DEFAULT NULL,
   amount      DECIMAL(10,2) NOT NULL,
@@ -137,7 +182,9 @@ CREATE TABLE IF NOT EXISTS cash_movements (
   recorded_by INT DEFAULT NULL,
   is_active   TINYINT(1) DEFAULT 1,
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (recorded_by) REFERENCES users(id)  ON DELETE SET NULL,
+  FOREIGN KEY (store_id)    REFERENCES stores(id),
+  KEY idx_cash_store_occurred (store_id, occurred_at),
   KEY idx_cash_type     (type),
   KEY idx_cash_category (category),
   KEY idx_cash_occurred (occurred_at),
