@@ -3,6 +3,7 @@ const jwt     = require('jsonwebtoken');
 const { findByEmail, getPreferences, savePreferences } = require('../models/user.model');
 const settings   = require('../models/settings.model');
 const storeModel = require('../models/store.model');
+const { entitlements } = require('../config/plans');
 const pool       = require('../config/db.config');
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -109,11 +110,17 @@ const login = async (req, res, next) => {
     // store row is somehow missing).
     const store = await storeModel.findById(user.storeId);
 
+    // Entitlements snapshot for the client (UI rendering only — server enforces).
+    const ent = store
+      ? entitlements(store, user.role)
+      : { plan: 'free', features: [], role: user.role, cashierSeats: 0, trialEndsAt: null };
+
     return res.status(200).json({
       success: true,
       token,
       user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt },
-      timezone: store ? store.timezone : settings.getTimezone()
+      timezone: store ? store.timezone : settings.getTimezone(),
+      ...ent
     });
   } catch (err) {
     next(err);

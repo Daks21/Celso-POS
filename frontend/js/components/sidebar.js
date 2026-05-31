@@ -53,6 +53,35 @@ function setActiveNavLink() {
   });
 }
 
+// ── Nav entitlement gating (Phase 6.5) ──
+// Maps each nav link's data-page to the plan feature that unlocks it, and hides
+// links the cached entitlements don't grant. The backend pre-intersects a
+// cashier's features down to order+history, so no role logic is needed here.
+// Fails open (shows everything) when entitlements are unknown — the server is
+// the real boundary; this is only to avoid showing a link that would 402.
+var NAV_FEATURE = {
+  dashboard: 'dashboard_basic',
+  order:     'order',
+  inventory: 'inventory',
+  products:  'products',
+  finance:   'finance',
+  analytics: 'analytics',
+  history:   'history',
+};
+
+function isNavEntitled(page) {
+  var feature = NAV_FEATURE[page];
+  if (!feature) return true;                                  // unmapped (e.g. account) — always shown
+  if (typeof hasEntitlement !== 'function') return true;      // helper not loaded — fail open
+  return hasEntitlement(feature);
+}
+
+function applyNavEntitlements() {
+  document.querySelectorAll('.nav-link[data-page]').forEach(function(link) {
+    if (!isNavEntitled(link.getAttribute('data-page'))) link.style.display = 'none';
+  });
+}
+
 // ── Store brand ──
 // The sidebar brand reflects the owner's store name (set in Account settings),
 // falling back to "Celso POS" when blank. The name is user input, so callers
@@ -188,7 +217,10 @@ function initMobileNav() {
     { href: 'finance.html',   icon: 'wallet',            label: 'Finance'    },
     { href: 'analytics.html', icon: 'bar-chart-2',       label: 'Analytics'  },
     { href: 'history.html',   icon: 'clock',             label: 'History'    },
-  ];
+  ].filter(function(item) {
+    // Same entitlement gate as the desktop nav (map href → data-page key).
+    return isNavEntitled(item.href.replace('.html', ''));
+  });
 
   var linksHtml = navItems.map(function(item) {
     var active = item.href === currentPage ? ' active' : '';
@@ -280,7 +312,13 @@ function initFab() {
     var user  = JSON.parse(localStorage.getItem('currentUser') || '{}');
     var key   = 'prefs_' + (user.id || 'guest');
     var prefs = JSON.parse(localStorage.getItem(key) || '{}');
-    if (prefs.osEnabled === true) return;
+    // Suppress the default "+" FAB only when the Os FAB will actually show — i.e.
+    // Os is enabled AND the plan includes AI. Otherwise (including a downgrade
+    // that left osEnabled=true) keep the default new-sale FAB so the page is
+    // never left with no FAB at all.
+    var osActive = prefs.osEnabled === true &&
+      (typeof hasEntitlement !== 'function' || hasEntitlement('ai'));
+    if (osActive) return;
   } catch (_) {}
   mountFab();
 }
@@ -393,6 +431,7 @@ var SidebarProgress = (function () {
 
 document.addEventListener('DOMContentLoaded', function() {
   applyNavPrefs();    // hide/show topbar elements before first paint
+  applyNavEntitlements(); // hide desktop nav links the plan/role doesn't grant
   initMobileNav();
   applyStoreBrand();  // paint the desktop brand from the saved store name
   setActiveNavLink();

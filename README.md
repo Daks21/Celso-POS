@@ -1962,7 +1962,7 @@
   checklists, build order, and the billing/tooling setup — lives in
   celsopos_P6-5.txt at the repo root. (This phase is PLANNED; the current
   codebase is still single-tenant.)
-
+`
   PLANS (monthly, USD):
     Free  $0   Dashboard(basic), New Order, Inventory, Products, History;
                0 cashiers.

@@ -44,4 +44,21 @@ function hasFeature(plan, role, feature) {
 
 const cashierSeats = (p) => (PLANS[p] || PLANS.free).cashierSeats;
 
-module.exports = { PLANS, CASHIER_FEATURES, effectivePlan, planFeatures, hasFeature, cashierSeats };
+// Build the entitlement snapshot the client caches for UI rendering (nav hiding,
+// page guards, FAB/toggle visibility). The server still enforces every feature —
+// this is cosmetic. A cashier's features are pre-intersected with the role cap
+// here so the client can gate purely off the `features` array.
+function entitlements(store, role) {
+  const plan = effectivePlan(store);
+  let features = planFeatures(plan);
+  if (role === 'cashier') features = features.filter(f => CASHIER_FEATURES.includes(f));
+  return {
+    plan,
+    features,
+    role,
+    cashierSeats: cashierSeats(plan),
+    trialEndsAt: (store && store.trial_ends_at) ? store.trial_ends_at : null,
+  };
+}
+
+module.exports = { PLANS, CASHIER_FEATURES, effectivePlan, planFeatures, hasFeature, cashierSeats, entitlements };

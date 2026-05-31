@@ -96,6 +96,22 @@ var WIDGET_META = {
 var DASH_CELL = 10, DASH_GAP = 2;
 var DASH_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+// Phase 6.5: the pinned charts/heatmap are a Plus feature ('dashboard_charts').
+// When the plan doesn't include them, show an upsell in the Analytics Overview
+// slot instead of fetching (which would 402). The Free dashboard keeps its
+// summary cards, recent transactions, and low-stock alerts.
+function renderChartsUpsell() {
+  var container  = document.getElementById('dashboard-analytics-widgets');
+  var emptyState = document.getElementById('dashboard-analytics-empty');
+  if (emptyState) emptyState.style.display = 'none';
+  if (!container) return;
+  container.innerHTML =
+    '<div class="dashboard-analytics-empty" style="display:block">' +
+      '<p>Charts &amp; the sales heatmap are a <strong>Plus</strong> feature.</p>' +
+      '<p style="margin-top:4px">Upgrade your plan to pin revenue trends, top products, and activity here.</p>' +
+    '</div>';
+}
+
 function renderDashboardWidgets() {
   var container = document.getElementById('dashboard-analytics-widgets');
   var emptyState = document.getElementById('dashboard-analytics-empty');
@@ -590,22 +606,30 @@ async function initDashboard() {
     .sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
   _renderTransactions(allSales, 1);
 
-  // Fetch chart + heatmap data for pinned widgets
-  try {
-    var _now = new Date();
-    var _from30 = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() - 29);
-    var _mFmt = new Intl.DateTimeFormat('en-CA', { timeZone: getStoreTz() });
-    var _chartsRes  = await getCharts(_mFmt.format(_from30), _mFmt.format(_now));
-    var _heatmapRes = await getHeatmap();
-    if (_chartsRes  && _chartsRes.success)  _dashApiCharts  = _chartsRes.data;
-    if (_heatmapRes && _heatmapRes.success)  _dashApiHeatmap = _heatmapRes.data;
-  } catch (e) { /* server may not be running — widgets will show empty state */ }
-
-  // Pinned analytics widgets
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', renderDashboardWidgets);
+  // Pinned analytics widgets — gated behind the Plus 'dashboard_charts' feature.
+  if (typeof hasEntitlement === 'function' && !hasEntitlement('dashboard_charts')) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', renderChartsUpsell);
+    } else {
+      renderChartsUpsell();
+    }
   } else {
-    renderDashboardWidgets();
+    // Fetch chart + heatmap data for pinned widgets
+    try {
+      var _now = new Date();
+      var _from30 = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() - 29);
+      var _mFmt = new Intl.DateTimeFormat('en-CA', { timeZone: getStoreTz() });
+      var _chartsRes  = await getCharts(_mFmt.format(_from30), _mFmt.format(_now));
+      var _heatmapRes = await getHeatmap();
+      if (_chartsRes  && _chartsRes.success)  _dashApiCharts  = _chartsRes.data;
+      if (_heatmapRes && _heatmapRes.success)  _dashApiHeatmap = _heatmapRes.data;
+    } catch (e) { /* server may not be running — widgets will show empty state */ }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', renderDashboardWidgets);
+    } else {
+      renderDashboardWidgets();
+    }
   }
 
   // ── Onboarding hooks ──

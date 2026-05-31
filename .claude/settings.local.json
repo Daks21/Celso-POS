@@ -2,7 +2,7 @@
   "permissions": {
     "allow": [
       "Bash(node:*)",
-      "Bash(wc -l C:/Users/Sonsuman/OneDrive/Desktop/Tinda_Track/frontend/css/*.css C:/Users/Sonsuman/OneDrive/Desktop/Tinda_Track/frontend/css/pages/*.css)",
+      "Bash(wc -l C:/Users/Sonsuman/OneDrive/Deskt`op/Tinda_Track/frontend/css/*.css C:/Users/Sonsuman/OneDrive/Desktop/Tinda_Track/frontend/css/pages/*.css)",
       "Bash(grep:*)",
       "Bash(npm install *)",
       "Bash(Start-Sleep -Seconds 2)",

@@ -3,6 +3,7 @@ const router     = express.Router();
 const { login, register, getPreferencesHandler, savePreferencesHandler } = require('../controllers/auth.controller');
 const { authMiddleware: auth } = require('../middleware/auth.middleware');
 const { loadStore } = require('../middleware/tenant.middleware');
+const { entitlements } = require('../config/plans');
 const { findById } = require('../models/user.model');
 
 router.post('/register', register);
@@ -17,7 +18,8 @@ router.get('/me', auth, loadStore, async (req, res, next) => {
     res.json({
       success: true,
       user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt },
-      timezone: req.store.timezone
+      timezone: req.store.timezone,
+      ...entitlements(req.store, req.user.role)
     });
   } catch (err) {
     next(err);

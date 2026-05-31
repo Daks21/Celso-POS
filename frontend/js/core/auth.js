@@ -41,6 +41,8 @@ if (loginForm) {
       localStorage.setItem('token', result.token);
       localStorage.setItem('currentUser', JSON.stringify(result.user));
       if (result.timezone) localStorage.setItem('storeTimezone', result.timezone);
+      // Cache the plan/feature entitlements for UI gating (server still enforces).
+      if (typeof cacheEntitlements === 'function') cacheEntitlements(result);
 
       // Pull saved preferences from DB and cache them in localStorage
       // so every app page reads from cache without an extra API call.
@@ -51,7 +53,8 @@ if (loginForm) {
         }
       } catch (e) { /* non-fatal — localStorage defaults will be used */ }
 
-      window.location.href = "pages/dashboard.html";
+      // Cashiers have no dashboard — send them straight to the POS.
+      window.location.href = result.role === 'cashier' ? "pages/order.html" : "pages/dashboard.html";
     } else {
       loginError.textContent = result ? result.message : "Login failed. Please try again.";
     }
@@ -157,6 +160,73 @@ function checkAuth() {
     window.location.href = "../index.html";
   }
 }
+
+// ── Page-level entitlement guard ──
+// Backstops a deep link (typed URL / stale bookmark) to a page the current plan
+// or role can't access — the nav already hides the link, but the URL is still
+// reachable. UI-only: the API enforces too. FAILS OPEN when entitlements are
+// unknown (session predating this feature / cache miss).
+//
+// Two rules:
+//   • Cashier — may only be on New Order + Sales History (+ logout). Any other
+//     app page redirects to order.html.
+//   • Owner/admin — plan-feature gate: a page whose feature isn't in the plan
+//     redirects to the dashboard with an upgrade toast.
+var APP_PAGES = [
+  'dashboard.html', 'order.html', 'inventory.html', 'products.html',
+  'finance.html', 'analytics.html', 'history.html', 'ai.html',
+  'account.html', 'team.html', 'billing.html',
+];
+var CASHIER_ALLOWED = ['order.html', 'history.html'];
+var PAGE_FEATURE = {
+  'dashboard.html': 'dashboard_basic',
+  'order.html':     'order',
+  'inventory.html': 'inventory',
+  'products.html':  'products',
+  'finance.html':   'finance',
+  'analytics.html': 'analytics',
+  'history.html':   'history',
+  'ai.html':        'ai',
+};
+
+function guardCurrentPage() {
+  var page = window.location.pathname.split('/').pop();
+  if (APP_PAGES.indexOf(page) === -1) return; // not a gated app page (login/register)
+  var e = (typeof getEntitlements === 'function') ? getEntitlements() : null;
+  if (!e || !Array.isArray(e.features)) return; // unknown → allow (server enforces)
+
+  // Cashier role-lock: only New Order + History.
+  if (e.role === 'cashier') {
+    if (CASHIER_ALLOWED.indexOf(page) === -1 && page !== 'order.html') {
+      window.location.replace('order.html');
+    }
+    return;
+  }
+
+  // Owner/admin plan-gate.
+  var feature = PAGE_FEATURE[page];
+  if (feature && e.features.indexOf(feature) === -1 && page !== 'dashboard.html') {
+    try { sessionStorage.setItem('os_upgrade_redirect', '1'); } catch (_) {}
+    window.location.replace('dashboard.html');
+  }
+}
+
+// On the page we land on after a guard redirect, tell the user why.
+function showUpgradeToastIfRedirected() {
+  try {
+    if (sessionStorage.getItem('os_upgrade_redirect') === '1') {
+      sessionStorage.removeItem('os_upgrade_redirect');
+      if (typeof showApiError === 'function') {
+        showApiError("That page isn't available on your current plan.");
+      }
+    }
+  } catch (_) {}
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  guardCurrentPage();
+  showUpgradeToastIfRedirected();
+});
 
 // Writes DB preferences into individual localStorage keys (no external deps).
 // Called once on login before redirecting so every page reads from cache.

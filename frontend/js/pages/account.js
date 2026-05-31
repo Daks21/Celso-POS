@@ -498,6 +498,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ── Os AI Feature Toggle ──
     var osToggle = document.getElementById('os-enabled-toggle');
+    if (osToggle && typeof hasEntitlement === 'function' && !hasEntitlement('ai')) {
+      // AI is a Pro feature — hide the whole setting row when not entitled.
+      var osRow = osToggle.closest('.account-theme-row');
+      if (osRow) osRow.style.display = 'none';
+      osToggle = null;
+    }
     if (osToggle) {
       var prefs = loadUserPrefs();
       osToggle.checked = prefs.osEnabled === true;
@@ -520,6 +526,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // (analytics.js inline editor), not here — this is just the feature gate.
     var advToggle = document.getElementById('advanced-analytics-toggle');
 
+    if (advToggle && typeof hasEntitlement === 'function' && !hasEntitlement('advanced_analytics')) {
+      // Advanced analytics is a Pro feature — hide the row when not entitled.
+      var advRow = advToggle.closest('.account-theme-row');
+      if (advRow) advRow.style.display = 'none';
+      advToggle = null;
+    }
     if (advToggle) {
       var prefs2 = loadUserPrefs();
       advToggle.checked = prefs2.advancedAnalytics === true;

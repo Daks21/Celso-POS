@@ -49,6 +49,39 @@ async function getMe() {
   return apiCall('/auth/me');
 }
 
+// --- Entitlements (client-side cache; UI rendering only — the server enforces) ---
+// Cached from the login / getMe response. Cleared on logout by clearSession()'s
+// localStorage.clear(). Read by the nav gating, page guards, FAB, and account
+// toggles. When absent/unknown, callers FAIL OPEN (show everything) so a session
+// that predates this feature — or a transient cache miss — is never locked out.
+
+function cacheEntitlements(result) {
+  if (!result || !result.plan) return;
+  try {
+    localStorage.setItem('entitlements', JSON.stringify({
+      plan:         result.plan,
+      features:     Array.isArray(result.features) ? result.features : [],
+      role:         result.role,
+      cashierSeats: result.cashierSeats,
+      trialEndsAt:  result.trialEndsAt || null,
+    }));
+  } catch (e) { /* storage full / disabled — gating just stays open */ }
+}
+
+function getEntitlements() {
+  try {
+    var raw = localStorage.getItem('entitlements');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+// True if the cached plan grants `feature`. Unknown (no cache) → true (fail open).
+function hasEntitlement(feature) {
+  var e = getEntitlements();
+  if (!e || !Array.isArray(e.features)) return true;
+  return e.features.indexOf(feature) !== -1;
+}
+
 // Wipes client-side state on sign-out / session-end. Sari-sari store devices
 // are commonly shared, so a partial clear (token + currentUser only) would let
 // the next user read the previous user's preferences and — critically — their

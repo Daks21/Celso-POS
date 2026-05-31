@@ -55,6 +55,13 @@
 
   // ── Init ───────────────────────────────────────────────────────
 
+  // The plan must include AI (Pro). Fails open if the helper isn't loaded yet —
+  // the API still enforces, so a stray FAB would just surface a 402 in the panel.
+  function entitledToAi() {
+    try { return typeof hasEntitlement !== 'function' || hasEntitlement('ai'); }
+    catch (_) { return true; }
+  }
+
   function init() {
     if (onAiFullView()) {
       // Full View page IS the chat — don't show a FAB on top of itself.
@@ -62,7 +69,7 @@
       return;
     }
 
-    if (isOsEnabled()) {
+    if (isOsEnabled() && entitledToAi()) {
       mountFab();
     } else {
       unmountFab();
