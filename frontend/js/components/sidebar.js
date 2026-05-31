@@ -82,6 +82,34 @@ function applyNavEntitlements() {
   });
 }
 
+// Admin-only nav links not hard-coded in the page markup. Team needs a paid plan
+// (cashierSeats > 0); Billing is shown to every owner so a Free owner can upgrade.
+// Returns [] for cashiers and when entitlements are unknown (don't reveal owner
+// tools to an unverified session).
+function getAdminNavLinks() {
+  var e = (typeof getEntitlements === 'function') ? getEntitlements() : null;
+  if (!e || e.role !== 'admin') return [];
+  var links = [];
+  if (Number(e.cashierSeats) > 0) links.push({ href: 'team.html', page: 'team', icon: 'users', label: 'Team' });
+  links.push({ href: 'billing.html', page: 'billing', icon: 'credit-card', label: 'Billing' });
+  return links;
+}
+
+function injectDesktopAdminNavLinks() {
+  var nav = document.querySelector('.sidebar-nav');
+  if (!nav) return;
+  getAdminNavLinks().forEach(function (l) {
+    if (nav.querySelector('.nav-link[data-page="' + l.page + '"]')) return; // already present
+    var a = document.createElement('a');
+    a.href = l.href;
+    a.className = 'nav-link';
+    a.setAttribute('data-page', l.page);
+    a.innerHTML = '<i data-lucide="' + l.icon + '"></i><span class="nav-link-text">' + l.label + '</span>';
+    nav.appendChild(a);
+  });
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
 // ── Store brand ──
 // The sidebar brand reflects the owner's store name (set in Account settings),
 // falling back to "Celso POS" when blank. The name is user input, so callers
@@ -220,6 +248,11 @@ function initMobileNav() {
   ].filter(function(item) {
     // Same entitlement gate as the desktop nav (map href → data-page key).
     return isNavEntitled(item.href.replace('.html', ''));
+  });
+
+  // Owner-only Team/Billing links (same gating as the desktop sidebar).
+  getAdminNavLinks().forEach(function (l) {
+    navItems.push({ href: l.href, icon: l.icon, label: l.label });
   });
 
   var linksHtml = navItems.map(function(item) {
@@ -432,6 +465,7 @@ var SidebarProgress = (function () {
 document.addEventListener('DOMContentLoaded', function() {
   applyNavPrefs();    // hide/show topbar elements before first paint
   applyNavEntitlements(); // hide desktop nav links the plan/role doesn't grant
+  injectDesktopAdminNavLinks(); // add Team/Billing for owners (before active-state)
   initMobileNav();
   applyStoreBrand();  // paint the desktop brand from the saved store name
   setActiveNavLink();

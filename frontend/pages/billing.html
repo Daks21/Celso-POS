@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    (function () {
+      var theme = localStorage.getItem('theme') || 'light';
+      if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Celso POS | Billing</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%235a9e6f'/%3E%3Ctext x='16' y='23' font-family='sans-serif' font-size='20' font-weight='700' text-anchor='middle' fill='white'%3EC%3C/text%3E%3C/svg%3E">
+  <script src="../assets/vendor/lucide.min.js?v=5"></script>
+
+  <link rel="stylesheet" href="../css/main.css?v=5">
+  <link rel="stylesheet" href="../css/layout.css?v=5">
+  <link rel="stylesheet" href="../css/components.css?v=5">
+  <link rel="stylesheet" href="../css/onboarding.css?v=5">
+  <link rel="stylesheet" href="../css/os.widget.css?v=5">
+  <style>
+    .bill-banner{background:var(--color-surface,#fff);border:1px solid var(--color-border,#e5e7eb);border-radius:12px;padding:20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .bill-plan-now{font-size:22px;font-weight:700;color:var(--color-text,#111827);text-transform:capitalize}
+    .bill-sub{font-size:13px;color:var(--color-text-muted,#6b7280);margin-top:4px}
+    .bill-trial{display:inline-block;margin-top:6px;font-size:13px;font-weight:600;color:#b45309;background:rgba(234,179,8,.14);border-radius:999px;padding:4px 12px}
+    .bill-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .bill-card{background:var(--color-surface,#fff);border:1px solid var(--color-border,#e5e7eb);border-radius:12px;padding:22px;display:flex;flex-direction:column}
+    .bill-card.is-current{border-color:var(--color-primary,#5a9e6f);box-shadow:0 0 0 1px var(--color-primary,#5a9e6f)}
+    .bill-card h3{font-size:18px;margin:0 0 2px}
+    .bill-price{font-size:30px;font-weight:700;color:var(--color-text,#111827);margin:6px 0 2px}
+    .bill-price span{font-size:14px;font-weight:500;color:var(--color-text-muted,#6b7280)}
+    .bill-feats{list-style:none;padding:0;margin:14px 0 20px;flex:1}
+    .bill-feats li{font-size:14px;color:var(--color-text,#374151);padding:5px 0 5px 22px;position:relative}
+    .bill-feats li::before{content:'✓';position:absolute;left:0;color:var(--color-primary,#5a9e6f);font-weight:700}
+    .bill-btn{padding:11px 16px;border:none;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:var(--color-primary,#5a9e6f);color:#fff;width:100%}
+    .bill-btn:disabled{opacity:.55;cursor:default}
+    .bill-btn--ghost{background:transparent;color:var(--color-text-muted,#6b7280);border:1px solid var(--color-border,#e5e7eb)}
+    .bill-manage{margin-top:20px}
+    .bill-manage button{padding:10px 16px;border-radius:8px;border:1px solid var(--color-border,#e5e7eb);background:transparent;color:var(--color-text,#111827);font-family:inherit;font-weight:600;font-size:14px;cursor:pointer}
+    .bill-note{font-size:12px;color:var(--color-text-muted,#6b7280);margin-top:14px}
+    @media (max-width:768px){ .bill-grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body class="app-body">
+
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo-box"><i data-lucide="leaf"></i></div>
+        <span class="sidebar-app-name nav-link-text">Celso POS</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link" data-page="dashboard"><i data-lucide="layout-dashboard"></i><span class="nav-link-text">Dashboard</span></a>
+        <a href="order.html" class="nav-link" data-page="order"><i data-lucide="shopping-cart"></i><span class="nav-link-text">New Order</span></a>
+        <a href="inventory.html" class="nav-link" data-page="inventory"><i data-lucide="archive"></i><span class="nav-link-text">Inventory</span></a>
+        <a href="products.html" class="nav-link" data-page="products"><i data-lucide="package"></i><span class="nav-link-text">Products</span></a>
+        <a href="finance.html" class="nav-link" data-page="finance"><i data-lucide="wallet"></i><span class="nav-link-text">Finance</span></a>
+        <a href="analytics.html" class="nav-link" data-page="analytics"><i data-lucide="bar-chart-2"></i><span class="nav-link-text">Analytics</span></a>
+        <a href="history.html" class="nav-link" data-page="history"><i data-lucide="clock"></i><span class="nav-link-text">History</span></a>
+      </nav>
+      <div class="sidebar-user-area">
+        <div class="user-popup" id="user-popup">
+          <a href="account.html" class="user-popup-item"><i data-lucide="user"></i>Account Settings</a>
+          <button type="button" class="user-popup-item logout-item" id="logout-button"><i data-lucide="log-out"></i>Logout</button>
+        </div>
+        <div class="sidebar-user-card" id="user-menu-trigger">
+          <div class="user-avatar" id="user-avatar">--</div>
+          <div class="user-info">
+            <p class="user-name" id="user-name">User</p>
+            <p class="user-role">Cashier</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <h1 id="page-title">Billing</h1>
+        <div class="topbar-actions">
+          <button type="button" class="topbar-icon-button" id="theme-toggle" title="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body">
+
+        <div class="bill-banner">
+          <div>
+            <div class="bill-plan-now" id="bill-plan-now">—</div>
+            <div class="bill-sub" id="bill-sub">Loading your plan…</div>
+            <div class="bill-trial" id="bill-trial" style="display:none"></div>
+          </div>
+          <div class="bill-manage" id="bill-manage" style="display:none">
+            <button type="button" id="bill-manage-btn">Manage billing</button>
+          </div>
+        </div>
+
+        <div class="bill-grid">
+          <div class="bill-card" id="card-free">
+            <h3>Free</h3>
+            <div class="bill-price">$0<span>/mo</span></div>
+            <ul class="bill-feats">
+              <li>Dashboard (basic)</li><li>New Order (POS)</li><li>Inventory &amp; Products</li><li>Sales History</li><li>0 cashiers</li>
+            </ul>
+            <button class="bill-btn" data-plan="free" disabled>—</button>
+          </div>
+          <div class="bill-card" id="card-plus">
+            <h3>Plus</h3>
+            <div class="bill-price">$8<span>/mo</span></div>
+            <ul class="bill-feats">
+              <li>Everything in Free</li><li>Finance / cashflow</li><li>Analytics + dashboard charts</li><li>1 cashier</li>
+            </ul>
+            <button class="bill-btn" data-plan="plus">Upgrade to Plus</button>
+          </div>
+          <div class="bill-card" id="card-pro">
+            <h3>Pro</h3>
+            <div class="bill-price">$12<span>/mo</span></div>
+            <ul class="bill-feats">
+              <li>Everything in Plus</li><li>Advanced Analytics</li><li>Os AI Assistant</li><li>2 cashiers</li>
+            </ul>
+            <button class="bill-btn" data-plan="pro">Upgrade to Pro</button>
+          </div>
+        </div>
+
+        <p class="bill-note" id="bill-note">Payments are handled securely by Lemon Squeezy. Prices in USD.</p>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="../js/components/sidebar.js?v=5"></script>
+  <script src="../js/components/os.client.js?v=5"></script>
+  <script src="../js/components/os.widget.js?v=5"></script>
+  <script src="../js/components/os.js?v=5"></script>
+  <script src="../js/core/theme.js?v=5"></script>
+  <script src="../js/core/api.js?v=5"></script>
+  <script src="../js/core/utils.js?v=5"></script>
+  <script src="../js/core/auth.js?v=5"></script>
+  <script src="../js/core/data.js?v=5"></script>
+  <script src="../js/pages/billing.js?v=5"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

@@ -120,6 +120,7 @@ const login = async (req, res, next) => {
       token,
       user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt },
       timezone: store ? store.timezone : settings.getTimezone(),
+      mustChangePassword: user.mustChangePassword === 1,
       ...ent
     });
   } catch (err) {
@@ -145,4 +146,34 @@ const savePreferencesHandler = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getPreferencesHandler, savePreferencesHandler };
+// PUT /api/auth/password — change the signed-in user's password. Used by the
+// forced first-login change for new cashiers (clears must_change_password) and
+// can back a general "change password" later. currentPassword is verified when
+// supplied; the forced-change flow omits it (the user just authenticated).
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
+    }
+
+    const user = await findByEmail(req.user.email);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (currentPassword) {
+      const ok = await bcrypt.compare(currentPassword, user.password);
+      if (!ok) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await pool.query(
+      'UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?',
+      [hashed, req.user.id]
+    );
+    res.json({ success: true, message: 'Password updated' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { register, login, getPreferencesHandler, savePreferencesHandler, changePassword };

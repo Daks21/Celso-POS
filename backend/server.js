@@ -28,6 +28,7 @@ const aiRouter         = require('./routes/ai.routes');
 const settingsRouter   = require('./routes/settings.routes');
 const billingRouter    = require('./routes/billing.routes');
 const billingController = require('./controllers/billing.controller');
+const teamRouter       = require('./routes/team.routes');
 const errorMiddleware  = require('./middleware/error.middleware');
 const pool             = require('./config/db.config');
 const settings         = require('./models/settings.model');
@@ -127,6 +128,7 @@ app.use('/api/finance',   financeRouter);
 app.use('/api/ai',        aiRouter);
 app.use('/api/settings',  settingsRouter);
 app.use('/api/billing',   billingRouter);
+app.use('/api/team',      teamRouter);
 
 // --- Unknown API route → JSON 404 (don't fall through to the static layer) ---
 app.use('/api', (req, res) => {

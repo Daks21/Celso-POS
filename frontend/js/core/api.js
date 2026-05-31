@@ -318,3 +318,29 @@ async function updateStoreTimezone(timezone) {
 // --- Os AI (non-streaming endpoints) ---
 async function getOsForecast()      { return apiCall('/ai/forecast'); }
 async function getOsProfitCoach()   { return apiCall('/ai/profit');   }
+
+// --- Team (cashier sub-accounts) ---
+async function getTeam() { return apiCall('/team'); }
+async function createCashier(data) {
+  return apiCall('/team', { method: 'POST', body: JSON.stringify(data) });
+}
+async function setCashierActive(id, active) {
+  return apiCall(`/team/${id}/active`, { method: 'PATCH', body: JSON.stringify({ active }) });
+}
+async function deleteCashier(id) {
+  return apiCall(`/team/${id}`, { method: 'DELETE' });
+}
+
+// --- Billing ---
+async function getBillingState() { return apiCall('/billing/state'); }
+async function startCheckout(plan) {
+  return apiCall('/billing/checkout', { method: 'POST', body: JSON.stringify({ plan }) });
+}
+async function openBillingPortal() {
+  return apiCall('/billing/portal', { method: 'POST' });
+}
+
+// --- Password (forced first-login change for cashiers) ---
+async function changePassword(data) {
+  return apiCall('/auth/password', { method: 'PUT', body: JSON.stringify(data) });
+}

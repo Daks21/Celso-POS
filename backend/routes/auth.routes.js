@@ -1,6 +1,6 @@
 const express    = require('express');
 const router     = express.Router();
-const { login, register, getPreferencesHandler, savePreferencesHandler } = require('../controllers/auth.controller');
+const { login, register, getPreferencesHandler, savePreferencesHandler, changePassword } = require('../controllers/auth.controller');
 const { authMiddleware: auth } = require('../middleware/auth.middleware');
 const { loadStore } = require('../middleware/tenant.middleware');
 const { entitlements } = require('../config/plans');
@@ -19,6 +19,7 @@ router.get('/me', auth, loadStore, async (req, res, next) => {
       success: true,
       user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt },
       timezone: req.store.timezone,
+      mustChangePassword: user.mustChangePassword === 1,
       ...entitlements(req.store, req.user.role)
     });
   } catch (err) {
@@ -28,5 +29,6 @@ router.get('/me', auth, loadStore, async (req, res, next) => {
 
 router.get('/preferences', auth, getPreferencesHandler);
 router.put('/preferences', auth, savePreferencesHandler);
+router.put('/password',    auth, changePassword);
 
 module.exports = router;
