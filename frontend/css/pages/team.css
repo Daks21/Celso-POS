@@ -34,16 +34,46 @@
   white-space: nowrap;
 }
 
+/* "Seats full" warning pill — amber. Light mode uses deep amber text on a
+   soft amber tint; dark mode needs a brighter amber so the text stays legible
+   against the dark surface. */
 .team-seats-inline.is-full {
   color: #b45309;
   background: rgba(255, 180, 50, 0.14);
   border-color: transparent;
 }
 
+html[data-theme="dark"] .team-seats-inline.is-full {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.16);
+}
+
 .add-cashier-button {
   width: auto;
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+/* When all seats are taken (or the plan has none), the button is disabled.
+   Make that a clear visual safety guard — muted and "locked" — so owners
+   read it as "not available right now", not as a broken control. */
+.add-cashier-button:disabled,
+.add-cashier-button[disabled] {
+  background-color: var(--color-background);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.add-cashier-button:disabled:hover,
+.add-cashier-button[disabled]:hover {
+  opacity: 1;
+}
+
+.add-cashier-button:disabled:active,
+.add-cashier-button[disabled]:active {
+  transform: none;
 }
 
 .cashier-hint {
