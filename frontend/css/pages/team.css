@@ -1,0 +1,189 @@
+/* ── Team Page ── */
+
+.team-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.team-header h2 {
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.team-header p {
+  margin: 2px 0 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* Subtle inline seats indicator next to the heading (desktop + mobile) */
+.team-seats-inline {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+.team-seats-inline.is-full {
+  color: #b45309;
+  background: rgba(255, 180, 50, 0.14);
+  border-color: transparent;
+}
+
+.add-cashier-button {
+  width: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cashier-hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+}
+
+.cp-lead {
+  margin: 0 0 14px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+/* ── Table ── */
+
+#team-table {
+  table-layout: fixed;
+  min-width: 0;
+}
+
+/* The cashier table is narrow (3 cols) and fits without horizontal scroll, so
+   let the kebab dropdown overflow the wrapper rather than be clipped by it
+   (a scrollable products-style table would clip the menu on the last row). */
+.page-body .table-wrapper { overflow: visible; }
+
+#team-table th:nth-child(2),
+#team-table td:nth-child(2) { width: 120px; }   /* Status */
+
+#team-table td:first-child { word-break: break-word; }
+
+/* Combined cashier cell: name on top, email muted below */
+.cashier-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cashier-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.cashier-email {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.team-status {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+}
+
+.team-status--active    { background: rgba(90, 158, 111, 0.12); color: var(--color-primary); }
+.team-status--suspended { background: rgba(220, 38, 38, 0.10);  color: var(--color-error); }
+
+.team-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+/* ── Kebab (3-dot) row actions — mirrors the Products page pattern ── */
+
+.actions-col,
+.actions-cell { width: 44px; text-align: center; }
+
+.kebab-wrapper { position: relative; display: flex; justify-content: center; }
+
+.kebab-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.kebab-btn:hover,
+.kebab-btn:focus-visible { background: var(--color-border); color: var(--color-text); }
+
+.kebab-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  min-width: 156px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.kebab-dropdown.open { display: block; animation: slideInUp 0.12s ease; }
+
+.kebab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  font-family: var(--font-main);
+  color: var(--color-text);
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.kebab-item:hover { background: var(--color-border-subtle); }
+.kebab-item.delete-btn { color: var(--color-error); }
+.kebab-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* ── Responsive ── */
+
+@media (max-width: 600px) {
+  .team-header { flex-wrap: nowrap; align-items: center; }
+  .team-header > div { flex: 1 1 0; min-width: 0; }
+  .team-header p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .add-cashier-button { padding: 8px 12px; font-size: 13px; }
+}
+
+@media (max-width: 768px) {
+  #team-table th:nth-child(2),
+  #team-table td:nth-child(2) { width: 96px; }
+
+  #team-table th,
+  #team-table td { padding-left: 8px; padding-right: 8px; }
+}

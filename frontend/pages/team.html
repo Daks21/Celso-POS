@@ -11,49 +11,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Celso POS | Team</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%235a9e6f'/%3E%3Ctext x='16' y='23' font-family='sans-serif' font-size='20' font-weight='700' text-anchor='middle' fill='white'%3EC%3C/text%3E%3C/svg%3E">
-  <script src="../assets/vendor/lucide.min.js?v=8"></script>
+  <script src="../assets/vendor/lucide.min.js?v=10"></script>
 
-  <link rel="stylesheet" href="../css/main.css?v=8">
-  <link rel="stylesheet" href="../css/layout.css?v=8">
-  <link rel="stylesheet" href="../css/components.css?v=8">
-  <link rel="stylesheet" href="../css/onboarding.css?v=8">
-  <link rel="stylesheet" href="../css/os.widget.css?v=8">
-  <style>
-    .team-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:22px;box-shadow:var(--shadow-sm)}
-    .team-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
-    .team-top h2{margin:0 0 2px;font-size:18px}
-    .team-top p{margin:0;font-size:13px;color:var(--color-text-muted)}
-    .team-seats{flex-shrink:0;font-size:13px;font-weight:600;color:var(--color-text-muted);background:var(--color-background);border:1px solid var(--color-border);border-radius:var(--radius-full);padding:6px 14px;white-space:nowrap}
-    .team-seats.is-full{color:#c8860a;background:rgba(255,180,50,.12);border-color:transparent}
-
-    /* Add row: one line on desktop, stacked on mobile. Button is always LAST. */
-    .team-add{display:grid;grid-template-columns:1.3fr 1.6fr 1.2fr auto;gap:10px;align-items:center}
-    .team-add input{padding:11px 12px;border:1px solid var(--color-border);border-radius:var(--radius-sm);font-family:inherit;font-size:14px;background:var(--color-surface);color:var(--color-text);min-width:0}
-    .team-add input:focus{outline:2px solid var(--color-primary);outline-offset:-1px;border-color:transparent}
-    .team-btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:var(--color-primary);color:#fff;white-space:nowrap}
-    .team-btn:disabled{opacity:.5;cursor:not-allowed}
-    .team-btn--ghost{background:transparent;color:var(--color-text);border:1px solid var(--color-border)}
-    .team-btn--danger{background:transparent;color:var(--color-error);border:1px solid var(--color-error)}
-    .team-hint{color:var(--color-text-muted);font-size:12.5px;margin:8px 2px 0}
-    .team-error{color:var(--color-error);font-size:13px;min-height:18px;margin:6px 2px 0}
-    .team-modal-input{width:100%;padding:11px 12px;border:1px solid var(--color-border);border-radius:var(--radius-sm);font-family:inherit;font-size:14px;background:var(--color-surface);color:var(--color-text)}
-    .team-modal-input:focus{outline:2px solid var(--color-primary);outline-offset:-1px;border-color:transparent}
-
-    .team-divider{height:1px;background:var(--color-border-subtle);margin:18px 0}
-    .team-status{display:inline-block;font-size:12px;font-weight:600;padding:3px 10px;border-radius:var(--radius-full)}
-    .team-status--active{background:rgba(90,158,111,.12);color:var(--color-primary)}
-    .team-status--suspended{background:rgba(220,38,38,.1);color:var(--color-error)}
-    .team-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-    .team-actions .team-btn{padding:6px 12px;font-size:13px}
-    .team-empty{padding:28px 16px;text-align:center;color:var(--color-text-muted);font-size:14px}
-
-    /* Mobile: stack the add row, full-width controls, easier tap targets. */
-    @media (max-width:768px){
-      .team-add{grid-template-columns:1fr}
-      .team-btn{width:100%;padding:13px}
-      .team-actions{justify-content:flex-start}
-    }
-  </style>
+  <link rel="stylesheet" href="../css/main.css?v=10">
+  <link rel="stylesheet" href="../css/layout.css?v=10">
+  <link rel="stylesheet" href="../css/components.css?v=10">
+  <link rel="stylesheet" href="../css/pages/team.css?v=10">
+  <link rel="stylesheet" href="../css/onboarding.css?v=10">
+  <link rel="stylesheet" href="../css/os.widget.css?v=10">
 </head>
 <body class="app-body">
 
@@ -96,35 +61,26 @@
       </header>
 
       <main class="page-body">
-        <section class="team-card">
-          <div class="team-top">
+        <section class="page-section">
+          <div class="team-header">
             <div>
-              <h2>Cashiers</h2>
+              <h2>Cashiers <span class="team-seats-inline" id="team-seats">— of — seats</span></h2>
               <p>Staff who can ring up sales and view history on this store.</p>
             </div>
-            <span class="team-seats" id="team-seats">— of — seats</span>
+            <button type="button" class="submit-button add-cashier-button" id="add-cashier-button">Add Cashier</button>
           </div>
 
-          <form id="team-add-form" autocomplete="off">
-            <div class="team-add">
-              <input type="text"     id="cashier-name"     maxlength="100" placeholder="Full name"            aria-label="Cashier full name" required>
-              <input type="email"    id="cashier-email"    maxlength="150" placeholder="Email"                aria-label="Cashier email" required>
-              <input type="text"     id="cashier-password" maxlength="100" placeholder="Password (8+)"         aria-label="Cashier password" required>
-              <button type="submit"  id="cashier-add-btn"  class="team-btn">+ Add cashier</button>
-            </div>
-            <p class="team-hint">You set the cashier's password — they sign in with what you give them. You can reset it anytime from the list below.</p>
-            <div class="team-error" id="team-error"></div>
-          </form>
-
-          <div class="team-divider"></div>
-
           <div class="table-wrapper">
-            <table class="data-table">
+            <table class="data-table" id="team-table">
               <thead>
-                <tr><th>Name</th><th>Email</th><th>Status</th><th>Actions</th></tr>
+                <tr>
+                  <th>Cashier</th>
+                  <th>Status</th>
+                  <th class="actions-col"></th>
+                </tr>
               </thead>
               <tbody id="team-list">
-                <tr class="api-loading-row"><td colspan="4"><span class="api-spinner"></span>Loading...</td></tr>
+                <tr class="api-loading-row"><td colspan="3"><span class="api-spinner"></span>Loading...</td></tr>
               </tbody>
             </table>
           </div>
@@ -134,33 +90,68 @@
     </div>
   </div>
 
-  <!-- Reset password modal (admin sets a cashier's password) -->
-  <div class="modal-overlay" id="reset-pw-modal">
-    <div class="modal-card" style="max-width:400px">
+  <!-- Add cashier modal (mirrors the Add Product modal) -->
+  <div class="modal-overlay" id="cashier-modal">
+    <div class="modal-card">
       <div class="modal-header">
-        <h2>Reset password</h2>
-        <button type="button" class="modal-close-button" id="reset-pw-close" aria-label="Close">&times;</button>
+        <h2>Add Cashier</h2>
+        <button type="button" class="modal-close-button" id="cashier-close-button">&times;</button>
       </div>
-      <p class="team-hint" id="reset-pw-for" style="margin:0 0 12px"></p>
-      <input type="text" id="reset-pw-input" class="team-modal-input" maxlength="100" placeholder="New password (8+ characters)" aria-label="New password">
-      <div class="team-error" id="reset-pw-error"></div>
-      <div class="modal-actions" style="margin-top:16px">
-        <button type="button" class="team-btn team-btn--ghost" id="reset-pw-cancel">Cancel</button>
-        <button type="button" class="team-btn" id="reset-pw-save">Save password</button>
-      </div>
+      <form id="cashier-form" class="product-form" autocomplete="off" novalidate>
+        <div class="form-group">
+          <label for="cashier-name">Full name</label>
+          <input type="text" id="cashier-name" maxlength="100" placeholder="e.g. Maria Santos" required autocomplete="off">
+          <p class="form-error" id="cashier-name-error"></p>
+        </div>
+        <div class="form-group">
+          <label for="cashier-email">Email</label>
+          <input type="email" id="cashier-email" maxlength="150" placeholder="maria@store.com" required autocomplete="off">
+          <p class="form-error" id="cashier-email-error"></p>
+        </div>
+        <div class="form-group">
+          <label for="cashier-password">Password</label>
+          <input type="text" id="cashier-password" maxlength="100" placeholder="At least 8 characters" required autocomplete="off">
+          <p class="form-error" id="cashier-password-error"></p>
+        </div>
+        <p class="cashier-hint">You set the cashier's password — they sign in with what you give them, and you can reset it anytime.</p>
+        <div class="modal-actions">
+          <button type="submit" class="submit-button">Add Cashier</button>
+        </div>
+      </form>
     </div>
   </div>
 
-  <script src="../js/components/sidebar.js?v=8"></script>
-  <script src="../js/components/os.client.js?v=8"></script>
-  <script src="../js/components/os.widget.js?v=8"></script>
-  <script src="../js/components/os.js?v=8"></script>
-  <script src="../js/core/theme.js?v=8"></script>
-  <script src="../js/core/api.js?v=8"></script>
-  <script src="../js/core/utils.js?v=8"></script>
-  <script src="../js/core/auth.js?v=8"></script>
-  <script src="../js/core/data.js?v=8"></script>
-  <script src="../js/pages/team.js?v=8"></script>
+  <!-- Reset password modal -->
+  <div class="modal-overlay" id="reset-pw-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Reset password</h2>
+        <button type="button" class="modal-close-button" id="reset-pw-close">&times;</button>
+      </div>
+      <p class="cp-lead" id="reset-pw-for"></p>
+      <form id="reset-pw-form" class="product-form" autocomplete="off" novalidate>
+        <div class="form-group">
+          <label for="reset-pw-input">New password</label>
+          <input type="text" id="reset-pw-input" maxlength="100" placeholder="At least 8 characters" required autocomplete="off">
+          <p class="form-error" id="reset-pw-error"></p>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="submit-button">Save password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="../js/components/sidebar.js?v=10"></script>
+  <script src="../js/components/os.client.js?v=10"></script>
+  <script src="../js/components/os.widget.js?v=10"></script>
+  <script src="../js/components/os.js?v=10"></script>
+  <script src="../js/core/theme.js?v=10"></script>
+  <script src="../js/core/api.js?v=10"></script>
+  <script src="../js/core/utils.js?v=10"></script>
+  <script src="../js/core/auth.js?v=10"></script>
+  <script src="../js/core/data.js?v=10"></script>
+  <script src="../js/pages/team.js?v=10"></script>
   <script>lucide.createIcons();</script>
 </body>
 </html>
