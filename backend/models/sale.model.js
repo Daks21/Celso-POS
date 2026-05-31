@@ -216,6 +216,82 @@ const getSummary = async (storeId, dateStr, storeTz = settings.getTimezone()) =>
   };
 };
 
+// ─── Per-person daily breakdown (Team page audit) ──────────────────────────
+// Admin-only report for a single STORE-LOCAL day. Returns the store totals plus
+// a per-person breakdown — every user who rang up a sale that day, owner AND
+// cashiers, since the store total only reconciles if the owner's own sales count
+// too. first/last sale time give the person's shift window. cashier_id is
+// RESTRICT, so the JOIN to users always resolves a name (a seller with sales on
+// record can't have been deleted). The store summary is summed in JS from the
+// same person rows so it can never disagree with the breakdown below it.
+const getDailyByPerson = async (storeId, dateStr, storeTz = settings.getTimezone()) => {
+  const [rows] = await db.query(
+    `SELECT s.cashier_id             AS userId,
+            u.full_name              AS name,
+            u.role                   AS role,
+            COUNT(*)                 AS transactions,
+            COALESCE(SUM(s.total), 0) AS total,
+            MIN(s.created_at)        AS firstAt,
+            MAX(s.created_at)        AS lastAt
+     FROM sales s
+     INNER JOIN users u ON s.cashier_id = u.id
+     WHERE s.store_id = ? AND DATE(${localExpr('s.created_at')}) = ?
+     GROUP BY s.cashier_id, u.full_name, u.role
+     ORDER BY total DESC`,
+    [storeId, tzParam(storeTz), dateStr]
+  );
+
+  const people = rows.map(r => {
+    const transactions = parseInt(r.transactions, 10);
+    const total        = parseFloat(r.total);
+    return {
+      userId:       r.userId,
+      name:         r.name,
+      role:         r.role,
+      transactions,
+      total,
+      avgSale:      transactions > 0 ? total / transactions : 0,
+      firstAt:      r.firstAt,
+      lastAt:       r.lastAt,
+    };
+  });
+
+  const storeTotal = people.reduce((sum, p) => sum + p.total, 0);
+  const storeTxns  = people.reduce((sum, p) => sum + p.transactions, 0);
+
+  return {
+    date: dateStr,
+    store: {
+      total:        parseFloat(storeTotal.toFixed(2)),
+      transactions: storeTxns,
+      avgSale:      storeTxns > 0 ? parseFloat((storeTotal / storeTxns).toFixed(2)) : 0,
+    },
+    people,
+  };
+};
+
+// Receipts a single person rang up on a store-local day (drill-down for the
+// Team audit modal). Store-scoped AND user-scoped; newest first.
+const getPersonReceiptsForDay = async (storeId, userId, dateStr, storeTz = settings.getTimezone()) => {
+  const [rows] = await db.query(
+    `SELECT s.id, s.receipt_no AS receiptNo, s.total, s.created_at AS createdAt,
+            COALESCE(SUM(si.quantity), 0) AS itemCount
+     FROM sales s
+     LEFT JOIN sale_items si ON si.sale_id = s.id
+     WHERE s.store_id = ? AND s.cashier_id = ? AND DATE(${localExpr('s.created_at')}) = ?
+     GROUP BY s.id, s.receipt_no, s.total, s.created_at
+     ORDER BY s.created_at DESC`,
+    [storeId, userId, tzParam(storeTz), dateStr]
+  );
+  return rows.map(r => ({
+    id:        r.id,
+    receiptNo: r.receiptNo,
+    total:     parseFloat(r.total),
+    itemCount: parseInt(r.itemCount, 10),
+    timestamp: r.createdAt,
+  }));
+};
+
 const getDailyMap = async (storeId, storeTz = settings.getTimezone()) => {
   const tzp = tzParam(storeTz);
   const [rows] = await db.query(
@@ -623,7 +699,7 @@ const update = async (storeId, saleId, edits, userId) => {
 
 module.exports = {
   create, update, getAll, getById, getTodaySummary,
-  getSummary, getDailyMap, getKPIs,
+  getSummary, getDailyByPerson, getPersonReceiptsForDay, getDailyMap, getKPIs,
   getTopByRevenue, getTopByQty, getByDayOfWeek,
   getProfit, getProfitByProduct, getInventoryHealth,
   getGoalProjectionInputs,

@@ -9,6 +9,11 @@ const { loadStore } = require('../middleware/tenant.middleware');
 router.use(authMiddleware, loadStore, adminMiddleware);
 
 router.get('/',             controller.list);
+// Read-only daily-sales audit (admin-only via the router.use guard above).
+// Declared before the parameterized mutation routes; '/daily-sales' is a literal
+// segment so it never shadows '/:id/...'.
+router.get('/daily-sales',         controller.dailySales);
+router.get('/daily-sales/:userId', controller.personReceipts);
 router.post('/',            controller.create);
 router.patch('/:id/active', controller.setActive);
 router.put('/:id/password', controller.resetPassword);

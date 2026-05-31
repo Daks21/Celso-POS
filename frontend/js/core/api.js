@@ -333,6 +333,13 @@ async function deleteCashier(id) {
 async function resetCashierPassword(id, password) {
   return apiCall(`/team/${id}/password`, { method: 'PUT', body: JSON.stringify({ password }) });
 }
+// Admin-only daily-sales audit. `date` is a store-local YYYY-MM-DD; omit for today.
+async function getDailySales(date) {
+  return apiCall('/team/daily-sales' + (date ? ('?date=' + encodeURIComponent(date)) : ''));
+}
+async function getPersonReceipts(userId, date) {
+  return apiCall('/team/daily-sales/' + userId + (date ? ('?date=' + encodeURIComponent(date)) : ''));
+}
 
 // --- Billing ---
 async function getBillingState() { return apiCall('/billing/state'); }

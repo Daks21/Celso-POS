@@ -8,9 +8,16 @@
 const bcrypt = require('bcrypt');
 const pool   = require('../config/db.config');
 const { findByEmail, createUser, countActiveCashiers } = require('../models/user.model');
+const saleModel = require('../models/sale.model');
 const { cashierSeats } = require('../config/plans');
+const { dateInTz } = require('../utils/tz');
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const dateRegex  = /^\d{4}-\d{2}-\d{2}$/;
+// Accept a caller-supplied day only if it's a well-formed YYYY-MM-DD; otherwise
+// fall back to today in the store timezone. (The query is parameterized, so this
+// is about sane defaults, not injection.)
+const safeDate = (input, tz) => (typeof input === 'string' && dateRegex.test(input)) ? input : dateInTz(tz);
 
 // GET /api/team — cashiers in this store + seat usage.
 const list = async (req, res, next) => {
@@ -192,4 +199,35 @@ const remove = async (req, res, next) => {
   }
 };
 
-module.exports = { list, create, setActive, resetPassword, remove };
+// GET /api/team/daily-sales?date=YYYY-MM-DD — admin-only per-person sales
+// breakdown for one store-local day (owner + cashiers). Defaults to today in the
+// store timezone. Read-only reconciliation view: the owner compares the store
+// total here against the cash actually in the drawer after a shift.
+const dailySales = async (req, res, next) => {
+  try {
+    const tz   = req.store.timezone;
+    const date = safeDate(req.query.date, tz);
+    const data = await saleModel.getDailyByPerson(req.user.storeId, date, tz);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/team/daily-sales/:userId?date=YYYY-MM-DD — the receipts one person
+// rang up that day (drill-down for the audit modal). Store-scoped: a userId from
+// another store simply returns no rows.
+const personReceipts = async (req, res, next) => {
+  try {
+    const userId = parseInt(req.params.userId, 10);
+    if (isNaN(userId)) return res.status(400).json({ success: false, message: 'Invalid user ID' });
+    const tz   = req.store.timezone;
+    const date = safeDate(req.query.date, tz);
+    const data = await saleModel.getPersonReceiptsForDay(req.user.storeId, userId, date, tz);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { list, create, setActive, resetPassword, remove, dailySales, personReceipts };

@@ -201,6 +201,131 @@ html[data-theme="dark"] .team-seats-inline.is-full {
 .kebab-item.delete-btn { color: var(--color-error); }
 .kebab-item svg { width: 14px; height: 14px; flex-shrink: 0; }
 
+/* ── Daily Sales (admin audit) ── */
+
+.daily-sales-section { margin-top: 28px; }
+
+/* Own header (not .team-header) so the cashiers-header mobile rules — nowrap +
+   ellipsis — don't clobber the date control on small screens. */
+.ds-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.ds-header h2 { font-size: 18px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ds-header p {
+  margin: 2px 0 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  max-width: 62ch;
+}
+
+.ds-role-pill {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 2px 9px;
+}
+
+.ds-date-control { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+.ds-date-label { font-size: 12px; font-weight: 600; color: var(--color-text-muted); }
+.ds-date-input {
+  font-family: var(--font-main);
+  font-size: 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* Store-total summary */
+.ds-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.ds-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.ds-stat-label { font-size: 12px; font-weight: 600; color: var(--color-text-muted); }
+.ds-stat-value { font-size: 20px; font-weight: 700; color: var(--color-text); }
+.ds-stat:first-child .ds-stat-value { color: var(--color-primary); }  /* expected cash = headline */
+
+/* Per-person breakdown rows. These tables are sized to fit their container
+   (min-width:0 overrides the global .data-table min-width:600px), so they don't
+   force a horizontal scroll — the cashiers table does the same. The ID-scoped
+   right-align beats the global `.data-table td:nth-child(4)` centering. */
+#ds-table, #ds-receipts-table { min-width: 0; }
+.ds-num-col { white-space: nowrap; }
+#ds-table .ds-num-col,
+#ds-receipts-table .ds-num-col { text-align: right; }
+#ds-table .ds-row { cursor: pointer; }
+#ds-table .ds-row:hover { background: var(--color-border-subtle); }
+.ds-shift { white-space: nowrap; color: var(--color-text-muted); font-size: 13px; }
+
+.ds-owner-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: rgba(90, 158, 111, 0.12);
+  border-radius: var(--radius-full);
+  padding: 1px 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.ds-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ds-view-btn:hover { background: var(--color-border); color: var(--color-text); }
+.ds-view-btn svg { width: 16px; height: 16px; }
+
+.ds-foot-note {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.ds-receipts-card { max-width: 480px; width: 100%; }
+
+@media (max-width: 600px) {
+  .ds-summary { grid-template-columns: 1fr; gap: 8px; }
+  .ds-stat { flex-direction: row; align-items: baseline; justify-content: space-between; }
+  .ds-date-control { width: 100%; }
+  /* Sales count is already in the person sub-line ("3 sales · avg ₱…"), so drop
+     the dedicated column on narrow screens to keep the row uncluttered. */
+  #ds-table th:nth-child(3),
+  #ds-table td:nth-child(3) { display: none; }
+}
+
 /* ── Responsive ── */
 
 @media (max-width: 600px) {

@@ -190,5 +190,127 @@
     }
   });
 
+  // ── Daily Sales (admin audit) ──────────────────────────────────────────────
+  // Per-person breakdown of one store-local day + a receipts drill-down, so the
+  // owner can reconcile each shift against the cash drawer. Read-only.
+  var dsDate  = document.getElementById('ds-date');
+  var dsTotal = document.getElementById('ds-total');
+  var dsTxns  = document.getElementById('ds-txns');
+  var dsAvg   = document.getElementById('ds-avg');
+  var dsList  = document.getElementById('ds-list');
+  var dsEmpty = document.getElementById('ds-empty');
+
+  function peso(n) { return (typeof formatPeso === 'function') ? formatPeso(n) : '₱' + Number(n || 0).toFixed(2); }
+  function clock(ts) { return formatTimeTz(ts, { hour: '2-digit', minute: '2-digit' }); }
+
+  // Render a YYYY-MM-DD store-local day as "June 1, 2026". Interpreted as UTC so
+  // the displayed calendar date never drifts with the viewer's device timezone.
+  function prettyDay(dateStr) {
+    var d = new Date(dateStr + 'T00:00:00Z');
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-PH', { timeZone: 'UTC', year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  // "8:14 AM – 5:02 PM", or a single time when there's one sale, or — when none.
+  function shiftWindow(firstAt, lastAt) {
+    if (!firstAt) return '—';
+    var f = clock(firstAt), l = clock(lastAt);
+    return f === l ? f : (f + ' – ' + l);
+  }
+
+  function dsRowHtml(p) {
+    var ownerTag = p.role === 'admin' ? '<span class="ds-owner-tag">Owner</span>' : '';
+    var subline  = p.transactions + ' sale' + (p.transactions === 1 ? '' : 's') + ' · avg ' + peso(p.avgSale);
+    return '<tr class="ds-row" data-id="' + p.userId + '" data-name="' + esc(p.name) + '">' +
+      '<td><div class="cashier-cell">' +
+        '<span class="cashier-name">' + esc(p.name) + ownerTag + '</span>' +
+        '<span class="cashier-email">' + subline + '</span>' +
+      '</div></td>' +
+      '<td class="ds-shift">' + shiftWindow(p.firstAt, p.lastAt) + '</td>' +
+      '<td class="ds-num-col">' + p.transactions + '</td>' +
+      '<td class="ds-num-col"><strong>' + peso(p.total) + '</strong></td>' +
+      '<td class="actions-cell"><button type="button" class="ds-view-btn" title="View receipts"><i data-lucide="chevron-right"></i></button></td>' +
+    '</tr>';
+  }
+
+  async function loadDailySales() {
+    var date = dsDate.value || (typeof todayStrTz === 'function' ? todayStrTz() : '');
+    dsList.innerHTML = '<tr class="api-loading-row"><td colspan="5"><span class="api-spinner"></span>Loading...</td></tr>';
+    dsEmpty.style.display = 'none';
+
+    var res = await getDailySales(date);
+    if (!res || !res.success) { dsList.innerHTML = '<tr><td colspan="5">Could not load daily sales.</td></tr>'; return; }
+
+    var d = res.data;
+    dsTotal.textContent = peso(d.store.total);
+    dsTxns.textContent  = d.store.transactions;
+    dsAvg.textContent   = peso(d.store.avgSale);
+
+    var people = d.people || [];
+    if (people.length === 0) {
+      dsList.innerHTML = '';
+      dsEmpty.style.display = 'block';
+      dsEmpty.textContent = 'No sales were recorded on this day.';
+      return;
+    }
+    dsList.innerHTML = people.map(dsRowHtml).join('');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  dsList.addEventListener('click', function (e) {
+    var row = e.target.closest('.ds-row');
+    if (!row) return;
+    openReceiptsModal(row.getAttribute('data-id'), row.getAttribute('data-name') || 'this person');
+  });
+  dsDate.addEventListener('change', loadDailySales);
+
+  // Receipts drill-down modal
+  var rcModal = document.getElementById('ds-receipts-modal');
+  var rcTitle = document.getElementById('ds-receipts-title');
+  var rcSub   = document.getElementById('ds-receipts-sub');
+  var rcList  = document.getElementById('ds-receipts-list');
+  var rcEmpty = document.getElementById('ds-receipts-empty');
+
+  async function openReceiptsModal(userId, name) {
+    var date = dsDate.value || (typeof todayStrTz === 'function' ? todayStrTz() : '');
+    rcTitle.textContent = name + ' — receipts';
+    rcSub.textContent   = prettyDay(date);
+    rcList.innerHTML = '<tr class="api-loading-row"><td colspan="4"><span class="api-spinner"></span>Loading...</td></tr>';
+    rcEmpty.style.display = 'none';
+    rcModal.style.display = 'flex';
+
+    var res = await getPersonReceipts(userId, date);
+    if (!res || !res.success) { rcList.innerHTML = '<tr><td colspan="4">Could not load receipts.</td></tr>'; return; }
+
+    var rows = res.data || [];
+    if (rows.length === 0) {
+      rcList.innerHTML = '';
+      rcEmpty.style.display = 'block';
+      rcEmpty.textContent = 'No receipts for this person on this day.';
+      return;
+    }
+    rcList.innerHTML = rows.map(function (r) {
+      return '<tr>' +
+        '<td>' + esc(r.receiptNo || ('#' + r.id)) + '</td>' +
+        '<td>' + esc(clock(r.timestamp)) + '</td>' +
+        '<td class="ds-num-col">' + r.itemCount + '</td>' +
+        '<td class="ds-num-col"><strong>' + peso(r.total) + '</strong></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function closeReceiptsModal() { rcModal.style.display = 'none'; }
+  document.getElementById('ds-receipts-close').addEventListener('click', closeReceiptsModal);
+  rcModal.addEventListener('click', function (e) { if (e.target === rcModal) closeReceiptsModal(); });
+
+  // Default the date picker to today (store time), cap it there (no future
+  // days to audit), and load both views.
+  if (typeof todayStrTz === 'function') {
+    var today = todayStrTz();
+    dsDate.value = today;
+    dsDate.max   = today;
+  }
+  loadDailySales();
+
   load();
 })();

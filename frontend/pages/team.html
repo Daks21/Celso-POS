@@ -86,6 +86,55 @@
           </div>
           <div class="team-empty" id="team-empty" style="display:none"></div>
         </section>
+
+        <!-- Daily Sales audit (admin-only). Confirm the day's takings and see
+             what each person rang up, then reconcile against the cash drawer. -->
+        <section class="page-section daily-sales-section">
+          <div class="ds-header">
+            <div>
+              <h2>Daily Sales <span class="ds-role-pill">Admin only</span></h2>
+              <p>Confirm the day's takings and see what each person rang up — then check it against the cash in the drawer after a shift.</p>
+            </div>
+            <div class="ds-date-control">
+              <label for="ds-date" class="ds-date-label">Day</label>
+              <input type="date" id="ds-date" class="ds-date-input">
+            </div>
+          </div>
+
+          <div class="ds-summary">
+            <div class="ds-stat">
+              <span class="ds-stat-label">Expected cash collected</span>
+              <span class="ds-stat-value" id="ds-total">₱0.00</span>
+            </div>
+            <div class="ds-stat">
+              <span class="ds-stat-label">Transactions</span>
+              <span class="ds-stat-value" id="ds-txns">0</span>
+            </div>
+            <div class="ds-stat">
+              <span class="ds-stat-label">Average sale</span>
+              <span class="ds-stat-value" id="ds-avg">₱0.00</span>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="data-table" id="ds-table">
+              <thead>
+                <tr>
+                  <th>Person</th>
+                  <th>Shift window</th>
+                  <th class="ds-num-col">Sales</th>
+                  <th class="ds-num-col">Collected</th>
+                  <th class="actions-col"></th>
+                </tr>
+              </thead>
+              <tbody id="ds-list">
+                <tr class="api-loading-row"><td colspan="5"><span class="api-spinner"></span>Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="team-empty" id="ds-empty" style="display:none"></div>
+          <p class="ds-foot-note">This shows sales that were <strong>recorded</strong> in the app. To catch unrecorded sales, match “Expected cash collected” against the actual money in the drawer at the end of each shift. Accurate per-person figures depend on each cashier signing in with their own account.</p>
+        </section>
       </main>
     </div>
   </div>
@@ -139,6 +188,31 @@
           <button type="submit" class="submit-button">Save password</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Daily Sales: per-person receipts drill-down -->
+  <div class="modal-overlay" id="ds-receipts-modal">
+    <div class="modal-card ds-receipts-card">
+      <div class="modal-header">
+        <h2 id="ds-receipts-title">Receipts</h2>
+        <button type="button" class="modal-close-button" id="ds-receipts-close">&times;</button>
+      </div>
+      <p class="cp-lead" id="ds-receipts-sub"></p>
+      <div class="table-wrapper">
+        <table class="data-table" id="ds-receipts-table">
+          <thead>
+            <tr>
+              <th>Receipt</th>
+              <th>Time</th>
+              <th class="ds-num-col">Items</th>
+              <th class="ds-num-col">Total</th>
+            </tr>
+          </thead>
+          <tbody id="ds-receipts-list"></tbody>
+        </table>
+      </div>
+      <div class="team-empty" id="ds-receipts-empty" style="display:none"></div>
     </div>
   </div>
 

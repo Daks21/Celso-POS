@@ -898,6 +898,19 @@
     GET    /               List cashiers + seat usage
       → 200 { success, data: Cashier[], seatsUsed, seatsTotal }
 
+    GET    /daily-sales            Per-person sales breakdown for one
+      Query: { date? }            store-local day (owner + cashiers), for
+                                   shift reconciliation. Defaults to today
+                                   in the store timezone.
+      → 200 { success, data: { date, store: { total, transactions,
+              avgSale }, people: [{ userId, name, role, transactions,
+              total, avgSale, firstAt, lastAt }] } }
+
+    GET    /daily-sales/:userId    Receipts one person rang up that day
+      Query: { date? }            (drill-down for the audit modal).
+      → 200 { success, data: [{ id, receiptNo, total, itemCount,
+              timestamp }] }
+
     POST   /               Create a cashier (owner sets the password)
       Body: { fullName, email, password }
       Enforces the plan seat limit (Free 0 / Plus 1 / Pro 2) and global
