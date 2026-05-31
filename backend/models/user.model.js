@@ -63,4 +63,58 @@ const savePreferences = async (userId, prefs) => {
   );
 };
 
-module.exports = { findByEmail, findById, createUser, countUsers, getPreferences, savePreferences };
+// ── Cashier seats (Phase 6.5) ──
+
+const countActiveCashiers = async (storeId) => {
+  const [rows] = await db.query(
+    "SELECT COUNT(*) AS count FROM users WHERE store_id = ? AND role = 'cashier' AND is_active = 1",
+    [storeId]
+  );
+  return rows[0].count;
+};
+
+// Reconcile a store's active cashiers to its current seat allowance after a
+// billing change. Over the limit (downgrade) → suspend the most-recently-created
+// excess (rows + history are KEPT, just is_active=0). Under the limit (re-upgrade)
+// → reactivate the oldest suspended cashiers up to the allowance. The owner-admin
+// is role='admin' and is never touched. Returns { suspended, reactivated }.
+const reconcileCashierSeats = async (storeId, maxSeats) => {
+  const seats = Math.max(0, Number(maxSeats) || 0);
+
+  const [active] = await db.query(
+    "SELECT id FROM users WHERE store_id = ? AND role = 'cashier' AND is_active = 1 ORDER BY created_at DESC, id DESC",
+    [storeId]
+  );
+
+  if (active.length > seats) {
+    const toSuspend = active.slice(0, active.length - seats).map(r => r.id);
+    await db.query(
+      `UPDATE users SET is_active = 0 WHERE id IN (${toSuspend.map(() => '?').join(',')})`,
+      toSuspend
+    );
+    return { suspended: toSuspend.length, reactivated: 0 };
+  }
+
+  if (active.length < seats) {
+    const room = seats - active.length;
+    const [suspended] = await db.query(
+      "SELECT id FROM users WHERE store_id = ? AND role = 'cashier' AND is_active = 0 ORDER BY created_at ASC, id ASC LIMIT ?",
+      [storeId, room]
+    );
+    if (suspended.length) {
+      const toReactivate = suspended.map(r => r.id);
+      await db.query(
+        `UPDATE users SET is_active = 1 WHERE id IN (${toReactivate.map(() => '?').join(',')})`,
+        toReactivate
+      );
+      return { suspended: 0, reactivated: toReactivate.length };
+    }
+  }
+
+  return { suspended: 0, reactivated: 0 };
+};
+
+module.exports = {
+  findByEmail, findById, createUser, countUsers, getPreferences, savePreferences,
+  countActiveCashiers, reconcileCashierSeats,
+};

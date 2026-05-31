@@ -26,6 +26,8 @@ const inventoryRouter  = require('./routes/inventory.routes');
 const financeRouter    = require('./routes/finance.routes');
 const aiRouter         = require('./routes/ai.routes');
 const settingsRouter   = require('./routes/settings.routes');
+const billingRouter    = require('./routes/billing.routes');
+const billingController = require('./controllers/billing.controller');
 const errorMiddleware  = require('./middleware/error.middleware');
 const pool             = require('./config/db.config');
 const settings         = require('./models/settings.model');
@@ -82,6 +84,13 @@ app.use(cors({
 // --- Request logging ---
 app.use(morgan('dev'));
 
+// --- Lemon Squeezy webhook (raw body for HMAC) — MUST be before express.json ---
+// LS posts subscription events here; authenticity is the X-Signature HMAC over
+// the raw request bytes, so this one route takes the raw Buffer and bypasses the
+// JSON body parser below. (Phase 6.5 §6.3.)
+app.post('/api/billing/webhook',
+  express.raw({ type: 'application/json' }), billingController.webhook);
+
 // --- Body parser with size limit (DoS protection) ---
 app.use(express.json({ limit: '10kb' }));
 
@@ -117,6 +126,7 @@ app.use('/api/inventory', inventoryRouter);
 app.use('/api/finance',   financeRouter);
 app.use('/api/ai',        aiRouter);
 app.use('/api/settings',  settingsRouter);
+app.use('/api/billing',   billingRouter);
 
 // --- Unknown API route → JSON 404 (don't fall through to the static layer) ---
 app.use('/api', (req, res) => {
