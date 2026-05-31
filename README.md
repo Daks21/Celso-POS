@@ -33,6 +33,8 @@
     - Tracks borrowed capital and utang balance — a real PH MSME
       need most POS apps ignore
     - Scales from basic to AI-powered over time
+    - Multi-tenant SaaS (Phase 6.5): each signup gets its own ISOLATED
+      store on a free/plus/pro plan, billed via Lemon Squeezy
     - Open and learnable — built step by step
 
 ================================================================
@@ -273,8 +275,16 @@
   │
   ├── middleware/
   │   ├── auth.middleware.js   ← JWT verification + admin role check
+  │   ├── tenant.middleware.js ← loadStore (req.store/req.plan) +
+  │   │                           requireFeature (402 plan gate)  [Phase 6.5]
   │   └── error.middleware.js  ← Global error handler
   │                               ({ success: false, message })
+  │
+  │  Phase 6.5 multi-tenant SaaS also adds: config/plans.js (entitlements),
+  │  models/store.model.js, controllers+routes for team.* and billing.*,
+  │  test-tenancy.js, and migrate_multitenant.sql. Frontend adds pages/team.html
+  │  + pages/billing.html (+ their js) and entitlement gating in core/api.js,
+  │  core/auth.js, and components/sidebar.js. See Section 10, Phase 6.5.
   │
   └── tests/
       ├── test-checkpoint37.js ← Security + integration tests (37 checks)
@@ -330,21 +340,43 @@
     Exception: cash_movements.occurred_at is a user-picked calendar DATE
     (no time component) and is never timezone-converted.
 
-  TABLE: app_settings  (single row — store-wide configuration)
+  MULTI-TENANCY (Phase 6.5): every owned table below carries a
+  store_id INT NOT NULL FK → stores(id), and EVERY query is scoped to the
+  caller's store. sale_items is the only exception — it is scoped transitively
+  through its parent sale. Receipt numbers stay globally unique.
+
+  TABLE: stores  (one row per tenant — Phase 6.5)
   ─────────────────────────────────────────────────────────────
+    id                  INT     PK, AUTO_INCREMENT
+    name, address       VARCHAR per-store identity (printed on receipts)
+    timezone            VARCHAR IANA store timezone (per-store now)
+    currency            VARCHAR default 'PHP'
+    plan                ENUM    'free' | 'plus' | 'pro'
+    subscription_status ENUM    'none'|'trialing'|'active'|'past_due'|'canceled'
+    trial_ends_at       DATETIME no-card Pro trial expiry (14 days on signup)
+    ls_customer_id      VARCHAR Lemon Squeezy linkage (billing webhook)
+    ls_subscription_id  VARCHAR Lemon Squeezy linkage (billing webhook)
+    owner_user_id       INT     the store's owner-admin (no FK — avoids a cycle)
+    created_at          DATETIME DEFAULT CURRENT_TIMESTAMP
+
+  TABLE: app_settings  (single row — legacy global config)
+  ─────────────────────────────────────────────────────────────
+    Retained as a boot-time fallback only. Per-store timezone/name/address now
+    live on stores; reads come from req.store via loadStore.
     id          TINYINT       PK, always 1
-    timezone    VARCHAR(64)   IANA store timezone (default: Asia/Manila)
-    updated_at  TIMESTAMP     AUTO UPDATE
+    timezone    VARCHAR(64)   IANA default (default: Asia/Manila)
 
   TABLE: users
   ─────────────────────────────────────────────────────────────
     id          INT           PK, AUTO_INCREMENT
+    store_id    INT           FK → stores.id, NOT NULL (which store they belong to)
     full_name   VARCHAR       NOT NULL
-    email       VARCHAR       UNIQUE, NOT NULL
+    email       VARCHAR       GLOBALLY UNIQUE, NOT NULL (login is global)
     password    VARCHAR       bcrypt hash, NOT NULL
-    role        VARCHAR       'admin' | 'cashier' (column default: cashier;
-                              the first registered account is auto-promoted to
-                              admin by the app — the store owner)
+    role        VARCHAR       'admin' (store owner, created at signup) | 'cashier'
+                              (sub-account created on the Team page)
+    is_active   TINYINT(1)    0 = suspended (can't log in); 1 = active
+    must_change_password TINYINT(1)  reserved (unused — passwords are admin-managed)
     created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
     updated_at  TIMESTAMP     AUTO UPDATE
 
@@ -484,6 +516,19 @@
   AUTH HEADER: Authorization: Bearer <token>
   FORMAT     : All responses → { success: boolean, data | message }
 
+  MULTI-TENANCY + ENTITLEMENTS (Phase 6.5): protected routes run
+  auth → loadStore (attaches req.store/req.plan), and feature routes add
+  requireFeature(...). Plan gate failures return 402 { code:
+  'UPGRADE_REQUIRED' }; role failures (non-admin) return 403. Feature map:
+    finance/* → 'finance' (Plus) · ai/* → 'ai' (Pro)
+    analytics {kpis,charts,heatmap,profit} → 'analytics' (Plus)
+    analytics {projection,inventory-health} → 'advanced_analytics' (Pro)
+    analytics/summary, products/*, inventory/*, sales/* → no plan gate
+      (reachable by cashiers; the POS + History need the reads)
+  login + GET /me also return { plan, features, role, cashierSeats,
+  trialEndsAt } for the client to mirror the gating (UI only — the server
+  is the boundary).
+
   ──────────────────────────────────────────────────────────────
   AUTHENTICATION  /api/auth
   ──────────────────────────────────────────────────────────────
@@ -499,7 +544,17 @@
       → 401 invalid credentials
 
     GET    /me             Auth required
-      → 200 { success, user: { id, fullName, email, role } }
+      → 200 { success, user: { id, fullName, email, role }, timezone,
+              plan, features, role, cashierSeats, trialEndsAt }
+
+    PUT    /password       Auth + Admin required
+      Body: { newPassword, currentPassword? }
+      Owner self-service password change. Admin-only — cashiers don't manage
+      their own credentials (the owner resets them on the Team page).
+      → 200 { success } | 400 too short | 403 not admin
+
+    Note: register now creates a NEW isolated store + its owner-admin (14-day
+    Pro trial), replacing the single-tenant first-account-admin rule.
 
   ──────────────────────────────────────────────────────────────
   PRODUCTS  /api/products
@@ -831,6 +886,58 @@
     time without an extra call.
 
   ──────────────────────────────────────────────────────────────
+  TEAM  /api/team          (Phase 6.5 — admin only)
+  ──────────────────────────────────────────────────────────────
+
+    All routes: Auth + loadStore + Admin. Scoped to this store's cashiers;
+    cashiers get 403.
+
+    GET    /               List cashiers + seat usage
+      → 200 { success, data: Cashier[], seatsUsed, seatsTotal }
+
+    POST   /               Create a cashier (owner sets the password)
+      Body: { fullName, email, password }
+      Enforces the plan seat limit (Free 0 / Plus 1 / Pro 2) and global
+      email uniqueness.
+      → 201 { success, data } | 402 SEAT_LIMIT | 409 email exists
+
+    PATCH  /:id/active     Activate / deactivate (suspend)
+      Body: { active }   Reactivation respects the seat limit.
+      → 200 { success } | 402 SEAT_LIMIT | 404
+
+    PUT    /:id/password   Owner resets a cashier's password
+      Body: { password }
+      → 200 { success } | 400 too short | 404
+
+    DELETE /:id            Permanently delete a cashier (hard delete)
+      Blocked (409 HAS_HISTORY) if the cashier has sales recorded under
+      their id — deactivate instead.
+      → 204 | 409 HAS_HISTORY | 404
+
+  ──────────────────────────────────────────────────────────────
+  BILLING  /api/billing    (Phase 6.5 — Lemon Squeezy)
+  ──────────────────────────────────────────────────────────────
+
+    state/checkout/portal: Auth + loadStore + Admin. checkout/portal return
+    503 until the LS env vars are set.
+
+    GET    /state          Plan, status, trial, seats (no LS call)
+      → 200 { success, data: { plan, status, trialEndsAt, seatsUsed,
+              seatsTotal, configured } }
+
+    POST   /checkout       Body: { plan: 'plus' | 'pro' }
+      → 200 { success, url }  (LS hosted checkout) | 503 not configured
+
+    POST   /portal         LS customer-portal URL (manage / cancel)
+      → 200 { success, url } | 400 no subscription | 503 not configured
+
+    POST   /webhook        Public; HMAC-verified (NOT auth-gated)
+      Mounted BEFORE express.json with express.raw. Verifies X-Signature over
+      the RAW body, maps the LS status → store subscription_status, mirrors to
+      stores, and reconciles cashier seats. Idempotent against re-deliveries.
+      → 200 applied | 400 bad signature | 500 not configured / error
+
+  ──────────────────────────────────────────────────────────────
   HEALTH CHECK  /api/health
   ──────────────────────────────────────────────────────────────
 
@@ -901,6 +1008,18 @@
                        Free at console.groq.com — no billing required
     AI_CACHE_TTL_SEC   300      Cache TTL for AI responses in seconds
     AI_MAX_TOKENS      600      Token budget cap per AI request
+
+  Billing (Phase 6.5 — OPTIONAL; the server boots without these and the
+  /api/billing endpoints return 503 until they are set):
+
+    LEMONSQUEEZY_API_KEY         Lemon Squeezy API key (test or live)
+    LEMONSQUEEZY_STORE_ID        LS store id (see scripts/ls-ids.js)
+    LEMONSQUEEZY_WEBHOOK_SECRET  Signing secret for webhook HMAC verification
+    LS_VARIANT_PLUS              LS subscription variant id for the Plus plan
+    LS_VARIANT_PRO               LS subscription variant id for the Pro plan
+    APP_URL                      Public origin for checkout redirect + webhook
+                                 (ngrok https URL in dev; the Phase 7 domain
+                                 in prod)
 
   Example .env file:
 
@@ -996,6 +1115,22 @@
   GRACEFUL SHUTDOWN
     SIGINT and SIGTERM signals close the HTTP server and drain the
     database connection pool cleanly before the process exits.
+
+  TENANT ISOLATION (Phase 6.5)
+    Every owned-table query is scoped by store_id, threaded from
+    req.user.storeId (signed into the JWT) through the controllers into the
+    models — never read from a global. Entitlements resolve from the store's
+    billing state PER REQUEST (loadStore + plans.effectivePlan), so a JWT can
+    never elevate a plan. A dedicated suite (backend/test-tenancy.js) asserts
+    that one store's token can't read or mutate another's data; it is the
+    launch gate. UI gating is cosmetic only — the server is the boundary.
+
+  BILLING WEBHOOK INTEGRITY (Phase 6.5)
+    The Lemon Squeezy webhook is mounted before express.json and reads the
+    RAW request body, verifying the X-Signature HMAC (timing-safe) before
+    trusting any event. It is idempotent against re-deliveries. The owner's
+    email/password change is admin-gated; cashier credentials are set/reset
+    only by the store owner.
 
 ================================================================
 [9. RUNNING THE PROJECT]
@@ -1953,39 +2088,66 @@
                       3 low-stock alert rows
 
   ──────────────────────────────────────────────────────────────
-  PHASE 6.5: MULTI-TENANT SAAS                      [PLANNED]
+  PHASE 6.5: MULTI-TENANT SAAS                      [COMPLETE *]
   ──────────────────────────────────────────────────────────────
 
   Converts the app from single-store to a subscription SaaS where each
   signup creates its own ISOLATED store. Runs BEFORE Phase 7 so the app
-  deploys SaaS-ready. Full build spec — paste-ready code, per-module QA
-  checklists, build order, and the billing/tooling setup — lives in
-  celsopos_P6-5.txt at the repo root. (This phase is PLANNED; the current
-  codebase is still single-tenant.)
-`
+  deploys SaaS-ready. The original build spec (paste-ready code, per-module
+  QA checklists, build order) lives in celsopos_P6-5.txt at the repo root.
+  * Code-complete and verified; live billing checkout is pending Lemon
+    Squeezy account approval (the webhook path is proven via a local simulator).
+
   PLANS (monthly, USD):
     Free  $0   Dashboard(basic), New Order, Inventory, Products, History;
                0 cashiers.
     Plus  $8   + Finance + Analytics + dashboard charts;   1 cashier.
     Pro   $12  + Advanced Analytics + AI Assistant (Os);   2 cashiers.
     - 14-day Pro trial (no card, auto on signup) → Free on expiry.
-    - Cashiers are sub-accounts the owner creates in a Team page (owner sets
-      a temp password; no email infra in v1). Cashier role = New Order +
-      Sales History + Logout only, on any plan.
+    - Cashiers are sub-accounts the owner creates on a Team page. Passwords
+      are ADMIN-MANAGED: the owner sets a cashier's password and can reset it
+      anytime; cashiers can't change their own and have no Account Settings.
+      Cashier role = New Order + Sales History + Logout only, on any plan.
 
-  CORE WORK:
-    - Tenancy: a `stores` table + `store_id` on every owned table; every
-      query scoped to the logged-in user's store (a tenant-isolation test
-      suite is the launch gate).
-    - Entitlements map (free/plus/pro) enforced server-side (402 plan /
-      403 role) and mirrored in the UI (hidden nav, page guards).
-    - Per-store timezone (today it is a single global value).
-    - Billing: Lemon Squeezy (Merchant of Record — onboards PH sellers,
-      handles worldwide VAT/tax, pays out via Wise/PayPal): hosted checkout,
-      customer portal, signed webhooks syncing subscription state.
-    - Signup creates a store + its owner-admin (replaces the single-tenant
-      first-account-admin rule). Downgrade SUSPENDS excess cashiers — never
-      deletes data.
+  TENANCY MODEL:
+    - A `stores` table + `store_id` on every owned table (users, products,
+      sales, inventory_adjustments, cash_movements). EVERY query is scoped to
+      the caller's store; a tenant-isolation suite (backend/test-tenancy.js)
+      is the launch gate.
+    - Entitlements resolve from the store's billing state PER REQUEST (never
+      from the JWT) via backend/config/plans.js. tenant.middleware.js attaches
+      req.store/req.plan (loadStore) and gates features (requireFeature → 402
+      plan gate; 403 = role). Signup creates a store + its owner-admin
+      (replaces the single-tenant first-account-admin rule).
+    - The server is the boundary; the UI mirrors it (nav hidden by feature,
+      page guards, dashboard-charts upsell, AI FAB + advanced-analytics toggle
+      gated). UI gating FAILS OPEN when entitlements are unknown.
+    - Per-store timezone (was a single global app_settings value).
+
+  BILLING — Lemon Squeezy (Merchant of Record; onboards PH sellers, handles
+    worldwide VAT/tax, pays out via Wise/PayPal). Called over the LS REST API
+    via fetch (no SDK dependency): the server boots fine before LS is configured
+    and the /api/billing endpoints return 503 until the env vars are set. Hosted
+    checkout → signed webhook (HMAC over the RAW body, mounted before
+    express.json) → mirrored into stores. A billing change reconciles cashier
+    seats (suspends the newest excess on downgrade; reactivates on re-upgrade)
+    — never deletes data.
+
+  MODULES (build order):
+    6.5a Tenancy core — plans.js, stores schema + migrate_multitenant.sql,
+         store_id scoping across all models, loadStore/requireFeature,
+         store-creation signup, test-tenancy.js (GREEN).            [COMPLETE]
+    6.5b RBAC UI gating — login/me return entitlements; sidebar hides
+         non-entitled nav; page guards; dashboard charts upsell; FAB/toggle
+         gating.                                                    [COMPLETE]
+    6.5c Lemon Squeezy billing — billing.routes/controller (checkout/portal/
+         state/webhook). Webhook lifecycle verified via a local simulator
+         (scripts/ls-webhook-sim.js); live checkout pending an LS account.  [COMPLETE *]
+    6.5d Team + Billing UI — Team page (add / deactivate / reset-password /
+         delete cashiers, per-plan seat limit) + Billing page (plan, trial
+         countdown, upgrade → checkout, manage → portal).          [COMPLETE]
+    6.5e Hardening — security review, store_id in the integration suites,
+         this README.                                              [IN PROGRESS]
 
   SCOPE (v1): Asia/PH, PHP only. AI stays on the Groq free tier.
   Deferred: multi-currency, email invites, annual billing, Redis scaling.
@@ -2167,8 +2329,10 @@
   NODE REQUIREMENT: >= 18.0.0
 
 ================================================================
-  END OF DOCUMENT — Version 7.5
-  Phase 4 AI COMPLETE | Phase 5 Finance COMPLETE | Phase 6 Onboarding COMPLETE
+  END OF DOCUMENT — Version 8.0
+  Phase 4 AI · Phase 5 Finance · Phase 6 Onboarding — COMPLETE
+  Phase 6.5 Multi-Tenant SaaS (tenancy + RBAC + Team + Lemon Squeezy billing)
+    — code-complete; live billing checkout pending LS account approval
   Post-ship:
     • Sales — Admin sale-edit (PUT /api/sales/:id): edit a past sale from
                    History with full server-side reconciliation (stock
