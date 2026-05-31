@@ -95,6 +95,20 @@ function getAdminNavLinks() {
   return links;
 }
 
+function isCashierRole() {
+  var e = (typeof getEntitlements === 'function') ? getEntitlements() : null;
+  return !!(e && e.role === 'cashier');
+}
+
+// Cashiers only ring up sales + view history (spec §0) — they don't manage store
+// settings, so hide Account Settings from the desktop user popup. (Mobile is
+// handled inline in initMobileNav.) Their menu becomes Logout only.
+function applyCashierNavRestrictions() {
+  if (!isCashierRole()) return;
+  var acct = document.querySelector('.user-popup a[href="account.html"]');
+  if (acct) acct.style.display = 'none';
+}
+
 function injectDesktopAdminNavLinks() {
   var nav = document.querySelector('.sidebar-nav');
   if (!nav) return;
@@ -278,9 +292,10 @@ function initMobileNav() {
         '</div>' +
       '</div>' +
       '<div class="mobile-nav-actions">' +
-        '<a href="account.html" class="mobile-nav-action">' +
-          '<i data-lucide="user"></i>Account Settings' +
-        '</a>' +
+        (isCashierRole() ? '' :
+          '<a href="account.html" class="mobile-nav-action">' +
+            '<i data-lucide="user"></i>Account Settings' +
+          '</a>') +
         '<button type="button" class="mobile-nav-action mobile-nav-action--logout" id="mobile-logout-btn">' +
           '<i data-lucide="log-out"></i>Logout' +
         '</button>' +
@@ -471,6 +486,7 @@ document.addEventListener('DOMContentLoaded', function() {
   setActiveNavLink();
   populateUserInfo();
   initUserPopup();
+  applyCashierNavRestrictions(); // hide Account Settings for cashiers
   initLogout();
   initFab();
   initScrollHideTopbar();

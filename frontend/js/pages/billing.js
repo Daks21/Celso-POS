@@ -1,73 +1,76 @@
 // frontend/js/pages/billing.js — Billing page (admin). Shows the current plan,
-// trial countdown, and seat usage from /api/billing/state, and routes Upgrade /
-// Manage actions to the Lemon Squeezy hosted checkout / customer portal. The
-// server resolves the real plan; LS is the source of truth via webhooks.
+// status + trial countdown chips, and seat usage from /api/billing/state, with a
+// clear per-plan CTA (Upgrade / Current / Included). Upgrade routes to the LS
+// hosted checkout; Manage billing opens the LS customer portal.
 
 (function () {
   if (typeof checkAuth === 'function') checkAuth();
 
   var RANK = { free: 0, plus: 1, pro: 2 };
   var planNowEl = document.getElementById('bill-plan-now');
-  var subEl     = document.getElementById('bill-sub');
-  var trialEl   = document.getElementById('bill-trial');
-  var manageEl  = document.getElementById('bill-manage');
+  var chipsEl   = document.getElementById('bill-chips');
   var manageBtn = document.getElementById('bill-manage-btn');
   var noteEl    = document.getElementById('bill-note');
 
   function daysLeft(iso) {
-    var end = new Date(iso).getTime();
-    if (isNaN(end)) return 0;
-    return Math.max(0, Math.ceil((end - Date.now()) / 86400000));
+    var e = new Date(iso).getTime();
+    if (isNaN(e)) return 0;
+    return Math.max(0, Math.ceil((e - Date.now()) / 86400000));
+  }
+  function cap(s)  { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function chip(t, k) { return '<span class="bill-chip' + (k ? ' bill-chip--' + k : '') + '">' + t + '</span>'; }
+
+  function renderChips(d) {
+    var statusMap = {
+      active:   ['Active', 'ok'],
+      trialing: ['Free trial', 'ok'],
+      none:     ['No subscription', ''],
+      past_due: ['Payment past due', 'bad'],
+      canceled: ['Subscription ended', 'warn'],
+    };
+    var sm = statusMap[d.status] || [d.status, ''];
+    var html = chip(sm[0], sm[1]);
+    if (d.status === 'trialing' && d.trialEndsAt) {
+      var n = daysLeft(d.trialEndsAt);
+      html += chip(n + ' day' + (n === 1 ? '' : 's') + ' left', 'warn');
+    }
+    html += chip(d.seatsUsed + '/' + d.seatsTotal + ' cashier seat' + (d.seatsTotal === 1 ? '' : 's'), '');
+    chipsEl.innerHTML = html;
   }
 
-  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-
-  function renderButtons(currentPlan) {
+  function renderPlans(currentPlan) {
     var cur = RANK[currentPlan] != null ? RANK[currentPlan] : 0;
     ['free', 'plus', 'pro'].forEach(function (p) {
-      var card = document.getElementById('card-' + p);
-      var btn  = card.querySelector('.bill-btn');
+      var card  = document.getElementById('card-' + p);
+      var badge = card.querySelector('[data-badge]');
+      var foot  = card.querySelector('[data-foot]');
+      var rank  = RANK[p];
       card.classList.toggle('is-current', p === currentPlan);
-      var rank = RANK[p];
       if (p === currentPlan) {
-        btn.textContent = 'Current plan'; btn.disabled = true; btn.classList.add('bill-btn--ghost');
+        badge.style.display = 'inline-block';
+        foot.innerHTML = '<span class="bill-current-note">✓ You’re on this plan</span>';
       } else if (rank > cur && p !== 'free') {
-        btn.textContent = 'Upgrade to ' + cap(p); btn.disabled = false; btn.classList.remove('bill-btn--ghost');
+        badge.style.display = 'none';
+        foot.innerHTML = '<button class="bill-btn" data-plan="' + p + '">Upgrade to ' + cap(p) + '</button>';
       } else {
-        // A lower tier than the current plan — downgrades go through the portal.
-        btn.textContent = rank < cur ? 'Included' : '—'; btn.disabled = true; btn.classList.add('bill-btn--ghost');
+        badge.style.display = 'none';
+        foot.innerHTML = '<span class="bill-lower-note">Included in your plan</span>';
       }
     });
   }
 
   async function load() {
     var res = await getBillingState();
-    if (!res || !res.success) { subEl.textContent = 'Could not load your billing details.'; return; }
+    if (!res || !res.success) { chipsEl.innerHTML = chip('Could not load billing', 'bad'); return; }
     var d = res.data;
-
     planNowEl.textContent = d.plan;
-    var statusLabel = {
-      active: 'Active subscription', trialing: 'Free trial', none: 'No subscription',
-      past_due: 'Payment past due', canceled: 'Subscription ended',
-    }[d.status] || d.status;
-    subEl.textContent = statusLabel + ' · ' + d.seatsUsed + ' of ' + d.seatsTotal + ' cashier seat' + (d.seatsTotal === 1 ? '' : 's') + ' used';
-
-    if (d.status === 'trialing' && d.trialEndsAt) {
-      var n = daysLeft(d.trialEndsAt);
-      trialEl.style.display = 'inline-block';
-      trialEl.textContent = 'Pro trial: ' + n + ' day' + (n === 1 ? '' : 's') + ' left';
-    } else {
-      trialEl.style.display = 'none';
-    }
-
+    renderChips(d);
     // Manage billing only makes sense once a real LS subscription exists.
-    manageEl.style.display = (d.status === 'active' || d.status === 'past_due' || d.status === 'canceled') ? 'block' : 'none';
-
+    manageBtn.style.display = (d.status === 'active' || d.status === 'past_due' || d.status === 'canceled') ? '' : 'none';
     if (!d.configured) {
-      noteEl.textContent = 'Billing isn’t connected yet. Upgrades will work once the Lemon Squeezy keys are configured on the server.';
+      noteEl.textContent = 'Billing isn’t connected yet — upgrades will work once Lemon Squeezy is configured on the server.';
     }
-
-    renderButtons(d.plan);
+    renderPlans(d.plan);
   }
 
   document.querySelector('.bill-grid').addEventListener('click', async function (e) {
@@ -75,7 +78,6 @@
     if (!btn || btn.disabled) return;
     var plan = btn.getAttribute('data-plan');
     if (plan !== 'plus' && plan !== 'pro') return;
-
     var label = btn.textContent;
     btn.disabled = true; btn.textContent = 'Redirecting…';
     var res = await startCheckout(plan);

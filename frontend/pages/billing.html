@@ -11,34 +11,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Celso POS | Billing</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%235a9e6f'/%3E%3Ctext x='16' y='23' font-family='sans-serif' font-size='20' font-weight='700' text-anchor='middle' fill='white'%3EC%3C/text%3E%3C/svg%3E">
-  <script src="../assets/vendor/lucide.min.js?v=5"></script>
+  <script src="../assets/vendor/lucide.min.js?v=8"></script>
 
-  <link rel="stylesheet" href="../css/main.css?v=5">
-  <link rel="stylesheet" href="../css/layout.css?v=5">
-  <link rel="stylesheet" href="../css/components.css?v=5">
-  <link rel="stylesheet" href="../css/onboarding.css?v=5">
-  <link rel="stylesheet" href="../css/os.widget.css?v=5">
+  <link rel="stylesheet" href="../css/main.css?v=8">
+  <link rel="stylesheet" href="../css/layout.css?v=8">
+  <link rel="stylesheet" href="../css/components.css?v=8">
+  <link rel="stylesheet" href="../css/onboarding.css?v=8">
+  <link rel="stylesheet" href="../css/os.widget.css?v=8">
   <style>
-    .bill-banner{background:var(--color-surface,#fff);border:1px solid var(--color-border,#e5e7eb);border-radius:12px;padding:20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-    .bill-plan-now{font-size:22px;font-weight:700;color:var(--color-text,#111827);text-transform:capitalize}
-    .bill-sub{font-size:13px;color:var(--color-text-muted,#6b7280);margin-top:4px}
-    .bill-trial{display:inline-block;margin-top:6px;font-size:13px;font-weight:600;color:#b45309;background:rgba(234,179,8,.14);border-radius:999px;padding:4px 12px}
+    .bill-banner{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:20px 22px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;box-shadow:var(--shadow-sm)}
+    .bill-banner-label{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-muted)}
+    .bill-plan-now{font-size:24px;font-weight:700;color:var(--color-text);text-transform:capitalize;line-height:1.2;margin-top:2px}
+    .bill-chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .bill-chip{font-size:12px;font-weight:600;padding:4px 11px;border-radius:var(--radius-full);background:var(--color-background);color:var(--color-text-muted)}
+    .bill-chip--ok{background:rgba(90,158,111,.12);color:var(--color-primary)}
+    .bill-chip--warn{background:rgba(255,180,50,.14);color:#b45309}
+    .bill-chip--bad{background:rgba(220,38,38,.1);color:var(--color-error)}
+    .bill-manage-btn{flex-shrink:0;padding:10px 16px;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:transparent;color:var(--color-text);font-family:inherit;font-weight:600;font-size:14px;cursor:pointer}
+    .bill-manage-btn:hover{border-color:var(--color-primary);color:var(--color-primary)}
+
     .bill-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-    .bill-card{background:var(--color-surface,#fff);border:1px solid var(--color-border,#e5e7eb);border-radius:12px;padding:22px;display:flex;flex-direction:column}
-    .bill-card.is-current{border-color:var(--color-primary,#5a9e6f);box-shadow:0 0 0 1px var(--color-primary,#5a9e6f)}
-    .bill-card h3{font-size:18px;margin:0 0 2px}
-    .bill-price{font-size:30px;font-weight:700;color:var(--color-text,#111827);margin:6px 0 2px}
-    .bill-price span{font-size:14px;font-weight:500;color:var(--color-text-muted,#6b7280)}
-    .bill-feats{list-style:none;padding:0;margin:14px 0 20px;flex:1}
-    .bill-feats li{font-size:14px;color:var(--color-text,#374151);padding:5px 0 5px 22px;position:relative}
-    .bill-feats li::before{content:'✓';position:absolute;left:0;color:var(--color-primary,#5a9e6f);font-weight:700}
-    .bill-btn{padding:11px 16px;border:none;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:var(--color-primary,#5a9e6f);color:#fff;width:100%}
-    .bill-btn:disabled{opacity:.55;cursor:default}
-    .bill-btn--ghost{background:transparent;color:var(--color-text-muted,#6b7280);border:1px solid var(--color-border,#e5e7eb)}
-    .bill-manage{margin-top:20px}
-    .bill-manage button{padding:10px 16px;border-radius:8px;border:1px solid var(--color-border,#e5e7eb);background:transparent;color:var(--color-text,#111827);font-family:inherit;font-weight:600;font-size:14px;cursor:pointer}
-    .bill-note{font-size:12px;color:var(--color-text-muted,#6b7280);margin-top:14px}
-    @media (max-width:768px){ .bill-grid{grid-template-columns:1fr} }
+    .bill-card{position:relative;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:22px;display:flex;flex-direction:column;box-shadow:var(--shadow-sm)}
+    .bill-card.is-current{border-color:var(--color-primary);box-shadow:0 0 0 1px var(--color-primary),var(--shadow-md)}
+    .bill-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .bill-card-head h3{font-size:18px;margin:0}
+    .bill-badge{display:none;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:3px 9px;border-radius:var(--radius-full);background:var(--color-primary);color:#fff}
+    .bill-price{font-size:30px;font-weight:700;color:var(--color-text);margin:8px 0 0}
+    .bill-price span{font-size:14px;font-weight:500;color:var(--color-text-muted)}
+    .bill-feats{list-style:none;padding:0;margin:14px 0 18px;flex:1}
+    .bill-feats li{font-size:13.5px;color:var(--color-text);padding:5px 0 5px 22px;position:relative}
+    .bill-feats li::before{content:'✓';position:absolute;left:0;color:var(--color-primary);font-weight:700}
+    .bill-foot{margin-top:auto}
+    .bill-btn{width:100%;padding:11px 16px;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:var(--color-primary);color:#fff}
+    .bill-btn:disabled{opacity:.6;cursor:default}
+    .bill-current-note{display:block;text-align:center;font-size:13px;font-weight:600;color:var(--color-primary);padding:10px 0}
+    .bill-lower-note{display:block;text-align:center;font-size:13px;color:var(--color-text-muted);padding:10px 0}
+    .bill-note{font-size:12px;color:var(--color-text-muted);margin-top:16px;text-align:center}
+
+    @media (max-width:768px){
+      .bill-grid{grid-template-columns:1fr}
+      .bill-banner{flex-direction:column;align-items:stretch}
+      .bill-manage-btn{width:100%}
+    }
   </style>
 </head>
 <body class="app-body">
@@ -85,58 +99,56 @@
 
         <div class="bill-banner">
           <div>
+            <div class="bill-banner-label">Your plan</div>
             <div class="bill-plan-now" id="bill-plan-now">—</div>
-            <div class="bill-sub" id="bill-sub">Loading your plan…</div>
-            <div class="bill-trial" id="bill-trial" style="display:none"></div>
+            <div class="bill-chips" id="bill-chips"></div>
           </div>
-          <div class="bill-manage" id="bill-manage" style="display:none">
-            <button type="button" id="bill-manage-btn">Manage billing</button>
-          </div>
+          <button type="button" class="bill-manage-btn" id="bill-manage-btn" style="display:none">Manage billing</button>
         </div>
 
         <div class="bill-grid">
           <div class="bill-card" id="card-free">
-            <h3>Free</h3>
+            <div class="bill-card-head"><h3>Free</h3><span class="bill-badge" data-badge>Current</span></div>
             <div class="bill-price">$0<span>/mo</span></div>
             <ul class="bill-feats">
-              <li>Dashboard (basic)</li><li>New Order (POS)</li><li>Inventory &amp; Products</li><li>Sales History</li><li>0 cashiers</li>
+              <li>Dashboard (basic)</li><li>New Order (POS)</li><li>Inventory &amp; Products</li><li>Sales History</li><li>No cashier seats</li>
             </ul>
-            <button class="bill-btn" data-plan="free" disabled>—</button>
+            <div class="bill-foot" data-foot></div>
           </div>
           <div class="bill-card" id="card-plus">
-            <h3>Plus</h3>
+            <div class="bill-card-head"><h3>Plus</h3><span class="bill-badge" data-badge>Current</span></div>
             <div class="bill-price">$8<span>/mo</span></div>
             <ul class="bill-feats">
-              <li>Everything in Free</li><li>Finance / cashflow</li><li>Analytics + dashboard charts</li><li>1 cashier</li>
+              <li>Everything in Free</li><li>Finance / cashflow</li><li>Analytics + charts</li><li>1 cashier seat</li>
             </ul>
-            <button class="bill-btn" data-plan="plus">Upgrade to Plus</button>
+            <div class="bill-foot" data-foot></div>
           </div>
           <div class="bill-card" id="card-pro">
-            <h3>Pro</h3>
+            <div class="bill-card-head"><h3>Pro</h3><span class="bill-badge" data-badge>Current</span></div>
             <div class="bill-price">$12<span>/mo</span></div>
             <ul class="bill-feats">
-              <li>Everything in Plus</li><li>Advanced Analytics</li><li>Os AI Assistant</li><li>2 cashiers</li>
+              <li>Everything in Plus</li><li>Advanced Analytics</li><li>Os AI Assistant</li><li>2 cashier seats</li>
             </ul>
-            <button class="bill-btn" data-plan="pro">Upgrade to Pro</button>
+            <div class="bill-foot" data-foot></div>
           </div>
         </div>
 
-        <p class="bill-note" id="bill-note">Payments are handled securely by Lemon Squeezy. Prices in USD.</p>
+        <p class="bill-note" id="bill-note">Payments are handled securely by Lemon Squeezy. Prices in USD. Cancel or change anytime from Manage billing.</p>
 
       </main>
     </div>
   </div>
 
-  <script src="../js/components/sidebar.js?v=5"></script>
-  <script src="../js/components/os.client.js?v=5"></script>
-  <script src="../js/components/os.widget.js?v=5"></script>
-  <script src="../js/components/os.js?v=5"></script>
-  <script src="../js/core/theme.js?v=5"></script>
-  <script src="../js/core/api.js?v=5"></script>
-  <script src="../js/core/utils.js?v=5"></script>
-  <script src="../js/core/auth.js?v=5"></script>
-  <script src="../js/core/data.js?v=5"></script>
-  <script src="../js/pages/billing.js?v=5"></script>
+  <script src="../js/components/sidebar.js?v=8"></script>
+  <script src="../js/components/os.client.js?v=8"></script>
+  <script src="../js/components/os.widget.js?v=8"></script>
+  <script src="../js/components/os.js?v=8"></script>
+  <script src="../js/core/theme.js?v=8"></script>
+  <script src="../js/core/api.js?v=8"></script>
+  <script src="../js/core/utils.js?v=8"></script>
+  <script src="../js/core/auth.js?v=8"></script>
+  <script src="../js/core/data.js?v=8"></script>
+  <script src="../js/pages/billing.js?v=8"></script>
   <script>lucide.createIcons();</script>
 </body>
 </html>

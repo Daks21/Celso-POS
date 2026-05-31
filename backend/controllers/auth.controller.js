@@ -120,7 +120,6 @@ const login = async (req, res, next) => {
       token,
       user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt },
       timezone: store ? store.timezone : settings.getTimezone(),
-      mustChangePassword: user.mustChangePassword === 1,
       ...ent
     });
   } catch (err) {

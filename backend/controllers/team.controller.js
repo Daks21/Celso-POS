@@ -70,14 +70,14 @@ const create = async (req, res, next) => {
     const hashed = await bcrypt.hash(password, 10);
     const user = await createUser({
       fullName, email, password: hashed, role: 'cashier',
-      storeId: req.user.storeId, mustChangePassword: 1,
+      storeId: req.user.storeId,
     });
 
     res.status(201).json({
       success: true,
       data: {
         id: user.id, fullName: user.fullName, email: user.email,
-        isActive: 1, mustChangePassword: 1, createdAt: user.createdAt,
+        isActive: 1, createdAt: user.createdAt,
       },
     });
   } catch (err) {
@@ -125,23 +125,71 @@ const setActive = async (req, res, next) => {
   }
 };
 
-// DELETE /api/team/:id — soft delete (is_active = 0; row + sale history kept).
-const remove = async (req, res, next) => {
+// PUT /api/team/:id/password — owner resets a cashier's password (admin-managed
+// credentials: cashiers don't change their own). Store-scoped to this store's
+// cashiers only.
+const resetPassword = async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid user ID' });
 
-    const [result] = await pool.query(
-      "UPDATE users SET is_active = 0 WHERE id = ? AND store_id = ? AND role = 'cashier'",
-      [id, req.user.storeId]
-    );
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: 'Cashier not found' });
+    const { password } = req.body;
+    if (!password || String(password).length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
     }
-    res.status(204).send();
+
+    const cashier = await _storeCashier(req.user.storeId, id);
+    if (!cashier) return res.status(404).json({ success: false, message: 'Cashier not found' });
+
+    const hashed = await bcrypt.hash(password, 10);
+    await pool.query(
+      "UPDATE users SET password = ?, must_change_password = 0 WHERE id = ? AND store_id = ? AND role = 'cashier'",
+      [hashed, id, req.user.storeId]
+    );
+    res.json({ success: true, message: 'Password updated' });
   } catch (err) {
     next(err);
   }
 };
 
-module.exports = { list, create, setActive, remove };
+// DELETE /api/team/:id — permanently remove a cashier. Hard delete so they leave
+// the team list entirely. A cashier who already has sales recorded under their id
+// can't be deleted (sales.cashier_id is RESTRICT — their name stays attached to
+// the receipts/history); that surfaces as a 409 telling the owner to deactivate
+// instead. inventory_adjustments / cash_movements actor refs are ON DELETE SET
+// NULL, so those don't block.
+const remove = async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid user ID' });
+
+    const cashier = await _storeCashier(req.user.storeId, id);
+    if (!cashier) return res.status(404).json({ success: false, message: 'Cashier not found' });
+
+    try {
+      const [result] = await pool.query(
+        "DELETE FROM users WHERE id = ? AND store_id = ? AND role = 'cashier'",
+        [id, req.user.storeId]
+      );
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ success: false, message: 'Cashier not found' });
+      }
+      return res.status(204).send();
+    } catch (e) {
+      // MySQL signals a blocking FK reference as either ER_ROW_IS_REFERENCED
+      // (1217) or ER_ROW_IS_REFERENCED_2 (1451) depending on version/config.
+      if (e.errno === 1217 || e.errno === 1451 ||
+          e.code === 'ER_ROW_IS_REFERENCED' || e.code === 'ER_ROW_IS_REFERENCED_2') {
+        return res.status(409).json({
+          success: false, code: 'HAS_HISTORY',
+          message: "This cashier has sales recorded under their name, so they can't be deleted. Deactivate them instead to block their access.",
+        });
+      }
+      throw e;
+    }
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { list, create, setActive, resetPassword, remove };

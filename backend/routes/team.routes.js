@@ -8,9 +8,10 @@ const { loadStore } = require('../middleware/tenant.middleware');
 // (cashiers get 403). Seat limits are enforced per-plan inside the controller.
 router.use(authMiddleware, loadStore, adminMiddleware);
 
-router.get('/',            controller.list);
-router.post('/',           controller.create);
+router.get('/',             controller.list);
+router.post('/',            controller.create);
 router.patch('/:id/active', controller.setActive);
-router.delete('/:id',      controller.remove);
+router.put('/:id/password', controller.resetPassword);
+router.delete('/:id',       controller.remove);
 
 module.exports = router;

@@ -330,6 +330,9 @@ async function setCashierActive(id, active) {
 async function deleteCashier(id) {
   return apiCall(`/team/${id}`, { method: 'DELETE' });
 }
+async function resetCashierPassword(id, password) {
+  return apiCall(`/team/${id}/password`, { method: 'PUT', body: JSON.stringify({ password }) });
+}
 
 // --- Billing ---
 async function getBillingState() { return apiCall('/billing/state'); }

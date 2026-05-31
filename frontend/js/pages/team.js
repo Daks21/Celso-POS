@@ -19,7 +19,8 @@
   function esc(s) { return (typeof escapeHtml === 'function') ? escapeHtml(s) : String(s == null ? '' : s); }
 
   function renderSeats(used, total) {
-    seatsEl.textContent = used + ' of ' + total + ' seat' + (total === 1 ? '' : 's') + ' used';
+    seatsEl.textContent = used + ' of ' + total + ' seat' + (total === 1 ? '' : 's');
+    seatsEl.classList.toggle('is-full', total > 0 && used >= total);
     addBtn.disabled = used >= total;
   }
 
@@ -28,13 +29,15 @@
       ? '<span class="team-status team-status--active">Active</span>'
       : '<span class="team-status team-status--suspended">Suspended</span>';
     var toggleLabel = c.isActive ? 'Deactivate' : 'Reactivate';
+    var toggleClass = c.isActive ? 'team-btn team-btn--ghost' : 'team-btn';
     return '<tr>' +
       '<td>' + esc(c.fullName) + '</td>' +
       '<td>' + esc(c.email) + '</td>' +
       '<td>' + status + '</td>' +
       '<td><div class="team-actions">' +
-        '<button class="team-btn team-btn--ghost" data-action="toggle" data-id="' + c.id + '" data-active="' + (c.isActive ? '0' : '1') + '">' + toggleLabel + '</button>' +
-        '<button class="team-btn team-btn--danger" data-action="remove" data-id="' + c.id + '">Remove</button>' +
+        '<button class="' + toggleClass + '" data-action="toggle" data-id="' + c.id + '" data-active="' + (c.isActive ? '0' : '1') + '">' + toggleLabel + '</button>' +
+        '<button class="team-btn team-btn--ghost" data-action="resetpw" data-id="' + c.id + '" data-name="' + esc(c.fullName) + '">Reset password</button>' +
+        '<button class="team-btn team-btn--danger" data-action="delete" data-id="' + c.id + '" data-name="' + esc(c.fullName) + '">Delete</button>' +
       '</div></td>' +
     '</tr>';
   }
@@ -102,11 +105,58 @@
       var res = await setCashierActive(id, active);
       if (res && res.success) { load(); }
       else { if (typeof showApiError === 'function') showApiError(res ? res.message : 'Could not update the cashier.'); btn.disabled = false; }
-    } else if (action === 'remove') {
-      if (!window.confirm('Remove this cashier? They keep their sales history but can no longer log in.')) { btn.disabled = false; return; }
-      var res2 = await deleteCashier(id);
-      if (res2 && res2.success) { if (typeof showApiSuccess === 'function') showApiSuccess('Cashier removed.'); load(); }
-      else { if (typeof showApiError === 'function') showApiError('Could not remove the cashier.'); btn.disabled = false; }
+    } else if (action === 'resetpw') {
+      btn.disabled = false; // it's just opening a dialog
+      openResetModal(id, btn.getAttribute('data-name') || 'this cashier');
+    } else if (action === 'delete') {
+      var name = btn.getAttribute('data-name') || 'this cashier';
+      if (!window.confirm('Delete ' + name + '? This permanently removes their account.')) { btn.disabled = false; return; }
+      var resd = await deleteCashier(id);
+      if (resd && resd.success) {
+        if (typeof showApiSuccess === 'function') showApiSuccess('Cashier deleted.');
+        load();
+      } else {
+        // 409 = has sales history → guided to deactivate instead.
+        if (typeof showApiError === 'function') showApiError(resd ? resd.message : 'Could not delete the cashier.');
+        btn.disabled = false;
+      }
+    }
+  });
+
+  // ── Reset-password modal (admin sets a cashier's password) ──
+  var rpModal  = document.getElementById('reset-pw-modal');
+  var rpFor    = document.getElementById('reset-pw-for');
+  var rpInput  = document.getElementById('reset-pw-input');
+  var rpError  = document.getElementById('reset-pw-error');
+  var rpSave   = document.getElementById('reset-pw-save');
+  var rpTarget = null;
+
+  function openResetModal(id, name) {
+    rpTarget = id;
+    rpFor.textContent = 'Set a new password for ' + name + '.';
+    rpInput.value = '';
+    rpError.textContent = '';
+    rpModal.style.display = 'flex';
+    rpInput.focus();
+  }
+  function closeResetModal() { rpModal.style.display = 'none'; rpTarget = null; }
+
+  document.getElementById('reset-pw-close').addEventListener('click', closeResetModal);
+  document.getElementById('reset-pw-cancel').addEventListener('click', closeResetModal);
+  rpModal.addEventListener('click', function (e) { if (e.target === rpModal) closeResetModal(); });
+
+  rpSave.addEventListener('click', async function () {
+    rpError.textContent = '';
+    var pw = rpInput.value;
+    if (!pw || pw.length < 8) { rpError.textContent = 'Password must be at least 8 characters.'; return; }
+    rpSave.disabled = true;
+    var res = await resetCashierPassword(rpTarget, pw);
+    rpSave.disabled = false;
+    if (res && res.success) {
+      if (typeof showApiSuccess === 'function') showApiSuccess('Password updated.');
+      closeResetModal();
+    } else {
+      rpError.textContent = res ? res.message : 'Could not update the password.';
     }
   });
 

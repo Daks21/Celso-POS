@@ -43,7 +43,6 @@ if (loginForm) {
       if (result.timezone) localStorage.setItem('storeTimezone', result.timezone);
       // Cache the plan/feature entitlements for UI gating (server still enforces).
       if (typeof cacheEntitlements === 'function') cacheEntitlements(result);
-      try { localStorage.setItem('mustChangePassword', result.mustChangePassword ? '1' : '0'); } catch (e) {}
 
       // Pull saved preferences from DB and cache them in localStorage
       // so every app page reads from cache without an extra API call.
@@ -54,13 +53,8 @@ if (loginForm) {
         }
       } catch (e) { /* non-fatal — localStorage defaults will be used */ }
 
-      if (result.mustChangePassword) {
-        // New cashier on a temp password — force a reset before anything else.
-        window.location.href = "pages/change-password.html";
-      } else {
-        // Cashiers have no dashboard — send them straight to the POS.
-        window.location.href = result.role === 'cashier' ? "pages/order.html" : "pages/dashboard.html";
-      }
+      // Cashiers have no dashboard — send them straight to the POS.
+      window.location.href = result.role === 'cashier' ? "pages/order.html" : "pages/dashboard.html";
     } else {
       loginError.textContent = result ? result.message : "Login failed. Please try again.";
     }
@@ -197,18 +191,6 @@ var PAGE_FEATURE = {
 
 function guardCurrentPage() {
   var page = window.location.pathname.split('/').pop();
-
-  // Forced password change takes precedence: a logged-in user still flagged must
-  // land on the change screen before any app page (the change page itself is
-  // exempt, and so are login/register which aren't APP_PAGES).
-  try {
-    if (localStorage.getItem('token') && localStorage.getItem('mustChangePassword') === '1' &&
-        page !== 'change-password.html' && APP_PAGES.indexOf(page) !== -1) {
-      window.location.replace('change-password.html');
-      return;
-    }
-  } catch (_) {}
-
   if (APP_PAGES.indexOf(page) === -1) return; // not a gated app page (login/register)
   var e = (typeof getEntitlements === 'function') ? getEntitlements() : null;
   if (!e || !Array.isArray(e.features)) return; // unknown → allow (server enforces)
