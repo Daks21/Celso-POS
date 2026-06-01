@@ -315,6 +315,15 @@ async function updateStoreTimezone(timezone) {
   });
 }
 
+// Persist the store name + address to the store row (admin only). Shared by all
+// users of the store — so cashier receipts carry the same identity as the owner.
+async function updateStoreInfo(storeName, storeAddress) {
+  return apiCall('/settings/store-info', {
+    method: 'PUT',
+    body: JSON.stringify({ storeName, storeAddress }),
+  });
+}
+
 // --- Os AI (non-streaming endpoints) ---
 async function getOsForecast()      { return apiCall('/ai/forecast'); }
 async function getOsProfitCoach()   { return apiCall('/ai/profit');   }
@@ -350,7 +359,7 @@ async function openBillingPortal() {
   return apiCall('/billing/portal', { method: 'POST' });
 }
 
-// --- Password (forced first-login change for cashiers) ---
+// --- Password (owner self-service change; admin-gated server-side) ---
 async function changePassword(data) {
   return apiCall('/auth/password', { method: 'PUT', body: JSON.stringify(data) });
 }

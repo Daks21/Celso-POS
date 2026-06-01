@@ -41,6 +41,10 @@ if (loginForm) {
       localStorage.setItem('token', result.token);
       localStorage.setItem('currentUser', JSON.stringify(result.user));
       if (result.timezone) localStorage.setItem('storeTimezone', result.timezone);
+      // Store identity now comes from the store row (shared by owner + cashiers),
+      // not per-user preferences — so every operator's receipts/sidebar match.
+      localStorage.setItem('storeName',    result.storeName    || '');
+      localStorage.setItem('storeAddress', result.storeAddress || '');
       // Cache the plan/feature entitlements for UI gating (server still enforces).
       if (typeof cacheEntitlements === 'function') cacheEntitlements(result);
 
@@ -259,8 +263,8 @@ function _cachePreferences(prefs, userId) {
     showThemeToggle: p.showThemeToggle,
   }));
 
-  localStorage.setItem('storeName',    p.storeName    || '');
-  localStorage.setItem('storeAddress', p.storeAddress || '');
+  // storeName/storeAddress are no longer sourced from per-user preferences —
+  // they live on the store row and are cached from the login / getMe response.
   localStorage.setItem('numpadOnDesktop', String(p.numpadOnDesktop === true));
 
   // Restore user-specific prefs blob (Os toggle, advanced analytics, etc.)

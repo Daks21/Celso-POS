@@ -107,11 +107,14 @@ app.use('/api/inventory/:productId/adjust', adjustLimiter);
 // --- Health check ---
 app.get('/api/health', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT COUNT(*) AS count FROM products');
+    // Connectivity probe only. SELECT 1 confirms the pool is alive without
+    // exposing any cross-tenant data (the old product COUNT leaked a global
+    // figure to an unauthenticated caller).
+    await pool.query('SELECT 1');
     res.json({
       success: true,
       message: 'Celso POS API is running',
-      db: `Connected — ${rows[0].count} products in database`,
+      db: 'Connected',
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

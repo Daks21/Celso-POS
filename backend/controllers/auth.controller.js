@@ -127,6 +127,11 @@ const login = async (req, res, next) => {
       token,
       user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt },
       timezone: store ? store.timezone : settings.getTimezone(),
+      // Store identity (printed on receipts, drives the sidebar brand). Sourced
+      // from the store row so every user of the store — owner AND cashiers —
+      // shares one identity, instead of the old per-user preferences value.
+      storeName:    store ? (store.name || '') : '',
+      storeAddress: store ? (store.address || '') : '',
       ...ent
     });
   } catch (err) {
@@ -152,10 +157,9 @@ const savePreferencesHandler = async (req, res, next) => {
   }
 };
 
-// PUT /api/auth/password — change the signed-in user's password. Used by the
-// forced first-login change for new cashiers (clears must_change_password) and
-// can back a general "change password" later. currentPassword is verified when
-// supplied; the forced-change flow omits it (the user just authenticated).
+// PUT /api/auth/password — owner self-service password change. Admin-gated at the
+// route, so a cashier token can't reach it (cashier credentials are reset by the
+// owner on the Team page). currentPassword is verified when supplied.
 const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;

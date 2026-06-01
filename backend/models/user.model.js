@@ -35,13 +35,6 @@ const createUser = async ({ fullName, email, password, role = 'cashier',
   return findById(result.insertId);
 };
 
-// Total account count. Used at registration to detect the very first account
-// (the store owner), who is auto-promoted to admin.
-const countUsers = async () => {
-  const [rows] = await db.query('SELECT COUNT(*) AS count FROM users');
-  return rows[0].count;
-};
-
 const getPreferences = async (userId) => {
   const [rows] = await db.query(
     'SELECT preferences FROM users WHERE id = ?',
@@ -133,7 +126,7 @@ const reconcileCashierSeats = async (storeId, maxSeats) => {
 };
 
 module.exports = {
-  findByEmail, findById, createUser, countUsers, getPreferences, savePreferences,
+  findByEmail, findById, createUser, getPreferences, savePreferences,
   setSessionId, getSessionInfo,
   countActiveCashiers, reconcileCashierSeats,
 };

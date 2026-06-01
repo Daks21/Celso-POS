@@ -221,30 +221,36 @@ document.addEventListener('DOMContentLoaded', function() {
     const storeNameInput    = document.getElementById('store-name-input');
     const storeAddressInput = document.getElementById('store-address-input');
 
-    // Store Info auto-saves on blur (the `change` event). Surface a subtle
-    // confirmation toast so the silent save is trusted — the event only fires
-    // when the value actually changed, so no toast spam on a plain tab-through.
-    function flashStoreInfoSaved() {
-      if (typeof showApiSuccess === 'function') showApiSuccess('Store info saved');
+    // Store Info auto-saves on blur (the `change` event). It now persists to the
+    // STORE row (shared by owner + cashiers) via the store-info endpoint, not the
+    // owner's per-user preferences — so cashier receipts carry the same identity.
+    // The event only fires when a value actually changed, so no toast spam on a
+    // plain tab-through.
+    async function saveStoreInfo() {
+      const name = storeNameInput    ? storeNameInput.value.trim()    : (localStorage.getItem('storeName')    || '');
+      const addr = storeAddressInput ? storeAddressInput.value.trim() : (localStorage.getItem('storeAddress') || '');
+      try {
+        const res = await updateStoreInfo(name, addr);
+        if (res && res.success) {
+          localStorage.setItem('storeName',    res.data.storeName);
+          localStorage.setItem('storeAddress', res.data.storeAddress);
+          if (typeof showApiSuccess === 'function') showApiSuccess('Store info saved');
+          if (window.SidebarBrand) window.SidebarBrand.apply();
+        } else if (typeof showApiError === 'function') {
+          showApiError(res && res.message ? res.message : 'Could not save store info');
+        }
+      } catch (e) {
+        if (typeof showApiError === 'function') showApiError('Could not save store info');
+      }
     }
 
     if (storeNameInput) {
       storeNameInput.value = localStorage.getItem('storeName') || '';
-      storeNameInput.addEventListener('change', function () {
-        localStorage.setItem('storeName', storeNameInput.value.trim());
-        syncToDb();
-        flashStoreInfoSaved();
-        // Reflect the new name in the sidebar brand immediately (desktop + mobile)
-        if (window.SidebarBrand) window.SidebarBrand.apply();
-      });
+      storeNameInput.addEventListener('change', saveStoreInfo);
     }
     if (storeAddressInput) {
       storeAddressInput.value = localStorage.getItem('storeAddress') || '';
-      storeAddressInput.addEventListener('change', function () {
-        localStorage.setItem('storeAddress', storeAddressInput.value.trim());
-        syncToDb();
-        flashStoreInfoSaved();
-      });
+      storeAddressInput.addEventListener('change', saveStoreInfo);
     }
 
     // Calculate and display avatar initials
@@ -291,6 +297,22 @@ document.addEventListener('DOMContentLoaded', function() {
           avatarEl.textContent = (nm.length >= 2
             ? (nm[0][0] + nm[nm.length - 1][0])
             : freshName.substring(0, 2)).toUpperCase();
+        }
+
+        // Refresh store identity from the authoritative store row (covers an
+        // edit made on another device since this device last logged in).
+        if (res.storeName != null) {
+          localStorage.setItem('storeName', res.storeName);
+          if (storeNameInput && document.activeElement !== storeNameInput) {
+            storeNameInput.value = res.storeName;
+          }
+          if (window.SidebarBrand) window.SidebarBrand.apply();
+        }
+        if (res.storeAddress != null) {
+          localStorage.setItem('storeAddress', res.storeAddress);
+          if (storeAddressInput && document.activeElement !== storeAddressInput) {
+            storeAddressInput.value = res.storeAddress;
+          }
         }
       }).catch(function () { /* offline — cached values remain on screen */ });
     }

@@ -1,6 +1,6 @@
 const express = require('express');
 const router  = express.Router();
-const { getSettings, updateTimezone } = require('../controllers/settings.controller');
+const { getSettings, updateTimezone, updateStoreInfo } = require('../controllers/settings.controller');
 const { authMiddleware: auth, adminMiddleware: admin } = require('../middleware/auth.middleware');
 const { loadStore } = require('../middleware/tenant.middleware');
 
@@ -9,7 +9,8 @@ const { loadStore } = require('../middleware/tenant.middleware');
 // lands with the Step 4 tz threading.)
 router.use(auth, loadStore);
 
-router.get('/',         getSettings);
-router.put('/timezone', admin, updateTimezone);
+router.get('/',           getSettings);
+router.put('/timezone',   admin, updateTimezone);
+router.put('/store-info', admin, updateStoreInfo);
 
 module.exports = router;

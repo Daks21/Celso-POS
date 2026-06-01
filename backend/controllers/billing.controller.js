@@ -64,6 +64,8 @@ function planForVariant(variantId) {
 //   past_due / unpaid   -> past_due (effective Free until paid; see effectivePlan)
 //   cancelled           -> active   (keep entitled until the period actually ends)
 //   expired / paused    -> canceled (effective Free)
+//   unknown             -> past_due (effective Free) — never GRANT entitlement on
+//                          a status we don't recognise; deny until a known event.
 function mapStatus(lsStatus) {
   switch (lsStatus) {
     case 'active':
@@ -73,7 +75,7 @@ function mapStatus(lsStatus) {
     case 'cancelled':  return 'active';
     case 'expired':
     case 'paused':     return 'canceled';
-    default:           return 'active';
+    default:           return 'past_due';
   }
 }
 
@@ -209,13 +211,17 @@ const webhook = async (req, res) => {
 
   // 2. Parse + apply.
   try {
-    const evt     = JSON.parse(req.body.toString());
-    const attr    = (evt.data && evt.data.attributes) || {};
-    const subId   = evt.data && evt.data.id;
-    const storeId = Number(evt.meta && evt.meta.custom_data && evt.meta.custom_data.store_id);
+    const evt       = JSON.parse(req.body.toString());
+    const attr      = (evt.data && evt.data.attributes) || {};
+    const subId     = evt.data && evt.data.id;
+    const eventName = (evt.meta && evt.meta.event_name) || '';
+    const storeId   = Number(evt.meta && evt.meta.custom_data && evt.meta.custom_data.store_id);
 
-    // Idempotency: ignore re-deliveries of the same subscription state.
-    const idempKey = `${subId}:${attr.updated_at || ''}`;
+    // Idempotency: ignore re-deliveries of the SAME event for the same
+    // subscription state. The event name is part of the key so two distinct
+    // events that happen to share an updated_at (e.g. _updated + _payment_success)
+    // aren't collapsed into one.
+    const idempKey = `${subId}:${eventName}:${attr.updated_at || ''}`;
     if (_alreadyProcessed(idempKey)) return res.sendStatus(200);
 
     if (storeId) {

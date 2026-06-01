@@ -259,8 +259,11 @@
   │   ├── inventory.controller.js
   │   ├── analytics.controller.js
   │   ├── finance.controller.js
-  │   └── ai.controller.js     ← Phase 4 COMPLETE (6 endpoints: chat,
-  │                               stream, summary, restock, forecast, profit)
+  │   ├── ai.controller.js     ← Phase 4 COMPLETE (6 endpoints: chat,
+  │   │                           stream, summary, restock, forecast, profit)
+  │   ├── settings.controller.js  ← store timezone + store name/address
+  │   ├── team.controller.js   ← cashier sub-accounts + daily-sales audit (6.5)
+  │   └── billing.controller.js   ← Lemon Squeezy checkout/portal/state/webhook (6.5)
   │
   ├── models/                  ← MySQL query functions (no in-memory state)
   │   ├── user.model.js        ← Users table: findByEmail, findById,
@@ -270,8 +273,11 @@
   │   ├── sale.model.js        ← Sales + analytics: atomic create(),
   │   │                           getHistory(), getById(), summary,
   │   │                           heatmap, kpis, charts aggregations
-  │   └── cashflow.model.js    ← cash_movements CRUD, monthly summary
-  │                               (in/out/net), utang balance derivation
+  │   ├── cashflow.model.js    ← cash_movements CRUD, monthly summary
+  │   │                           (in/out/net), utang balance derivation
+  │   ├── store.model.js       ← stores (tenant) row: findById, billing
+  │   │                           webhook updates, name/address/timezone (6.5)
+  │   └── settings.model.js    ← legacy app_settings timezone fallback (boot only)
   │
   ├── middleware/
   │   ├── auth.middleware.js   ← JWT verification + admin role check
@@ -403,7 +409,7 @@
     receipt_no  VARCHAR       UNIQUE, format: RCPT-XXXXXX
     subtotal    DECIMAL(10,2)
     tax         DECIMAL(10,2)
-    tax_rate    DECIMAL(5,2)
+    tax_rate    DECIMAL(5,4)   stored as a fraction (e.g. 0.1200 = 12%)
     cart_tax_on TINYINT(1)    0 = tax not applied to this sale | 1 = tax applied
     total       DECIMAL(10,2)
     payment     DECIMAL(10,2)
@@ -537,7 +543,7 @@
   ──────────────────────────────────────────────────────────────
 
     POST   /register       Public (rate-limited)
-      Body: { fullName, email, password }
+      Body: { fullName, email, password }   (password ≥ 8 chars)
       → 201 { success, message }
       → 400 validation error | 409 email already exists
 
@@ -548,6 +554,7 @@
 
     GET    /me             Auth required
       → 200 { success, user: { id, fullName, email, role }, timezone,
+              storeName, storeAddress,
               plan, features, role, cashierSeats, trialEndsAt }
 
     PUT    /password       Auth + Admin required
@@ -874,7 +881,9 @@
   ──────────────────────────────────────────────────────────────
 
     GET    /               Auth required
-      → 200 { success, data: { timezone } }
+      → 200 { success, data: { timezone, storeName, storeAddress } }
+      All three live on the store row and are shared by every user of the
+      store (owner + cashiers).
 
     PUT    /timezone       Auth + Admin required
       Body: { timezone }   IANA zone, validated server-side
@@ -883,6 +892,15 @@
       Changing the timezone never rewrites past records (timestamps are
       absolute UTC moments) — it only changes how days are bucketed and
       displayed going forward.
+
+    PUT    /store-info     Auth + Admin required
+      Body: { storeName, storeAddress }   (name ≤ 60, address ≤ 120 chars)
+      → 200 { success, data: { storeName, storeAddress } }
+      → 400 too long
+      Stored on the store row (NOT per-user preferences), so a cashier's
+      receipts carry the same identity as the owner's. Printed on receipts
+      and drives the sidebar brand. login + GET /me also return storeName/
+      storeAddress so the client renders them without an extra call.
 
     Note: POST /api/auth/login and GET /api/auth/me now also return the
     current store `timezone` so the frontend can render dates in store
@@ -958,7 +976,8 @@
   ──────────────────────────────────────────────────────────────
 
     GET    /api/health     Public
-      → 200 { success, message, db: "Connected — N products" }
+      → 200 { success, message, db: "Connected" }
+      Connectivity probe only (SELECT 1) — exposes no tenant data.
 
 ================================================================
 [6. MIDDLEWARE STACK]
@@ -1033,6 +1052,9 @@
 
     GROQ_API_KEY       Groq API key (primary AI provider)
                        Free at console.groq.com — no billing required
+    DEEPSEEK_API_KEY   Optional fallback provider. When set, AI requests that hit
+                       a Groq 429/503 retry on DeepSeek V3; when absent, the Groq
+                       error surfaces. Not required to boot.
     AI_CACHE_TTL_SEC   300      Cache TTL for AI responses in seconds
     AI_MAX_TOKENS      600      Token budget cap per AI request
 
@@ -1351,7 +1373,9 @@
       - Account settings page: profile info, theme toggle,
         custom tax rate input (any percentage, 0–100), customizable stock status colors
       - Store Info: store name (max 21 chars) + address (max 80), auto-saved
-        and synced to the DB; rendered as the header on printed receipts
+        to the STORE row via PUT /api/settings/store-info (shared by the owner
+        and all cashiers, so every operator's receipts match) and cached from
+        the login/getMe response; rendered as the header on printed receipts
         (POS + History). The store name also drives the sidebar brand,
         falling back to "Celso POS" when blank.
       - New Order: a single "numpad on desktop" toggle (off by default);
@@ -2248,12 +2272,15 @@
       - Set every secret as a platform env var — never commit .env
 
     Module 7.5 — First-run setup
-      - Owner registers the first account via the register page. The FIRST
-        account to register is auto-promoted to admin (it's the store owner);
-        every later signup defaults to cashier (staff on the shared device).
-        Admins can restock, use Finance, delete products, and change settings;
-        cashiers are blocked from all four. No manual DB role change is needed.
-      - In Account Settings: set store name + address and the store timezone
+      - Owner registers via the register page. Under Phase 6.5 EVERY signup
+        creates its own ISOLATED store and the signer is that store's
+        owner-admin (a 14-day no-card Pro trial starts automatically). There is
+        no "first account is admin, rest are cashiers" rule anymore — cashiers
+        are sub-accounts the owner adds later on the Team page. Admins can
+        restock, use Finance, delete products, and change settings; cashiers are
+        limited to New Order + Sales History. No manual DB role change is needed.
+      - In Account Settings: set store name + address (saved to the store row via
+        PUT /api/settings/store-info) and the store timezone
 
     Module 7.6 — Backups & recovery (financial data — non-negotiable)
       - Enable automated daily database backups on the MySQL host

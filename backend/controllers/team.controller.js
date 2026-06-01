@@ -1,9 +1,10 @@
 // backend/controllers/team.controller.js
 //
 // Team management (Phase 6.5 §7). The owner-admin creates/suspends cashier
-// sub-accounts for their store. All routes are admin-only and store-scoped; new
-// cashiers are forced to change their temp password on first login. Seat count
-// is capped by the store's plan (Free 0 / Plus 1 / Pro 2).
+// sub-accounts for their store. All routes are admin-only and store-scoped.
+// Cashier credentials are ADMIN-MANAGED: the owner sets the password here and
+// can reset it anytime; cashiers never change their own (no forced-change flow).
+// Seat count is capped by the store's plan (Free 0 / Plus 1 / Pro 2).
 
 const bcrypt = require('bcrypt');
 const pool   = require('../config/db.config');
@@ -42,7 +43,8 @@ const list = async (req, res, next) => {
   }
 };
 
-// POST /api/team — create a cashier (forced password change on first login).
+// POST /api/team — create a cashier. The owner sets the temp password and shares
+// it with the staffer; there is no forced first-login change (admin-managed).
 const create = async (req, res, next) => {
   try {
     const { fullName, email, password } = req.body;
