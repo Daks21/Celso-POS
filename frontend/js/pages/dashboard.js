@@ -671,9 +671,9 @@ async function renderBillingCards() {
     if (td > 3) return;
     if (localStorage.getItem('celso_bill_snooze') === _baTodayKey()) return;
     _baShow(slot, 'warn', 'clock',
-      '<b>Your free Pro trial ends in ' + td + ' day' + (td === 1 ? '' : 's') + '.</b> ' +
-      'Subscribe to keep Finance, Analytics and Os.',
-      'plus', 'See plans', function () { localStorage.setItem('celso_bill_snooze', _baTodayKey()); });
+      '<b>Your free trial ends in ' + td + ' day' + (td === 1 ? '' : 's') + '.</b> ' +
+      'Subscribe to keep Finance and Analytics.',
+      'basic', 'See plans', function () { localStorage.setItem('celso_bill_snooze', _baTodayKey()); });
     return;
   }
 

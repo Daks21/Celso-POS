@@ -53,10 +53,11 @@ const CASHIER_FEATURES = ['order', 'history'];
 function resolveBilling(store, now = new Date()) {
   const trialEndsAt = (store && store.trial_ends_at) || null;
 
-  // No-card Pro trial (status set at signup), still inside the window.
+  // No-card 14-day trial (status set at signup) grants BASIC — Finance + Analytics,
+  // the features a small store cares about, without giving away AI / extra seats.
   if (store && store.subscription_status === 'trialing' && trialEndsAt &&
       new Date(trialEndsAt) > now) {
-    return { plan: 'pro', state: 'trial', paidUntil: null, graceEndsAt: null, trialEndsAt };
+    return { plan: 'basic', state: 'trial', paidUntil: null, graceEndsAt: null, trialEndsAt };
   }
 
   const paid = store && store.plan && store.plan !== 'free' && !!PLANS[store.plan];

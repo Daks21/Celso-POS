@@ -33,7 +33,7 @@ const register = async (req, res, next) => {
 
     // Phase 6.5: every signup creates its OWN isolated store, and the signer is
     // that store's owner-admin (this replaces the single-tenant "first account
-    // is admin" rule). The store starts on a 14-day, no-card Pro trial; on
+    // is admin" rule). The store starts on a 14-day, no-card BASIC trial; on
     // expiry effectivePlan() drops it to Free with zero billing involvement.
     // Store row, owner user, and the owner back-link are written in one
     // transaction so a half-created store can never exist.

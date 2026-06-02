@@ -1,5 +1,10 @@
 const OnboardingWelcome = (() => {
 
+  // Set in render(): the owner of a freshly-created (trialing) store gets a
+  // celebratory "14-day Basic trial" gift + confetti on panel 2. Cashiers and
+  // non-trial stores don't (the trial is store-level and granted at signup).
+  let _giftEligible = false;
+
   const STORE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"
     fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
     <path d="M3 9l1-5h16l1 5"/>
@@ -35,6 +40,25 @@ const OnboardingWelcome = (() => {
     // Pre-select the device's detected zone; the owner can change it here or
     // later in Account Settings.
     const isAdmin = role === 'admin';
+
+    // Trial gift (owner of a trialing store): a 14-day Basic trial reveal on
+    // panel 2 with confetti. Reads the cached entitlements snapshot.
+    let _ent = (typeof getEntitlements === 'function') ? getEntitlements() : null;
+    let onTrial = !!(_ent && (_ent.state === 'trial' ||
+      (_ent.trialEndsAt && new Date(_ent.trialEndsAt) > new Date())));
+    _giftEligible = isAdmin && onTrial;
+    let trialDays = 14;
+    if (_ent && _ent.trialEndsAt) {
+      const dl = Math.ceil((new Date(_ent.trialEndsAt).getTime() - Date.now()) / 86400000);
+      if (dl > 0) trialDays = dl;
+    }
+    const giftHtml = _giftEligible
+      ? '<div class="onb-gift" style="margin:4px 0 2px;padding:12px 14px;border-radius:12px;' +
+          'background:rgba(90,158,111,.1);border:1px solid rgba(90,158,111,.35);' +
+          'color:var(--color-text);font-size:14px;line-height:1.45;text-align:center">' +
+          '🎁 <b>' + trialDays + ' days of Basic, free</b><br>' +
+          'Finance &amp; Analytics are on us — explore them during your trial.</div>'
+      : '';
 
     // Build the role-aware step pills for panel 1.
     const steps = STEPS_BY_ROLE[role] || STEPS_BY_ROLE.cashier;
@@ -95,6 +119,7 @@ const OnboardingWelcome = (() => {
       </div>
       <h2>You're all set.</h2>
       <p id="onb-panel-2-desc">${desc}</p>
+      ${giftHtml}
       ${tzFieldHtml}
       <button type="button" class="onb-btn-primary" id="onb-welcome-done">Let's Go</button>
     </div>
@@ -178,6 +203,7 @@ const OnboardingWelcome = (() => {
       dot2.classList.add('onb-dot--active');
       var done = document.getElementById('onb-welcome-done');
       if (done) done.focus();
+      if (_giftEligible) _confetti();   // celebrate the trial reveal
     } else {
       panel2.classList.add('onb-hidden');
       panel1.classList.remove('onb-hidden');
@@ -198,6 +224,45 @@ const OnboardingWelcome = (() => {
 
     if (typeof OnboardingChecklist !== 'undefined') OnboardingChecklist.init();
     if (typeof SidebarProgress     !== 'undefined') SidebarProgress.init();
+  }
+
+  // Lightweight, dependency-free confetti burst from the top-centre. Respects
+  // prefers-reduced-motion (skips entirely). Self-removes after ~2.2s.
+  function _confetti() {
+    try {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      var canvas = document.createElement('canvas');
+      canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:2147483000';
+      document.body.appendChild(canvas);
+      var ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+      var colors = ['#5a9e6f', '#eab308', '#dc2626', '#3b82f6', '#ec4899', '#f97316'];
+      var parts = [];
+      for (var i = 0; i < 130; i++) {
+        parts.push({
+          x: canvas.width / 2, y: canvas.height / 3,
+          vx: (Math.random() - 0.5) * 14, vy: Math.random() * -13 - 3,
+          size: Math.random() * 6 + 4, color: colors[i % colors.length],
+          rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.4,
+        });
+      }
+      var start = performance.now();
+      (function frame(t) {
+        var elapsed = t - start;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (var j = 0; j < parts.length; j++) {
+          var p = parts[j];
+          p.vy += 0.32; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+          ctx.globalAlpha = Math.max(0, 1 - elapsed / 2200);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          ctx.restore();
+        }
+        if (elapsed < 2200) requestAnimationFrame(frame);
+        else if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      })(start);
+    } catch (e) { /* confetti is decorative — never block the flow */ }
   }
 
   return { init };
