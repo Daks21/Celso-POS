@@ -207,9 +207,13 @@ function guardCurrentPage() {
     return;
   }
 
-  // Owner/admin plan-gate.
+  // Owner/admin plan-gate. Phase 6.6: instead of bouncing to the dashboard,
+  // show an in-page locked overlay (blurred teaser + Upgrade CTA) so the page's
+  // 402 data calls don't spray red toasts and the owner still sees the feature.
   var feature = PAGE_FEATURE[page];
   if (feature && e.features.indexOf(feature) === -1 && page !== 'dashboard.html') {
+    if (typeof LockedOverlay !== 'undefined') { LockedOverlay.show(feature); return; }
+    // Fallback if the overlay component isn't loaded: redirect as before.
     try { sessionStorage.setItem('os_upgrade_redirect', '1'); } catch (_) {}
     window.location.replace('dashboard.html');
   }

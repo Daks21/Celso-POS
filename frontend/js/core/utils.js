@@ -44,6 +44,9 @@ function hideLoading(selector) {
 }
 
 function showApiError(message) {
+  // Suppress the red toast cascade when a feature-gate overlay is up: a locked
+  // page's in-flight data calls all 402, and the lock card already explains why.
+  if (typeof LockedOverlay !== 'undefined' && LockedOverlay.isActive()) return;
   _showToast(message || 'Something went wrong.', 'error');
 }
 

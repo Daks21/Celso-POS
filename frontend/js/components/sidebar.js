@@ -76,20 +76,18 @@ function isNavEntitled(page) {
   return hasEntitlement(feature);
 }
 
-// Turn a nav link into the locked (upsell) state: greyed, a trailing lock icon,
-// and a click that opens the Upgrade modal instead of navigating. Idempotent.
+// Mark a nav link as locked (upsell): greyed with a trailing lock icon. It still
+// NAVIGATES — the destination page renders an in-page locked overlay (6.6), so
+// the owner sees a blurred teaser + Upgrade CTA rather than a dead link or a
+// modal. Idempotent.
 function lockNavLink(link) {
   if (link.classList.contains('nav-link--locked')) return;
   link.classList.add('nav-link--locked');
-  link.setAttribute('aria-disabled', 'true');
+  link.title = 'Upgrade to unlock';
   var lock = document.createElement('i');
   lock.setAttribute('data-lucide', 'lock');
   lock.className = 'nav-lock';
   link.appendChild(lock);
-  link.addEventListener('click', function (e) {
-    e.preventDefault();
-    if (typeof BillingModal !== 'undefined') BillingModal.open();
-  });
 }
 
 // Phase 6.6: OWNERS see locked paid links (show-locked -> click opens the Upgrade
@@ -357,14 +355,9 @@ function initMobileNav() {
   });
 
   panel.addEventListener('click', function(e) {
-    // Locked (upsell) link: open the Upgrade modal instead of navigating.
-    var lockedLink = e.target.closest('.mobile-nav-link--locked');
-    if (lockedLink) {
-      e.preventDefault();
-      closeMobileNav();
-      if (typeof BillingModal !== 'undefined') BillingModal.open();
-      return;
-    }
+    // Locked links navigate like any other (6.6) — the destination page shows
+    // the in-page locked overlay. Just keep the tap from closing via the
+    // document-level handler before navigation.
     e.stopPropagation();
   });
 
