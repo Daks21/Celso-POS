@@ -171,6 +171,14 @@ function populateUserInfo() {
     var el = document.getElementById(id);
     if (el) el.textContent = currentUser.fullName;
   });
+  // Role label: the markup hard-codes "Cashier" as a placeholder. Replace it with
+  // the real role so the owner isn't mislabelled as a cashier on every page.
+  // 'admin' shows as "Owner" to match the Team page's per-person "Owner" pill.
+  var roleLabel = currentUser.role === 'admin' ? 'Owner'
+                : currentUser.role === 'cashier' ? 'Cashier'
+                : (currentUser.role || 'Cashier');
+  document.querySelectorAll('.sidebar-user-card .user-role, .mobile-nav-user-info .user-role')
+    .forEach(function (el) { el.textContent = roleLabel; });
 }
 
 function initUserPopup() {
