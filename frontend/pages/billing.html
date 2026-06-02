@@ -28,6 +28,16 @@
     .bill-chip--warn{background:rgba(255,180,50,.14);color:#b45309}
     .bill-chip--bad{background:rgba(220,38,38,.1);color:var(--color-error)}
 
+    .bill-countdown{min-width:220px}
+    .bill-cd-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
+    .bill-cd-text{font-size:12px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:var(--color-text-muted)}
+    .bill-cd-days{font-size:15px;font-weight:700;color:var(--color-text)}
+    .bill-cd-bar{height:6px;border-radius:var(--radius-full);background:var(--color-background);overflow:hidden}
+    .bill-cd-fill{height:100%;border-radius:var(--radius-full);background:var(--color-primary);transition:width .3s ease}
+    .bill-countdown.is-warn .bill-cd-fill{background:#eab308}
+    .bill-countdown.is-bad  .bill-cd-fill{background:var(--color-error)}
+    .bill-countdown.is-bad  .bill-cd-days{color:var(--color-error)}
+
     .bill-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
     .bill-card{position:relative;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:20px;display:flex;flex-direction:column;box-shadow:var(--shadow-sm)}
     .bill-card.is-current{border-color:var(--color-primary);box-shadow:0 0 0 1px var(--color-primary),var(--shadow-md)}
@@ -98,6 +108,13 @@
             <div class="bill-banner-label">Your plan</div>
             <div class="bill-plan-now" id="bill-plan-now">—</div>
             <div class="bill-chips" id="bill-chips"></div>
+          </div>
+          <div class="bill-countdown" id="bill-countdown" style="display:none">
+            <div class="bill-cd-row">
+              <span class="bill-cd-text" id="bill-cd-text"></span>
+              <span class="bill-cd-days" id="bill-cd-days"></span>
+            </div>
+            <div class="bill-cd-bar"><div class="bill-cd-fill" id="bill-cd-fill"></div></div>
           </div>
         </div>
 

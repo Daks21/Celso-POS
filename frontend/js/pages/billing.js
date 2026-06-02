@@ -33,19 +33,49 @@
     else if (d.state === 'trial')  html += chip('Free trial', 'ok');
     else                           html += chip('Free plan', '');
 
-    if (d.state === 'trial' && d.trialEndsAt) {
-      var n = daysLeft(d.trialEndsAt);
-      html += chip(n + ' day' + (n === 1 ? '' : 's') + ' left', 'warn');
-    } else if (d.state === 'grace' && d.graceEndsAt) {
-      var g = daysLeft(d.graceEndsAt);
-      html += chip(g + ' day' + (g === 1 ? '' : 's') + ' grace', 'warn');
-    } else if (d.state === 'active' && d.paidUntil) {
-      html += chip('Renews ' + shortDate(d.paidUntil), '');
-    }
+    // Active = a calm renewal date (no countdown). Trial/grace day-counts live in
+    // the countdown bar instead (see renderCountdown).
+    if (d.state === 'active' && d.paidUntil) html += chip('Renews ' + shortDate(d.paidUntil), '');
 
     html += chip(d.seatsUsed + '/' + d.seatsTotal + ' cashier seat' + (d.seatsTotal === 1 ? '' : 's'), '');
     if (d.pendingClaim) html += chip('Payment under review', 'warn');
     chipsEl.innerHTML = html;
+  }
+
+  // State-aware countdown: a prominent bar for the ACTIONABLE states only —
+  // trial (days left of 14) and grace (days before features pause, of 3). Active
+  // paid shows no countdown (just the calm "Renews" chip); free shows nothing.
+  var TRIAL_TOTAL_DAYS = 14;
+  var GRACE_TOTAL_DAYS = 3;
+  function renderCountdown(d) {
+    var el = document.getElementById('bill-countdown');
+    if (!el) return;
+    var textEl = document.getElementById('bill-cd-text');
+    var daysEl = document.getElementById('bill-cd-days');
+    var fillEl = document.getElementById('bill-cd-fill');
+    el.classList.remove('is-warn', 'is-bad');
+
+    function fillPct(remaining, total) {
+      return Math.max(4, Math.min(100, Math.round((remaining / total) * 100)));
+    }
+
+    if (d.state === 'trial' && d.trialEndsAt) {
+      var n = daysLeft(d.trialEndsAt);
+      textEl.textContent = 'Free trial ends';
+      daysEl.textContent = n + ' day' + (n === 1 ? '' : 's') + ' left';
+      fillEl.style.width = fillPct(n, TRIAL_TOTAL_DAYS) + '%';
+      if (n <= 3) el.classList.add('is-warn');
+      el.style.display = '';
+    } else if (d.state === 'grace' && d.graceEndsAt) {
+      var g = daysLeft(d.graceEndsAt);
+      textEl.textContent = 'Features pause in';
+      daysEl.textContent = g + ' day' + (g === 1 ? '' : 's');
+      fillEl.style.width = fillPct(g, GRACE_TOTAL_DAYS) + '%';
+      el.classList.add('is-bad');
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
+    }
   }
 
   function renderPlans(d) {
@@ -87,6 +117,7 @@
     var d = res.data;
     planNowEl.textContent = LABELS[d.plan] || d.plan;
     renderChips(d);
+    renderCountdown(d);
     renderPlans(d);
     if (!d.gcash || !d.gcash.qrUrl) {
       noteEl.textContent = 'Online payments aren’t set up yet — upgrades will be available once the GCash QR is configured.';
