@@ -58,6 +58,15 @@
   color: var(--color-text);
 }
 
+/* Keyboard focus: a brand-green ring instead of the browser's default outline.
+   :focus-visible keeps it keyboard-only, so a mouse click doesn't leave a ring. */
+.onb-btn-primary:focus-visible,
+.onb-btn-ghost:focus-visible,
+.onb-welcome-close:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 @keyframes onbFadeUp {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }

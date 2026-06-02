@@ -400,4 +400,18 @@ html[data-theme="dark"] .dash-heatmap-cell[data-level="4"] { background-color: #
   .dashboard-chart-canvas-wrapper {
     height: 160px;
   }
+
+  /* Recent Transactions overflowed its card on phones: the 360px min-width +
+     16px cell padding pushed the Total column off the right edge (needs a
+     horizontal scroll to read the most important number). Drop the min-width
+     and tighten cell padding so all four columns fit a ~286–316px card.
+     Scoped to dashboard tables only — other pages' tables are untouched. */
+  .dashboard-section .data-table {
+    min-width: 0;
+  }
+  .dashboard-section .data-table th,
+  .dashboard-section .data-table td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
 }
