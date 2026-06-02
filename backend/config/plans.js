@@ -73,6 +73,18 @@ function resolveBilling(store, now = new Date()) {
 // tenant.middleware (req.plan) and requireFeature, which expect a bare key.
 const effectivePlan = (store) => resolveBilling(store).plan;
 
+// Add one calendar month to a date, anchored to the day-of-month, clamping to the
+// target month's last day so Jan-31 + 1mo = Feb-28/29 (not a roll-over into
+// March). UTC throughout — all DATETIMEs are stored UTC. Used by the billing
+// approval to extend paid_until from the anchor date.
+function addOneMonth(date) {
+  const d   = new Date(date);
+  const day = d.getUTCDate();
+  d.setUTCMonth(d.getUTCMonth() + 1);
+  if (d.getUTCDate() < day) d.setUTCDate(0);   // overflowed a shorter month -> clamp back
+  return d;
+}
+
 const planFeatures = (p) => (PLANS[p] || PLANS.free).features;
 
 function hasFeature(plan, role, feature) {
@@ -105,5 +117,5 @@ function entitlements(store, role) {
 
 module.exports = {
   PLANS, CASHIER_FEATURES, GRACE_DAYS,
-  resolveBilling, effectivePlan, planFeatures, hasFeature, cashierSeats, entitlements,
+  resolveBilling, effectivePlan, addOneMonth, planFeatures, hasFeature, cashierSeats, entitlements,
 };

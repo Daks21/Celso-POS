@@ -27,6 +27,7 @@ const financeRouter    = require('./routes/finance.routes');
 const aiRouter         = require('./routes/ai.routes');
 const settingsRouter   = require('./routes/settings.routes');
 const billingRouter    = require('./routes/billing.routes');
+const adminRouter      = require('./routes/admin.routes');
 const teamRouter       = require('./routes/team.routes');
 const errorMiddleware  = require('./middleware/error.middleware');
 const pool             = require('./config/db.config');
@@ -88,7 +89,14 @@ app.use(morgan('dev'));
 // (Phase 6.6: the Lemon Squeezy raw-body webhook that used to mount before this
 // is gone — billing is the manual GCash bridge now. A future PayMongo webhook
 // would re-introduce a raw-body route here; see celsopos_P6-6.txt §13.)
-app.use(express.json({ limit: '10kb' }));
+// The admin QR upload (POST /api/admin/qr) carries a base64 image and needs a
+// larger limit, so it is skipped here and parsed by its own express.json({1mb})
+// in admin.routes — otherwise this 10kb parser would 413 it first.
+const jsonParser = express.json({ limit: '10kb' });
+app.use((req, res, next) => {
+  if (req.method === 'POST' && req.path === '/api/admin/qr') return next();
+  jsonParser(req, res, next);
+});
 
 // --- Rate limiting on auth endpoints ---
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
@@ -130,6 +138,7 @@ app.use('/api/finance',   financeRouter);
 app.use('/api/ai',        aiRouter);
 app.use('/api/settings',  settingsRouter);
 app.use('/api/billing',   billingRouter);
+app.use('/api/admin',     adminRouter);
 app.use('/api/team',      teamRouter);
 
 // --- Unknown API route → JSON 404 (don't fall through to the static layer) ---

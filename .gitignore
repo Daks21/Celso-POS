@@ -26,6 +26,9 @@ npm-debug.log*
 # Test output
 coverage/
 
+# Operator-uploaded GCash QR images (runtime data, created on demand)
+frontend/assets/uploads/
+
 # Temporary / scratch files
 test_*.js
 verify_*.js
