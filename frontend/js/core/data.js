@@ -128,6 +128,7 @@ function collectCurrentPreferences(userId) {
     osEnabled:                userPrefs.osEnabled === true,
     advancedAnalytics:        userPrefs.advancedAnalytics === true,
     monthlyRevenueGoal:       userPrefs.monthlyRevenueGoal != null ? userPrefs.monthlyRevenueGoal : null,
+    promoDismissedUntil:      userPrefs.promoDismissedUntil || null,
     storeName:                localStorage.getItem('storeName')    || '',
     storeAddress:             localStorage.getItem('storeAddress') || '',
     numpadOnDesktop:          localStorage.getItem('numpadOnDesktop') === 'true',

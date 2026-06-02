@@ -566,9 +566,135 @@ if (currentUser && userName) {
   userName.textContent = currentUser.fullName;
 }
 
+// ── Billing reminder / upgrade promo card (Phase 6.6; owner only) ──
+// At most one card, priority: grace renewal > trial ending (<=3d) > free upsell.
+// Grace/trial use a daily snooze (localStorage day-key — fine that it resets on
+// the shared-device logout wipe, since those are urgent). The promo uses a 7-day
+// SERVER-side cooldown (user preferences) so it survives that wipe. The server
+// enforces plans; this is purely a nudge.
+
+var PROMO_BENEFITS = [
+  'Track cashflow and profit with Finance.',
+  'See your best sellers and trends in Analytics.',
+  'Ask Os, your AI assistant, about your store.',
+  'Add a cashier so your staff can ring up sales.',
+];
+
+function _baInjectStyles() {
+  if (document.getElementById('ba-styles')) return;
+  var css = ''
+    + '.ba-card{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:16px;border-radius:var(--radius-md);border:1px solid var(--color-border);background:var(--color-surface);box-shadow:var(--shadow-sm)}'
+    + '.ba-card.ba-warn{border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.06)}'
+    + '.ba-card.ba-promo{border-color:rgba(90,158,111,.4);background:rgba(90,158,111,.06)}'
+    + '.ba-ico{flex-shrink:0;width:22px;height:22px;color:var(--color-primary)}'
+    + '.ba-warn .ba-ico{color:var(--color-error)}'
+    + '.ba-body{flex:1;font-size:14px;color:var(--color-text);line-height:1.35}'
+    + '.ba-cta{flex-shrink:0;padding:8px 14px;border:none;border-radius:var(--radius-sm);background:var(--color-primary);color:#fff;font-family:inherit;font-weight:600;font-size:13px;cursor:pointer}'
+    + '.ba-x{flex-shrink:0;background:none;border:none;color:var(--color-text-muted);font-size:20px;line-height:1;cursor:pointer;padding:0 4px}'
+    + '@media(max-width:560px){.ba-card{flex-wrap:wrap}.ba-body{flex:1 1 100%}}';
+  var s = document.createElement('style'); s.id = 'ba-styles'; s.textContent = css;
+  document.head.appendChild(s);
+}
+
+function _baTodayKey() { return new Date().toISOString().slice(0, 10); }
+function _baPlanLabel(p) { return ({ free: 'Free', basic: 'Basic', plus: 'Plus', pro: 'Pro' })[p] || p; }
+function _baDaysLeft(iso) {
+  var e = new Date(iso).getTime();
+  return isNaN(e) ? 0 : Math.max(0, Math.ceil((e - Date.now()) / 86400000));
+}
+function _baUserPrefs() {
+  try { return JSON.parse(localStorage.getItem('prefs_' + ((currentUser && currentUser.id) || 'guest')) || '{}'); }
+  catch (e) { return {}; }
+}
+function _baSaveUserPref(k, v) {
+  try {
+    var key = 'prefs_' + ((currentUser && currentUser.id) || 'guest');
+    var p = JSON.parse(localStorage.getItem(key) || '{}');
+    p[k] = v;
+    localStorage.setItem(key, JSON.stringify(p));
+    if (currentUser && currentUser.id && typeof syncPreferencesToDb === 'function') {
+      syncPreferencesToDb(currentUser.id);   // persist server-side (survives logout)
+    }
+  } catch (e) {}
+}
+
+function _baWire(slot, planHint, onDismiss) {
+  var cta = slot.querySelector('#ba-cta');
+  var x   = slot.querySelector('#ba-x');
+  if (cta) cta.addEventListener('click', function () {
+    if (typeof BillingModal !== 'undefined') BillingModal.open(planHint);
+  });
+  if (x) x.addEventListener('click', function () {
+    try { if (onDismiss) onDismiss(); } catch (e) {}
+    slot.innerHTML = '';
+  });
+}
+
+function _baShow(slot, kind, iconName, html, planHint, ctaLabel, onDismiss) {
+  slot.innerHTML = '<div class="ba-card ba-' + kind + '">' +
+    '<i data-lucide="' + iconName + '" class="ba-ico"></i>' +
+    '<div class="ba-body">' + html + '</div>' +
+    '<button type="button" class="ba-cta" id="ba-cta">' + ctaLabel + '</button>' +
+    '<button type="button" class="ba-x" id="ba-x" aria-label="Dismiss">&times;</button>' +
+    '</div>';
+  _baWire(slot, planHint, onDismiss);
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+async function renderBillingCards() {
+  var slot = document.getElementById('bill-alert-slot');
+  if (!slot) return;
+  var role = (currentUser && currentUser.role) ||
+             (typeof getEntitlements === 'function' && getEntitlements() && getEntitlements().role);
+  if (role !== 'admin') return;   // owner-only (cashiers have no dashboard anyway)
+
+  var res;
+  try { res = await getBillingState(); } catch (e) { return; }
+  if (!res || !res.success) return;
+  var d = res.data;
+  _baInjectStyles();
+
+  // 1) Grace renewal reminder (daily snooze).
+  if (d.state === 'grace') {
+    if (localStorage.getItem('celso_bill_snooze') === _baTodayKey()) return;
+    var gd = _baDaysLeft(d.graceEndsAt);
+    _baShow(slot, 'warn', 'alert-triangle',
+      '<b>Payment due.</b> Your ' + _baPlanLabel(d.plan) + ' plan is past due — ' +
+      gd + ' day' + (gd === 1 ? '' : 's') + ' left before paid features pause.',
+      d.plan, 'Renew now', function () { localStorage.setItem('celso_bill_snooze', _baTodayKey()); });
+    return;
+  }
+
+  // 2) Trial ending soon (<=3 days; daily snooze, shared key).
+  if (d.state === 'trial' && d.trialEndsAt) {
+    var td = _baDaysLeft(d.trialEndsAt);
+    if (td > 3) return;
+    if (localStorage.getItem('celso_bill_snooze') === _baTodayKey()) return;
+    _baShow(slot, 'warn', 'clock',
+      '<b>Your free Pro trial ends in ' + td + ' day' + (td === 1 ? '' : 's') + '.</b> ' +
+      'Subscribe to keep Finance, Analytics and Os.',
+      'plus', 'See plans', function () { localStorage.setItem('celso_bill_snooze', _baTodayKey()); });
+    return;
+  }
+
+  // 3) Free upsell promo (free plan only; 7-day server-side cooldown).
+  if (d.plan === 'free' && d.state === 'free') {
+    var until = _baUserPrefs().promoDismissedUntil;
+    if (until && new Date(until).getTime() > Date.now()) return;
+    var benefit = PROMO_BENEFITS[Math.floor(Date.now() / (7 * 86400000)) % PROMO_BENEFITS.length];
+    _baShow(slot, 'promo', 'sparkles',
+      '<b>Do more with a paid plan.</b> ' + benefit,
+      'basic', 'See plans', function () {
+        _baSaveUserPref('promoDismissedUntil', new Date(Date.now() + 7 * 86400000).toISOString());
+      });
+    return;
+  }
+}
+
 // ── Init ──
 
 async function initDashboard() {
+  renderBillingCards();   // 6.6 — grace reminder / upgrade promo (owner only; async, non-blocking)
   // Summary cards + stock alerts
   let summary = {};
   try {

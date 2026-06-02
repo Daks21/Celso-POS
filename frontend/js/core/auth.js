@@ -281,5 +281,9 @@ function _cachePreferences(prefs, userId) {
   } else {
     delete userPrefs.monthlyRevenueGoal;
   }
+  // 6.6 upgrade-promo cooldown — server-persisted so it survives the shared-device
+  // logout wipe (a localStorage-only cooldown would reset on every login).
+  if (p.promoDismissedUntil) userPrefs.promoDismissedUntil = p.promoDismissedUntil;
+  else delete userPrefs.promoDismissedUntil;
   localStorage.setItem(userPrefsKey, JSON.stringify(userPrefs));
 }
