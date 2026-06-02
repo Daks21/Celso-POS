@@ -128,6 +128,15 @@
   font-weight: 600;
 }
 
+/* Show-locked nav (Phase 6.6): a paid feature the owner's plan doesn't include
+   is shown greyed with a lock; clicking opens the Upgrade modal (cashiers hide
+   these links instead). The trailing lock icon is pushed to the right. */
+.nav-link--locked { color: var(--color-text-muted); opacity: .7; }
+.nav-link--locked:hover { background-color: rgba(90, 158, 111, 0.06); opacity: 1; }
+.nav-link--locked .nav-lock { width: 14px; height: 14px; margin-left: auto; opacity: .8; }
+.mobile-nav-link--locked { color: var(--color-text-muted); opacity: .7; }
+.mobile-nav-link--locked .nav-lock { width: 14px; height: 14px; margin-left: auto; }
+
 /* ── Sidebar User Area ── */
 
 .sidebar-user-area {

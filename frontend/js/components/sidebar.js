@@ -76,9 +76,31 @@ function isNavEntitled(page) {
   return hasEntitlement(feature);
 }
 
+// Turn a nav link into the locked (upsell) state: greyed, a trailing lock icon,
+// and a click that opens the Upgrade modal instead of navigating. Idempotent.
+function lockNavLink(link) {
+  if (link.classList.contains('nav-link--locked')) return;
+  link.classList.add('nav-link--locked');
+  link.setAttribute('aria-disabled', 'true');
+  var lock = document.createElement('i');
+  lock.setAttribute('data-lucide', 'lock');
+  lock.className = 'nav-lock';
+  link.appendChild(lock);
+  link.addEventListener('click', function (e) {
+    e.preventDefault();
+    if (typeof BillingModal !== 'undefined') BillingModal.open();
+  });
+}
+
+// Phase 6.6: OWNERS see locked paid links (show-locked -> click opens the Upgrade
+// modal); CASHIERS hide them entirely (no upselling staff). Entitled links are
+// left untouched. Fails open when entitlements are unknown (isNavEntitled true).
 function applyNavEntitlements() {
+  var cashier = isCashierRole();
   document.querySelectorAll('.nav-link[data-page]').forEach(function(link) {
-    if (!isNavEntitled(link.getAttribute('data-page'))) link.style.display = 'none';
+    if (isNavEntitled(link.getAttribute('data-page'))) return;  // entitled — leave as-is
+    if (cashier) { link.style.display = 'none'; return; }       // staff: hide
+    lockNavLink(link);                                          // owner: show-locked
   });
 }
 
@@ -268,8 +290,12 @@ function initMobileNav() {
     { href: 'analytics.html', icon: 'bar-chart-2',       label: 'Analytics'  },
     { href: 'history.html',   icon: 'clock',             label: 'History'    },
   ].filter(function(item) {
-    // Same entitlement gate as the desktop nav (map href → data-page key).
-    return isNavEntitled(item.href.replace('.html', ''));
+    // Same role-aware gate as the desktop nav (map href → data-page key):
+    // owners keep non-entitled items as locked upsell; cashiers hide them.
+    var entitled = isNavEntitled(item.href.replace('.html', ''));
+    if (entitled) { item.locked = false; return true; }
+    if (isCashierRole()) return false;
+    item.locked = true; return true;
   });
 
   // Owner-only Team/Billing links (same gating as the desktop sidebar).
@@ -279,8 +305,10 @@ function initMobileNav() {
 
   var linksHtml = navItems.map(function(item) {
     var active = item.href === currentPage ? ' active' : '';
-    return '<a href="' + item.href + '" class="mobile-nav-link' + active + '">' +
-      '<i data-lucide="' + item.icon + '"></i><span>' + item.label + '</span></a>';
+    var locked = item.locked ? ' mobile-nav-link--locked' : '';
+    return '<a href="' + item.href + '" class="mobile-nav-link' + active + locked + '">' +
+      '<i data-lucide="' + item.icon + '"></i><span>' + item.label + '</span>' +
+      (item.locked ? '<i data-lucide="lock" class="nav-lock"></i>' : '') + '</a>';
   }).join('');
 
   // Inject slide-down nav panel
@@ -329,6 +357,14 @@ function initMobileNav() {
   });
 
   panel.addEventListener('click', function(e) {
+    // Locked (upsell) link: open the Upgrade modal instead of navigating.
+    var lockedLink = e.target.closest('.mobile-nav-link--locked');
+    if (lockedLink) {
+      e.preventDefault();
+      closeMobileNav();
+      if (typeof BillingModal !== 'undefined') BillingModal.open();
+      return;
+    }
     e.stopPropagation();
   });
 
