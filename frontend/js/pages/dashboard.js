@@ -591,6 +591,7 @@ function _baInjectStyles() {
     + '.ba-body{flex:1;font-size:14px;color:var(--color-text);line-height:1.35}'
     + '.ba-cta{flex-shrink:0;padding:8px 14px;border:none;border-radius:var(--radius-sm);background:var(--color-primary);color:#fff;font-family:inherit;font-weight:600;font-size:13px;cursor:pointer}'
     + '.ba-x{flex-shrink:0;background:none;border:none;color:var(--color-text-muted);font-size:20px;line-height:1;cursor:pointer;padding:0 4px}'
+    + 'html[data-theme="dark"] .ba-warn .ba-ico{color:#f87171}'   /* lift the red icon on dark */
     + '@media(max-width:560px){.ba-card{flex-wrap:wrap}.ba-body{flex:1 1 100%}}';
   var s = document.createElement('style'); s.id = 'ba-styles'; s.textContent = css;
   document.head.appendChild(s);
