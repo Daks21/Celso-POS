@@ -214,13 +214,8 @@ const OnboardingTour = (() => {
     // Scroll first while overflow is unlocked, then lock. Prevents iOS Safari
     // and some Android browsers from refusing programmatic scroll when the
     // scroll container has overflow:hidden.
-    //
-    // `block: 'nearest'` keeps already-visible targets in place instead of
-    // forcing them to viewport center — that prevented top-of-page targets
-    // (e.g. the finance balance card) from being pushed down with the
-    // tooltip stranded in the lower half of the page.
     if (_scrollEl) _scrollEl.style.overflow = '';
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    scrollTargetIntoComfortableView(el, step);
 
     setTimeout(function () {
       if (_scrollEl) _scrollEl.style.overflow = 'hidden';
@@ -230,7 +225,56 @@ const OnboardingTour = (() => {
       renderDots(index);
       var nextBtn = document.getElementById('onb-tour-next');
       if (nextBtn) nextBtn.focus();
-    }, 350);
+    }, 420);
+  }
+
+  // Scroll the target into a COMFORTABLE position that leaves room for the
+  // tooltip — replacing the old scrollIntoView({block:'nearest'}), which jammed
+  // below-the-fold targets against the viewport edge with no space for the
+  // tooltip (it ended up cramped or pinned to top:8). The rules:
+  //   • already-comfortable targets don't move (no regression for top-of-page
+  //     targets like the finance balance card the previous code protected);
+  //   • a below-fold target is scrolled just enough that it AND the tooltip's
+  //     reserved space both sit inside the viewport with a margin;
+  //   • a target taller than the available band is aligned to the top of that
+  //     band, so the tooltip side has room and updateSpotlight() can clamp the
+  //     highlight to the visible portion instead of bleeding off-screen.
+  // The tooltip side is resolved the same way updateTooltip() does, so the
+  // reserved space is on the correct side (incl. mobile left/right→bottom flips).
+  function scrollTargetIntoComfortableView(el, step) {
+    if (!_scrollEl) return;
+    var MARGIN  = 24;
+    var GAP     = 12;
+    var RESERVE = 200;                 // approx tooltip footprint + breathing room
+    var vh      = window.innerHeight;
+    var rect    = el.getBoundingClientRect();
+    var effPos  = resolvePosition(step.position, rect);
+
+    var reserveTop    = (effPos === 'top')    ? (RESERVE + GAP) : 0;
+    var reserveBottom = (effPos === 'bottom') ? (RESERVE + GAP) : 0;
+    var bandTop    = MARGIN + reserveTop;
+    var bandBottom = vh - MARGIN - reserveBottom;
+    var fitsInBand = rect.height <= (bandBottom - bandTop);
+
+    // Already sitting comfortably within the reserved band → leave it put.
+    if (fitsInBand && rect.top >= bandTop && rect.bottom <= bandBottom) return;
+
+    var desiredTop;
+    if (!fitsInBand) {
+      desiredTop = bandTop;                                      // tall: align top; tooltip side keeps its room
+    } else if (effPos === 'left' || effPos === 'right') {
+      desiredTop = Math.max(bandTop, (vh - rect.height) / 2);    // beside: vertically center-ish
+    } else {
+      desiredTop = Math.max(bandTop, Math.min(rect.top, bandBottom - rect.height));
+    }
+
+    var delta = rect.top - desiredTop; // >0 scroll down (target moves up); <0 scroll up
+    if (Math.abs(delta) < 2) return;
+    // Smooth for short nudges; instant for big jumps so the scroll is finished
+    // before the engine measures the rect (a long smooth animation could still
+    // be mid-flight at that point, mis-placing the spotlight/tooltip).
+    var behavior = Math.abs(delta) > 600 ? 'auto' : 'smooth';
+    _scrollEl.scrollBy({ top: delta, behavior: behavior });
   }
 
   function renderDots(index) {
@@ -247,11 +291,22 @@ const OnboardingTour = (() => {
     var hole = document.getElementById('onb-spotlight-hole');
     if (!hole) return;
 
-    var PAD = 8;
-    var x   = Math.round(rect.left   - PAD);
-    var y   = Math.round(rect.top    - PAD);
-    var w   = Math.max(44, Math.round(rect.width  + PAD * 2));
-    var h   = Math.max(44, Math.round(rect.height + PAD * 2));
+    var PAD    = 8;
+    var EDGE   = 6;   // keep the highlight just inside the viewport edges
+    var vh     = window.innerHeight;
+
+    // Clamp the hole vertically to the viewport. A target taller than the screen
+    // (e.g. a full data table) would otherwise extend the highlight past the
+    // bottom edge, erasing the dimming/focus effect and any visual boundary.
+    // The scroll step positions the target's top sensibly; here we just cap the
+    // visible extent so the spotlight stays a bounded on-screen rectangle.
+    var top    = Math.max(EDGE,        rect.top    - PAD);
+    var bottom = Math.min(vh - EDGE,   rect.bottom + PAD);
+
+    var x = Math.round(rect.left - PAD);
+    var y = Math.round(top);
+    var w = Math.max(44, Math.round(rect.width + PAD * 2));
+    var h = Math.max(44, Math.round(bottom - top));
 
     hole.setAttribute('x',      x);
     hole.setAttribute('y',      y);
