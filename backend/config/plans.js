@@ -2,19 +2,26 @@
 // Pure logic, no DB/network: imported by both the server (feature gating in
 // tenant.middleware) and mirrored to the client (UI nav hiding). Plans resolve
 // from the store's billing state in the DB per request — never from the JWT.
+//
+// Phase 6.6: prices are PHP (manual GCash bridge); paid entitlement runs on a
+// `paid_until` window with a short grace period, resolved lazily per request
+// (no scheduler) exactly like the no-card trial. Lemon Squeezy is retired; the
+// provider-agnostic spine (plan + paid_until + status) carries over to PayMongo.
+
+const GRACE_DAYS = 3;            // days of access after the due date before lapse
 
 const PLANS = {
   free: {
-    label: 'Free', priceUsd: 0, cashierSeats: 0,
+    label: 'Free', pricePhp: 0, cashierSeats: 0,
     features: ['dashboard_basic', 'order', 'inventory', 'products', 'history'],
   },
   plus: {
-    label: 'Plus', priceUsd: 8, cashierSeats: 1, lsVariantEnv: 'LS_VARIANT_PLUS',
+    label: 'Plus', pricePhp: 299, cashierSeats: 1,
     features: ['dashboard_basic', 'dashboard_charts', 'order', 'inventory',
                'products', 'history', 'finance', 'analytics'],
   },
   pro: {
-    label: 'Pro', priceUsd: 12, cashierSeats: 2, lsVariantEnv: 'LS_VARIANT_PRO',
+    label: 'Pro', pricePhp: 499, cashierSeats: 2,
     features: ['dashboard_basic', 'dashboard_charts', 'order', 'inventory',
                'products', 'history', 'finance', 'analytics',
                'advanced_analytics', 'ai'],
@@ -25,15 +32,46 @@ const PLANS = {
 // whatever the store's plan unlocks (a cashier on Pro still can't open Finance).
 const CASHIER_FEATURES = ['order', 'history'];
 
-// Resolve the plan a store is actually entitled to right now. The no-card Pro
-// trial grants 'pro' until trial_ends_at, after which it silently falls to Free
-// with no Lemon Squeezy involvement and no dunning.
-function effectivePlan(store) {
-  if (store.subscription_status === 'active') return store.plan;        // 'plus' | 'pro'
-  if (store.subscription_status === 'trialing' && store.trial_ends_at &&
-      new Date(store.trial_ends_at) > new Date()) return 'pro';         // no-card trial
-  return 'free';
+// Resolve a store's billing situation right now. Returns the effective plan plus
+// a `state` the UI uses for the reminder cards:
+//   trial  — within the 14-day no-card Pro trial (effective Pro).
+//   active — paid and inside the paid_until window (or legacy/grandfathered).
+//   grace  — past the due date but within GRACE_DAYS (still entitled).
+//   free   — everything else (trial expired, lapsed past grace, or never paid).
+// Lapse is never written back to the row; date math decides each request.
+function resolveBilling(store, now = new Date()) {
+  const trialEndsAt = (store && store.trial_ends_at) || null;
+
+  // No-card Pro trial (status set at signup), still inside the window.
+  if (store && store.subscription_status === 'trialing' && trialEndsAt &&
+      new Date(trialEndsAt) > now) {
+    return { plan: 'pro', state: 'trial', paidUntil: null, graceEndsAt: null, trialEndsAt };
+  }
+
+  const paid = store && (store.plan === 'plus' || store.plan === 'pro');
+  // Operator revocation ('canceled') is absolute and wins over any paid_until.
+  if (paid && store.subscription_status !== 'canceled') {
+    if (!store.paid_until) {
+      // No local period set: the legacy single-tenant store (migrated as
+      // pro/active) and any break-glass DB edit that sets status directly. Honor
+      // an 'active' status as entitled with no expiry; anything else -> Free.
+      if (store.subscription_status === 'active') {
+        return { plan: store.plan, state: 'active', paidUntil: null, graceEndsAt: null, trialEndsAt: null };
+      }
+    } else {
+      const due   = new Date(store.paid_until);
+      const grace = new Date(due.getTime() + GRACE_DAYS * 86400000);
+      if (now <= due)   return { plan: store.plan, state: 'active', paidUntil: due, graceEndsAt: grace, trialEndsAt: null };
+      if (now <= grace) return { plan: store.plan, state: 'grace',  paidUntil: due, graceEndsAt: grace, trialEndsAt: null };
+    }
+  }
+
+  return { plan: 'free', state: 'free', paidUntil: null, graceEndsAt: null, trialEndsAt };
 }
+
+// Effective plan string only — kept for backwards compatibility with
+// tenant.middleware (req.plan) and requireFeature, which expect a bare key.
+const effectivePlan = (store) => resolveBilling(store).plan;
 
 const planFeatures = (p) => (PLANS[p] || PLANS.free).features;
 
@@ -45,20 +83,27 @@ function hasFeature(plan, role, feature) {
 const cashierSeats = (p) => (PLANS[p] || PLANS.free).cashierSeats;
 
 // Build the entitlement snapshot the client caches for UI rendering (nav hiding,
-// page guards, FAB/toggle visibility). The server still enforces every feature —
-// this is cosmetic. A cashier's features are pre-intersected with the role cap
-// here so the client can gate purely off the `features` array.
+// page guards, FAB/toggle visibility, the billing reminder/promo cards). The
+// server still enforces every feature — this is cosmetic. A cashier's features
+// are pre-intersected with the role cap here so the client can gate purely off
+// the `features` array.
 function entitlements(store, role) {
-  const plan = effectivePlan(store);
-  let features = planFeatures(plan);
+  const b = resolveBilling(store);
+  let features = planFeatures(b.plan);
   if (role === 'cashier') features = features.filter(f => CASHIER_FEATURES.includes(f));
   return {
-    plan,
+    plan: b.plan,
     features,
     role,
-    cashierSeats: cashierSeats(plan),
-    trialEndsAt: (store && store.trial_ends_at) ? store.trial_ends_at : null,
+    cashierSeats: cashierSeats(b.plan),
+    state: b.state,
+    paidUntil: b.paidUntil,
+    graceEndsAt: b.graceEndsAt,
+    trialEndsAt: b.trialEndsAt,
   };
 }
 
-module.exports = { PLANS, CASHIER_FEATURES, effectivePlan, planFeatures, hasFeature, cashierSeats, entitlements };
+module.exports = {
+  PLANS, CASHIER_FEATURES, GRACE_DAYS,
+  resolveBilling, effectivePlan, planFeatures, hasFeature, cashierSeats, entitlements,
+};

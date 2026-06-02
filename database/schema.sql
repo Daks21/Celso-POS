@@ -31,10 +31,13 @@ INSERT IGNORE INTO app_settings (id, timezone) VALUES (1, 'Asia/Manila');
 -- 0.5 Stores (Phase 6.5 — multi-tenant SaaS)
 -- One row per tenant store. Every owned table carries a store_id FK back here,
 -- and every query is scoped to the logged-in user's store. Billing state
--- (plan/subscription_status/trial_ends_at + the Lemon Squeezy ids) is mirrored
--- from the Merchant of Record by signed webhooks; the effective plan is resolved
--- from these columns PER REQUEST, never from the JWT. name/address/timezone live
--- here now (per-store), superseding the single-row app_settings.
+-- (plan/subscription_status/trial_ends_at/paid_until) is the source of truth and
+-- the effective plan is resolved from these columns PER REQUEST, never from the
+-- JWT. Phase 6.6: a manual GCash bridge sets plan + paid_until on operator
+-- approval; entitlement runs while now <= paid_until + grace (config/plans.js).
+-- ls_customer_id/ls_subscription_id are LEGACY (Lemon Squeezy, retired) — kept
+-- nullable/unused for a clean future migration to a real provider (PayMongo).
+-- name/address/timezone live here now (per-store), superseding app_settings.
 -- owner_user_id is a plain nullable INT (NO FK) on purpose: a FK here would make
 -- stores depend on users while users.store_id already depends on stores, a
 -- circular create-order both schema.sql and the registration txn must avoid.
@@ -48,22 +51,61 @@ CREATE TABLE IF NOT EXISTS stores (
   subscription_status ENUM('none','trialing','active','past_due','canceled')
                         NOT NULL DEFAULT 'none',
   trial_ends_at       DATETIME    DEFAULT NULL,
-  ls_customer_id      VARCHAR(64) DEFAULT NULL,
-  ls_subscription_id  VARCHAR(64) DEFAULT NULL,
+  paid_until          DATETIME    DEFAULT NULL,   -- end of the current paid period (6.6)
+  ls_customer_id      VARCHAR(64) DEFAULT NULL,   -- legacy (Lemon Squeezy, retired)
+  ls_subscription_id  VARCHAR(64) DEFAULT NULL,   -- legacy (Lemon Squeezy, retired)
   owner_user_id       INT         DEFAULT NULL,
   created_at          DATETIME    DEFAULT CURRENT_TIMESTAMP,
   KEY idx_stores_ls_customer (ls_customer_id),
   KEY idx_stores_ls_sub      (ls_subscription_id)
 );
 
+-- 0.6 Payment claims (Phase 6.6 — manual GCash billing bridge)
+-- The billing ledger + audit trail. An owner pays the global GCash QR, then
+-- submits the GCash reference number in-app (identity comes from the session).
+-- The claim is `pending` (verify-first) until the platform super-admin approves
+-- it in admin.html; approval sets the store's plan + paid_until and reconciles
+-- cashier seats, all in one transaction. A gcash_ref can be claimed once, ever.
+CREATE TABLE IF NOT EXISTS payment_claims (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  store_id     INT NOT NULL,
+  plan         ENUM('plus','pro') NOT NULL,
+  amount_php   INT NOT NULL,                       -- price snapshot at submit time
+  gcash_ref    VARCHAR(32) NOT NULL,
+  status       ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  submitted_by INT NOT NULL,                       -- owner user id
+  submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  reviewed_by  INT         DEFAULT NULL,           -- super-admin user id
+  reviewed_at  DATETIME    DEFAULT NULL,
+  review_note  VARCHAR(255) DEFAULT NULL,
+  period_start DATETIME    DEFAULT NULL,           -- set on approve
+  period_end   DATETIME    DEFAULT NULL,           -- set on approve (= new paid_until)
+  UNIQUE KEY uniq_gcash_ref (gcash_ref),
+  KEY idx_claims_store_status (store_id, status),
+  KEY idx_claims_status_submitted (status, submitted_at),
+  FOREIGN KEY (store_id) REFERENCES stores(id)
+);
+
+-- 0.7 Platform config (Phase 6.6 — single global row)
+-- Holds the receiving GCash QR (uploaded/replaced by the super-admin in
+-- admin.html) and the receiving account name/number shown in the Upgrade modal.
+CREATE TABLE IF NOT EXISTS platform_config (
+  id            TINYINT      NOT NULL PRIMARY KEY,  -- always 1
+  gcash_qr_path VARCHAR(255) DEFAULT NULL,          -- served static path to the image
+  gcash_name    VARCHAR(120) DEFAULT NULL,
+  gcash_number  VARCHAR(32)  DEFAULT NULL,
+  updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+INSERT IGNORE INTO platform_config (id) VALUES (1);
+
 -- 1. Users
 CREATE TABLE IF NOT EXISTS users (
   id          INT AUTO_INCREMENT PRIMARY KEY,
-  store_id    INT NOT NULL,
+  store_id    INT NULL,                       -- NULL ONLY for the platform super-admin (6.6); app enforces NOT NULL for tenant users
   full_name   VARCHAR(100) NOT NULL,
   email       VARCHAR(150) NOT NULL UNIQUE,   -- email stays GLOBALLY unique
   password    VARCHAR(255) NOT NULL,
-  role        ENUM('admin','cashier') DEFAULT 'cashier',
+  role        ENUM('admin','cashier','superadmin') DEFAULT 'cashier',  -- superadmin = platform operator (no tenant)
   is_active            TINYINT(1) NOT NULL DEFAULT 1,  -- suspended cashiers can't log in
   must_change_password TINYINT(1) NOT NULL DEFAULT 0,  -- reserved (unused; passwords are admin-managed)
   session_id           VARCHAR(64) DEFAULT NULL,        -- single active session: id of the most recent login
