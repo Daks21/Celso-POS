@@ -63,6 +63,9 @@ function cacheEntitlements(result) {
       features:     Array.isArray(result.features) ? result.features : [],
       role:         result.role,
       cashierSeats: result.cashierSeats,
+      state:        result.state || null,         // active|grace|trial|free (6.6 cards)
+      paidUntil:    result.paidUntil || null,
+      graceEndsAt:  result.graceEndsAt || null,
       trialEndsAt:  result.trialEndsAt || null,
     }));
   } catch (e) { /* storage full / disabled — gating just stays open */ }
@@ -350,13 +353,11 @@ async function getPersonReceipts(userId, date) {
   return apiCall('/team/daily-sales/' + userId + (date ? ('?date=' + encodeURIComponent(date)) : ''));
 }
 
-// --- Billing ---
+// --- Billing (Phase 6.6 — manual GCash bridge) ---
 async function getBillingState() { return apiCall('/billing/state'); }
-async function startCheckout(plan) {
-  return apiCall('/billing/checkout', { method: 'POST', body: JSON.stringify({ plan }) });
-}
-async function openBillingPortal() {
-  return apiCall('/billing/portal', { method: 'POST' });
+// Submit a paid GCash payment for review (verify-first). plan: basic|plus|pro.
+async function submitClaim(plan, gcashRef) {
+  return apiCall('/billing/claim', { method: 'POST', body: JSON.stringify({ plan, gcashRef }) });
 }
 
 // --- Password (owner self-service change; admin-gated server-side) ---

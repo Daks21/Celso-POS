@@ -34,7 +34,7 @@ const state = async (req, res, next) => {
         trialEndsAt: b.trialEndsAt,
         seatsUsed,
         seatsTotal:  cashierSeats(b.plan),
-        prices:      { plus: PLANS.plus.pricePhp, pro: PLANS.pro.pricePhp },
+        prices:      { basic: PLANS.basic.pricePhp, plus: PLANS.plus.pricePhp, pro: PLANS.pro.pricePhp },
         pendingClaim: pending ? {
           plan:        pending.plan,
           amountPhp:   pending.amount_php,
@@ -59,8 +59,8 @@ const claim = async (req, res, next) => {
     const plan     = req.body && req.body.plan;
     const gcashRef = String((req.body && req.body.gcashRef) || '').trim();
 
-    if (plan !== 'plus' && plan !== 'pro') {
-      return res.status(400).json({ success: false, message: "plan must be 'plus' or 'pro'" });
+    if (!['basic', 'plus', 'pro'].includes(plan)) {
+      return res.status(400).json({ success: false, message: "plan must be 'basic', 'plus' or 'pro'" });
     }
     if (!GCASH_REF_RE.test(gcashRef)) {
       return res.status(400).json({

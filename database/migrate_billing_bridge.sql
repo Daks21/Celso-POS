@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 CREATE TABLE IF NOT EXISTS payment_claims (
   id           INT AUTO_INCREMENT PRIMARY KEY,
   store_id     INT NOT NULL,
-  plan         ENUM('plus','pro') NOT NULL,
+  plan         ENUM('basic','plus','pro') NOT NULL,
   amount_php   INT NOT NULL,
   gcash_ref    VARCHAR(32) NOT NULL,
   status       ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
@@ -87,3 +87,24 @@ DELIMITER ;
 
 CALL _billing_bridge_v1();
 DROP PROCEDURE _billing_bridge_v1;
+
+-- v2: four-tier pricing. Adds 'basic' (₱299, 0 seats) between free and plus, and
+-- repprices plus=₱799 / pro=₱1299 (prices live in code, not the DB — only the
+-- enum changes here). Existing 'plus'/'pro' rows stay valid. Separate marker so an
+-- install that already ran v1 picks this up on a re-run of the same file.
+DROP PROCEDURE IF EXISTS _billing_bridge_v2;
+DELIMITER //
+CREATE PROCEDURE _billing_bridge_v2()
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE name = 'billing_bridge_v2') THEN
+    ALTER TABLE stores
+      MODIFY plan ENUM('free','basic','plus','pro') NOT NULL DEFAULT 'free';
+    ALTER TABLE payment_claims
+      MODIFY plan ENUM('basic','plus','pro') NOT NULL;
+    INSERT INTO schema_migrations (name) VALUES ('billing_bridge_v2');
+  END IF;
+END //
+DELIMITER ;
+
+CALL _billing_bridge_v2();
+DROP PROCEDURE _billing_bridge_v2;

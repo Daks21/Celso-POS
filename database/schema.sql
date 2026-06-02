@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS stores (
   address             VARCHAR(120) NOT NULL DEFAULT '',
   timezone            VARCHAR(64)  NOT NULL DEFAULT 'Asia/Manila',
   currency            VARCHAR(8)   NOT NULL DEFAULT 'PHP',
-  plan                ENUM('free','plus','pro') NOT NULL DEFAULT 'free',
+  plan                ENUM('free','basic','plus','pro') NOT NULL DEFAULT 'free',
   subscription_status ENUM('none','trialing','active','past_due','canceled')
                         NOT NULL DEFAULT 'none',
   trial_ends_at       DATETIME    DEFAULT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS stores (
 CREATE TABLE IF NOT EXISTS payment_claims (
   id           INT AUTO_INCREMENT PRIMARY KEY,
   store_id     INT NOT NULL,
-  plan         ENUM('plus','pro') NOT NULL,
+  plan         ENUM('basic','plus','pro') NOT NULL,
   amount_php   INT NOT NULL,                       -- price snapshot at submit time
   gcash_ref    VARCHAR(32) NOT NULL,
   status       ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',

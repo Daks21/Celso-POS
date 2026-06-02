@@ -10,18 +10,29 @@
 
 const GRACE_DAYS = 3;            // days of access after the due date before lapse
 
+// Four tiers (PHP, monthly). Features are tiered AND seats grow with price:
+//   free  ₱0     0 seats  core POS only
+//   basic ₱299   0 seats  + Finance + Analytics + dashboard charts (solo owner)
+//   plus  ₱799   1 seat   + Advanced Analytics + AI (Os)
+//   pro   ₱1299  2 seats  same features as Plus, second cashier seat
 const PLANS = {
   free: {
     label: 'Free', pricePhp: 0, cashierSeats: 0,
     features: ['dashboard_basic', 'order', 'inventory', 'products', 'history'],
   },
-  plus: {
-    label: 'Plus', pricePhp: 299, cashierSeats: 1,
+  basic: {
+    label: 'Basic', pricePhp: 299, cashierSeats: 0,
     features: ['dashboard_basic', 'dashboard_charts', 'order', 'inventory',
                'products', 'history', 'finance', 'analytics'],
   },
+  plus: {
+    label: 'Plus', pricePhp: 799, cashierSeats: 1,
+    features: ['dashboard_basic', 'dashboard_charts', 'order', 'inventory',
+               'products', 'history', 'finance', 'analytics',
+               'advanced_analytics', 'ai'],
+  },
   pro: {
-    label: 'Pro', pricePhp: 499, cashierSeats: 2,
+    label: 'Pro', pricePhp: 1299, cashierSeats: 2,
     features: ['dashboard_basic', 'dashboard_charts', 'order', 'inventory',
                'products', 'history', 'finance', 'analytics',
                'advanced_analytics', 'ai'],
@@ -48,7 +59,7 @@ function resolveBilling(store, now = new Date()) {
     return { plan: 'pro', state: 'trial', paidUntil: null, graceEndsAt: null, trialEndsAt };
   }
 
-  const paid = store && (store.plan === 'plus' || store.plan === 'pro');
+  const paid = store && store.plan && store.plan !== 'free' && !!PLANS[store.plan];
   // Operator revocation ('canceled') is absolute and wins over any paid_until.
   if (paid && store.subscription_status !== 'canceled') {
     if (!store.paid_until) {
