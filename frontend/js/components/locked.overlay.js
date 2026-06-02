@@ -6,6 +6,8 @@
 // page's data calls may still 402, but showApiError is suppressed while a lock is
 // active (see core/utils.js). The CTA opens the shared BillingModal. Owner-only —
 // cashiers never reach gated pages (their links are hidden and they redirect).
+//
+// Styling lives in css/layout.css (.lock-overlay / .lock-card / .page-body.is-locked).
 
 window.LockedOverlay = (function () {
   var FEATURE_META = {
@@ -19,38 +21,28 @@ window.LockedOverlay = (function () {
 
   function isActive() { return _active; }
 
-  function injectStyles() {
-    if (document.getElementById('lock-overlay-styles')) return;
-    var css = ''
-      + '.page-body.is-locked{filter:blur(3px);pointer-events:none;user-select:none;opacity:.9}'
-      + '.lock-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;z-index:60;pointer-events:none}'
-      + '.lock-card{pointer-events:auto;max-width:360px;width:100%;text-align:center;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:30px 26px}'
-      + '.lock-card .lock-badge{width:52px;height:52px;margin:0 auto 14px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(90,158,111,.12);color:var(--color-primary)}'
-      + '.lock-card .lock-badge svg{width:26px;height:26px}'
-      + '.lock-card h2{font-size:19px;margin:0 0 6px;color:var(--color-text)}'
-      + '.lock-card p{font-size:14px;color:var(--color-text-muted);margin:0 0 18px;line-height:1.45}'
-      + '.lock-card .lock-cta{width:100%;padding:12px;border:none;border-radius:var(--radius-sm);background:var(--color-primary);color:#fff;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer}'
-      + '.lock-card .lock-tag{display:inline-block;margin-top:12px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-muted)}';
-    var s = document.createElement('style'); s.id = 'lock-overlay-styles'; s.textContent = css;
-    document.head.appendChild(s);
-  }
-
   // Blur the page content + float a lock card. Idempotent. Setting _active first
   // suppresses the 402 red-toast cascade from the page's in-flight data calls.
   function show(feature) {
     if (_active) return;
     _active = true;
-    injectStyles();
 
     var meta = FEATURE_META[feature] || { label: 'This feature', plan: 'basic', blurb: 'Upgrade to unlock it.' };
     var planLabel = PLAN_LABEL[meta.plan] || meta.plan;
 
+    // Blur + take the teaser content out of the tab order / AT tree.
     var body = document.querySelector('.page-body');
-    if (body) body.classList.add('is-locked');
+    if (body) {
+      body.classList.add('is-locked');
+      body.setAttribute('inert', '');        // ignored by old browsers (pointer-events still blocks)
+      body.setAttribute('aria-hidden', 'true');
+    }
 
     var host = document.querySelector('.main-content') || document.body;
     var ov = document.createElement('div');
     ov.className = 'lock-overlay';
+    ov.setAttribute('role', 'region');
+    ov.setAttribute('aria-label', meta.label + ' is locked');
     ov.innerHTML =
       '<div class="lock-card">' +
         '<div class="lock-badge"><i data-lucide="lock"></i></div>' +
@@ -70,6 +62,7 @@ window.LockedOverlay = (function () {
     });
 
     if (typeof lucide !== 'undefined') lucide.createIcons();
+    try { cta.focus(); } catch (_) {}
   }
 
   return { show: show, isActive: isActive };
