@@ -42,6 +42,8 @@ const listClaims = async (req, res, next) => {
 // (renewal extends from the due date; pay-during-trial preserves trial days).
 const approveClaim = async (req, res, next) => {
   const conn = await pool.getConnection();
+  let released = false;
+  let result = null;
   try {
     await conn.beginTransaction();
 
@@ -51,14 +53,14 @@ const approveClaim = async (req, res, next) => {
     );
     const claim = claims[0];
     if (!claim) {
-      await conn.rollback(); conn.release();
+      await conn.rollback(); conn.release(); released = true;
       return res.status(409).json({ success: false, message: 'Claim is not pending (already reviewed?).' });
     }
 
     const [stores] = await conn.query('SELECT * FROM stores WHERE id = ? FOR UPDATE', [claim.store_id]);
     const store = stores[0];
     if (!store) {
-      await conn.rollback(); conn.release();
+      await conn.rollback(); conn.release(); released = true;
       return res.status(404).json({ success: false, message: 'Store not found.' });
     }
 
@@ -81,19 +83,25 @@ const approveClaim = async (req, res, next) => {
     );
 
     await conn.commit();
-    conn.release();
-
-    // Reconcile cashier seats to the now-effective plan (re-upgrade reactivates
-    // suspended seats). Outside the billing txn — matches the prior webhook flow;
-    // the owner-admin is never touched.
-    await userModel.reconcileCashierSeats(store.id, cashierSeats(claim.plan));
-
-    res.json({ success: true, data: { storeId: store.id, plan: claim.plan, paidUntil: periodEnd } });
+    result = { storeId: store.id, plan: claim.plan, paidUntil: periodEnd };
   } catch (err) {
     try { await conn.rollback(); } catch (_) {}
-    conn.release();
-    next(err);
+    conn.release(); released = true;
+    return next(err);
   }
+  if (!released) conn.release();
+
+  // Reconcile cashier seats to the now-effective plan (re-upgrade reactivates
+  // suspended seats). POST-commit + outside the connection: a failure here must
+  // NOT 500 the already-approved billing change — log and continue. The
+  // owner-admin is never touched.
+  try {
+    await userModel.reconcileCashierSeats(result.storeId, cashierSeats(result.plan));
+  } catch (e) {
+    console.error('[admin] seat reconcile after approve failed:', e.message);
+  }
+
+  res.json({ success: true, data: result });
 };
 
 // ── POST /api/admin/claims/:id/reject  { note } ────────────────────────────

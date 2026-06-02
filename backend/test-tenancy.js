@@ -164,11 +164,11 @@ async function run() {
 
   console.log('\n── Entitlements math (unit) ───────────────────────────────');
   const now = Date.now();
-  check('effectivePlan active → plan',          effectivePlan({ subscription_status: 'active', plan: 'plus' }) === 'plus');
-  check('effectivePlan trialing(future) → pro', effectivePlan({ subscription_status: 'trialing', trial_ends_at: new Date(now + 86400000) }) === 'pro');
-  check('effectivePlan trialing(past) → free',  effectivePlan({ subscription_status: 'trialing', trial_ends_at: new Date(now - 86400000) }) === 'free');
-  check('effectivePlan none → free',            effectivePlan({ subscription_status: 'none' }) === 'free');
-  check('cashierSeats free/plus/pro = 0/1/2',   cashierSeats('free') === 0 && cashierSeats('plus') === 1 && cashierSeats('pro') === 2);
+  check('effectivePlan active → plan',            effectivePlan({ subscription_status: 'active', plan: 'plus' }) === 'plus');
+  check('effectivePlan trialing(future) → basic', effectivePlan({ subscription_status: 'trialing', trial_ends_at: new Date(now + 86400000) }) === 'basic');
+  check('effectivePlan trialing(past) → free',    effectivePlan({ subscription_status: 'trialing', trial_ends_at: new Date(now - 86400000) }) === 'free');
+  check('effectivePlan none → free',              effectivePlan({ subscription_status: 'none' }) === 'free');
+  check('cashierSeats free/basic/plus/pro = 0/0/1/2', cashierSeats('free') === 0 && cashierSeats('basic') === 0 && cashierSeats('plus') === 1 && cashierSeats('pro') === 2);
   check('hasFeature(pro,cashier,finance) false', hasFeature('pro', 'cashier', 'finance') === false);
   check('hasFeature(pro,admin,ai) true',         hasFeature('pro', 'admin', 'ai') === true);
 

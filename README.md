@@ -34,7 +34,8 @@
       need most POS apps ignore
     - Scales from basic to AI-powered over time
     - Multi-tenant SaaS (Phase 6.5): each signup gets its own ISOLATED
-      store on a free/plus/pro plan, billed via Lemon Squeezy
+      store on a free/basic/plus/pro plan; paid plans run on a manual
+      GCash bridge (Phase 6.6; PayMongo once registered + at scale)
     - Open and learnable — built step by step
 
 ================================================================
@@ -263,7 +264,8 @@
   │   │                           stream, summary, restock, forecast, profit)
   │   ├── settings.controller.js  ← store timezone + store name/address
   │   ├── team.controller.js   ← cashier sub-accounts + daily-sales audit (6.5)
-  │   └── billing.controller.js   ← Lemon Squeezy checkout/portal/state/webhook (6.5)
+  │   ├── billing.controller.js   ← billing state + GCash claim, verify-first (6.6)
+  │   └── admin.controller.js     ← super-admin: claim approve/reject + QR upload (6.6)
   │
   ├── models/                  ← MySQL query functions (no in-memory state)
   │   ├── user.model.js        ← Users table: findByEmail, findById,
@@ -275,8 +277,10 @@
   │   │                           heatmap, kpis, charts aggregations
   │   ├── cashflow.model.js    ← cash_movements CRUD, monthly summary
   │   │                           (in/out/net), utang balance derivation
-  │   ├── store.model.js       ← stores (tenant) row: findById, billing
-  │   │                           webhook updates, name/address/timezone (6.5)
+  │   ├── store.model.js       ← stores (tenant) row: findById, updateBilling
+  │   │                           (plan/paid_until), name/address/timezone (6.5)
+  │   ├── claim.model.js       ← payment_claims ledger: create/list/find (6.6)
+  │   ├── platformConfig.model.js ← global GCash QR + receiving name/number (6.6)
   │   └── settings.model.js    ← legacy app_settings timezone fallback (boot only)
   │
   ├── middleware/
@@ -291,6 +295,14 @@
   │  test-tenancy.js, and migrate_multitenant.sql. Frontend adds pages/team.html
   │  + pages/billing.html (+ their js) and entitlement gating in core/api.js,
   │  core/auth.js, and components/sidebar.js. See Section 10, Phase 6.5.
+  │
+  │  Phase 6.6 billing bridge adds: admin.controller/routes (super-admin),
+  │  claim.model + platformConfig.model, platform.middleware (requireSuperAdmin),
+  │  migrate_billing_bridge.sql (paid_until, payment_claims, platform_config,
+  │  users superadmin), scripts/create-superadmin.js. Frontend adds
+  │  components/billing.modal.js (shared GCash Upgrade modal), pages/admin.html
+  │  (operator dashboard), show-locked nav (sidebar.js), and the dashboard
+  │  reminder/upgrade cards. See celsopos_P6-6.txt + Section 10, Phase 6.6.
   │
   └── tests/
       ├── test-checkpoint37.js ← Security + integration tests (37 checks)
@@ -359,13 +371,35 @@
     name, address       VARCHAR per-store identity (printed on receipts)
     timezone            VARCHAR IANA store timezone (per-store now)
     currency            VARCHAR default 'PHP'
-    plan                ENUM    'free' | 'plus' | 'pro'
+    plan                ENUM    'free' | 'basic' | 'plus' | 'pro'
     subscription_status ENUM    'none'|'trialing'|'active'|'past_due'|'canceled'
-    trial_ends_at       DATETIME no-card Pro trial expiry (14 days on signup)
-    ls_customer_id      VARCHAR Lemon Squeezy linkage (billing webhook)
-    ls_subscription_id  VARCHAR Lemon Squeezy linkage (billing webhook)
+    trial_ends_at       DATETIME no-card Basic trial expiry (14 days on signup)
+    paid_until          DATETIME end of the current paid period (6.6); entitled
+                                 while now <= paid_until + 3-day grace
+    ls_customer_id      VARCHAR legacy (Lemon Squeezy, retired) — unused
+    ls_subscription_id  VARCHAR legacy (Lemon Squeezy, retired) — unused
     owner_user_id       INT     the store's owner-admin (no FK — avoids a cycle)
     created_at          DATETIME DEFAULT CURRENT_TIMESTAMP
+
+  ─────────────────────────────────────────────────────────────
+  TABLE: payment_claims  (manual GCash billing ledger — Phase 6.6)
+  ─────────────────────────────────────────────────────────────
+    id, store_id (FK)   the claiming store
+    plan                ENUM    'basic' | 'plus' | 'pro'
+    amount_php          INT     price snapshot at submit time
+    gcash_ref           VARCHAR UNIQUE — a reference can be claimed once, ever
+    status              ENUM    'pending' | 'approved' | 'rejected'
+    submitted_by/at, reviewed_by/at, review_note, period_start, period_end
+
+  ─────────────────────────────────────────────────────────────
+  TABLE: platform_config  (single global row id=1 — Phase 6.6)
+  ─────────────────────────────────────────────────────────────
+    gcash_qr_path       VARCHAR served path to the receiving GCash QR image
+    gcash_name, gcash_number   receiving account shown in the Upgrade modal
+
+  Also (6.6): users.store_id is now NULLABLE and users.role gains 'superadmin'
+  for the single platform operator (no tenant store); app enforces NOT NULL for
+  tenant users.
 
   TABLE: app_settings  (single row — legacy global config)
   ─────────────────────────────────────────────────────────────
@@ -529,14 +563,14 @@
   auth → loadStore (attaches req.store/req.plan), and feature routes add
   requireFeature(...). Plan gate failures return 402 { code:
   'UPGRADE_REQUIRED' }; role failures (non-admin) return 403. Feature map:
-    finance/* → 'finance' (Plus) · ai/* → 'ai' (Pro)
-    analytics {kpis,charts,heatmap,profit} → 'analytics' (Plus)
-    analytics {projection,inventory-health} → 'advanced_analytics' (Pro)
+    finance/* → 'finance' (Basic) · ai/* → 'ai' (Plus)
+    analytics {kpis,charts,heatmap,profit} → 'analytics' (Basic)
+    analytics {projection,inventory-health} → 'advanced_analytics' (Plus)
     analytics/summary, products/*, inventory/*, sales/* → no plan gate
       (reachable by cashiers; the POS + History need the reads)
-  login + GET /me also return { plan, features, role, cashierSeats,
-  trialEndsAt } for the client to mirror the gating (UI only — the server
-  is the boundary).
+  login + GET /me also return { plan, features, role, cashierSeats, state,
+  paidUntil, graceEndsAt, trialEndsAt } for the client to mirror the gating
+  (UI only — the server is the boundary).
 
   ──────────────────────────────────────────────────────────────
   AUTHENTICATION  /api/auth
@@ -555,7 +589,8 @@
     GET    /me             Auth required
       → 200 { success, user: { id, fullName, email, role }, timezone,
               storeName, storeAddress,
-              plan, features, role, cashierSeats, trialEndsAt }
+              plan, features, role, cashierSeats, state, paidUntil,
+              graceEndsAt, trialEndsAt }
 
     PUT    /password       Auth + Admin required
       Body: { newPassword, currentPassword? }
@@ -564,7 +599,7 @@
       → 200 { success } | 400 too short | 403 not admin
 
     Note: register now creates a NEW isolated store + its owner-admin (14-day
-    Pro trial), replacing the single-tenant first-account-admin rule.
+    Basic trial), replacing the single-tenant first-account-admin rule.
 
   ──────────────────────────────────────────────────────────────
   PRODUCTS  /api/products
@@ -931,8 +966,8 @@
 
     POST   /               Create a cashier (owner sets the password)
       Body: { fullName, email, password }
-      Enforces the plan seat limit (Free 0 / Plus 1 / Pro 2) and global
-      email uniqueness.
+      Enforces the plan seat limit (Free 0 / Basic 0 / Plus 1 / Pro 2) and
+      global email uniqueness.
       → 201 { success, data } | 402 SEAT_LIMIT | 409 email exists
 
     PATCH  /:id/active     Activate / deactivate (suspend)
@@ -949,27 +984,52 @@
       → 204 | 409 HAS_HISTORY | 404
 
   ──────────────────────────────────────────────────────────────
-  BILLING  /api/billing    (Phase 6.5 — Lemon Squeezy)
+  BILLING  /api/billing    (Phase 6.6 — manual GCash bridge)
   ──────────────────────────────────────────────────────────────
 
-    state/checkout/portal: Auth + loadStore + Admin. checkout/portal return
-    503 until the LS env vars are set.
+    Both routes: Auth + loadStore + Admin (owner-only). No payment provider —
+    the owner pays a GCash QR and submits the reference number; a super-admin
+    approves it (verify-first). Plan + grace resolve from the store row per
+    request (config/plans.resolveBilling). Lemon Squeezy is retired.
 
-    GET    /state          Plan, status, trial, seats (no LS call)
-      → 200 { success, data: { plan, status, trialEndsAt, seatsUsed,
-              seatsTotal, configured } }
+    GET    /state          Plan, billing state, seats, prices, pending claim,
+                           and the global GCash QR (no external call).
+      → 200 { success, data: { plan, state, paidUntil, graceEndsAt,
+              trialEndsAt, seatsUsed, seatsTotal,
+              prices: { basic, plus, pro },
+              pendingClaim: {...} | null,
+              gcash: { qrUrl, name, number } } }
 
-    POST   /checkout       Body: { plan: 'plus' | 'pro' }
-      → 200 { success, url }  (LS hosted checkout) | 503 not configured
+    POST   /claim          Body: { plan: 'basic'|'plus'|'pro', gcashRef }
+      Verify-first: records a `pending` claim; does NOT change the plan.
+      → 201 { success, data: { status: 'pending' } }
+      → 400 bad plan / ref | 409 a claim is already pending, or the ref was
+        already submitted (gcash_ref is globally UNIQUE).  Rate-limited (10/15min).
 
-    POST   /portal         LS customer-portal URL (manage / cancel)
-      → 200 { success, url } | 400 no subscription | 503 not configured
+  ──────────────────────────────────────────────────────────────
+  OPERATOR  /api/admin    (Phase 6.6 — platform super-admin only)
+  ──────────────────────────────────────────────────────────────
 
-    POST   /webhook        Public; HMAC-verified (NOT auth-gated)
-      Mounted BEFORE express.json with express.raw. Verifies X-Signature over
-      the RAW body, maps the LS status → store subscription_status, mirrors to
-      stores, and reconciles cashier seats. Idempotent against re-deliveries.
-      → 200 applied | 400 bad signature | 500 not configured / error
+    Every route: Auth + requireSuperAdmin (role 'superadmin'; NO loadStore).
+    Non-super-admins get 404 (the surface is invisible). Seed the one operator
+    with backend/scripts/create-superadmin.js.
+
+    GET    /claims?status=pending|approved|rejected
+      → 200 { success, data: [ claim + store_name + owner_email ] } (pending first)
+
+    POST   /claims/:id/approve
+      Transactional + idempotent (FOR UPDATE on a still-pending claim). Sets the
+      store's plan + paid_until (anchored to the due date on renewal; preserves
+      remaining trial days), then reconciles cashier seats.
+      → 200 { success, data: { storeId, plan, paidUntil } } | 409 not pending
+
+    POST   /claims/:id/reject   Body: { note? }
+      → 200 { success } (no plan change) | 404 | 409 already reviewed
+
+    GET    /qr   ·   POST /qr   Body: { imageBase64?, name?, number? }
+      The QR upload gets its own express.json({1mb}); image validated by MAGIC
+      BYTES (PNG/JPEG), ≤500 KB, random filename.
+      → 200 { success, data: { qrUrl, name, number } }
 
   ──────────────────────────────────────────────────────────────
   HEALTH CHECK  /api/health
@@ -997,9 +1057,9 @@
     3. morgan('dev')             HTTP request logging to stdout
                                  (method, path, status, response time)
 
-    *  /api/billing/webhook      Lemon Squeezy webhook, mounted with
-                                 express.raw BEFORE the JSON parser so the
-                                 X-Signature HMAC verifies the raw body (6.5).
+    *  POST /api/admin/qr        The QR upload carries a base64 image, so it is
+                                 skipped by the global 10 KB JSON parser and gets
+                                 its own express.json({1mb}) in admin.routes (6.6).
 
     4. express.json({ limit })   JSON body parser, capped at 10 KB
                                  (protects against oversized payload DoS)
@@ -1058,17 +1118,14 @@
     AI_CACHE_TTL_SEC   300      Cache TTL for AI responses in seconds
     AI_MAX_TOKENS      600      Token budget cap per AI request
 
-  Billing (Phase 6.5 — OPTIONAL; the server boots without these and the
-  /api/billing endpoints return 503 until they are set):
+  Billing (Phase 6.6 — manual GCash bridge): NO payment-provider keys are
+  needed. The receiving GCash QR + name/number are configured by the super-admin
+  in admin.html (stored in platform_config). The following are OPTIONAL and used
+  ONLY by the one-off seed script scripts/create-superadmin.js (not read at
+  runtime; can also be passed as CLI args):
 
-    LEMONSQUEEZY_API_KEY         Lemon Squeezy API key (test or live)
-    LEMONSQUEEZY_STORE_ID        LS store id (see scripts/ls-ids.js)
-    LEMONSQUEEZY_WEBHOOK_SECRET  Signing secret for webhook HMAC verification
-    LS_VARIANT_PLUS              LS subscription variant id for the Plus plan
-    LS_VARIANT_PRO               LS subscription variant id for the Pro plan
-    APP_URL                      Public origin for checkout redirect + webhook
-                                 (ngrok https URL in dev; the Phase 7 domain
-                                 in prod)
+    SUPERADMIN_EMAIL             email for the platform operator account
+    SUPERADMIN_PASSWORD          its password (≥12 chars)
 
   Example .env file:
 
@@ -1183,12 +1240,16 @@
     that one store's token can't read or mutate another's data; it is the
     launch gate. UI gating is cosmetic only — the server is the boundary.
 
-  BILLING WEBHOOK INTEGRITY (Phase 6.5)
-    The Lemon Squeezy webhook is mounted before express.json and reads the
-    RAW request body, verifying the X-Signature HMAC (timing-safe) before
-    trusting any event. It is idempotent against re-deliveries. The owner's
-    email/password change is admin-gated; cashier credentials are set/reset
-    only by the store owner.
+  BILLING INTEGRITY (Phase 6.6 — manual GCash bridge)
+    Verify-first: a claim stays `pending` until a super-admin approves it; the
+    amount is snapshotted server-side (never trusted from the client) and
+    gcash_ref is globally UNIQUE (no reference reuse). Approval is transactional
+    + idempotent (FOR UPDATE on a still-pending claim). Operator routes require
+    role 'superadmin' (no tenant store) and 404 everyone else. The QR upload
+    validates by magic bytes, caps size, and writes a random filename. ALL
+    billing state changes go through the API (which reconciles cashier seats) —
+    never raw DB. The owner's email/password change is admin-gated; cashier
+    credentials are set/reset only by the store owner.
 
 ================================================================
 [9. RUNNING THE PROJECT]
@@ -2161,15 +2222,16 @@
   signup creates its own ISOLATED store. Runs BEFORE Phase 7 so the app
   deploys SaaS-ready. The original build spec (paste-ready code, per-module
   QA checklists, build order) lives in celsopos_P6-5.txt at the repo root.
-  * Code-complete and verified; live billing checkout is pending Lemon
-    Squeezy account approval (the webhook path is proven via a local simulator).
+  * Tenancy / RBAC / Team are complete. The billing approach was replaced in
+    Phase 6.6 (manual GCash bridge) — see that section below.
 
-  PLANS (monthly, USD):
-    Free  $0   Dashboard(basic), New Order, Inventory, Products, History;
-               0 cashiers.
-    Plus  $8   + Finance + Analytics + dashboard charts;   1 cashier.
-    Pro   $12  + Advanced Analytics + AI Assistant (Os);   2 cashiers.
-    - 14-day Pro trial (no card, auto on signup) → Free on expiry.
+  PLANS (monthly, PHP) — set in Phase 6.6; features are tiered AND seats grow:
+    Free  ₱0     Dashboard(basic), New Order, Inventory, Products, History;
+                 0 cashiers.
+    Basic ₱299   + Finance + Analytics + dashboard charts;   0 cashiers.
+    Plus  ₱799   + Advanced Analytics + AI Assistant (Os);   1 cashier.
+    Pro   ₱1299  same features as Plus;                      2 cashiers.
+    - 14-day Basic trial (no card, auto on signup) → Free on expiry.
     - Cashiers are sub-accounts the owner creates on a Team page. Passwords
       are ADMIN-MANAGED: the owner sets a cashier's password and can reset it
       anytime; cashiers can't change their own and have no Account Settings.
@@ -2190,14 +2252,11 @@
       gated). UI gating FAILS OPEN when entitlements are unknown.
     - Per-store timezone (was a single global app_settings value).
 
-  BILLING — Lemon Squeezy (Merchant of Record; onboards PH sellers, handles
-    worldwide VAT/tax, pays out via Wise/PayPal). Called over the LS REST API
-    via fetch (no SDK dependency): the server boots fine before LS is configured
-    and the /api/billing endpoints return 503 until the env vars are set. Hosted
-    checkout → signed webhook (HMAC over the RAW body, mounted before
-    express.json) → mirrored into stores. A billing change reconciles cashier
-    seats (suspends the newest excess on downgrade; reactivates on re-upgrade)
-    — never deletes data.
+  BILLING — see Phase 6.6 below. (The original Lemon Squeezy Merchant-of-Record
+    plan was replaced by a manual GCash bridge: PH MSME buyers pay by GCash, not
+    card, and an aggregator needs business registration the founder doesn't have
+    yet. A billing change still reconciles cashier seats — suspends the newest
+    excess on downgrade, reactivates on re-upgrade — and never deletes data.)
 
   MODULES (build order):
     6.5a Tenancy core — plans.js, stores schema + migrate_multitenant.sql,
@@ -2206,17 +2265,53 @@
     6.5b RBAC UI gating — login/me return entitlements; sidebar hides
          non-entitled nav; page guards; dashboard charts upsell; FAB/toggle
          gating.                                                    [COMPLETE]
-    6.5c Lemon Squeezy billing — billing.routes/controller (checkout/portal/
-         state/webhook). Webhook lifecycle verified via a local simulator
-         (scripts/ls-webhook-sim.js); live checkout pending an LS account.  [COMPLETE *]
+    6.5c Lemon Squeezy billing — SUPERSEDED by Phase 6.6 (manual GCash bridge).
     6.5d Team + Billing UI — Team page (add / deactivate / reset-password /
-         delete cashiers, per-plan seat limit) + Billing page (plan, trial
-         countdown, upgrade → checkout, manage → portal).          [COMPLETE]
+         delete cashiers, per-plan seat limit) [COMPLETE]. Billing page rewritten
+         in 6.6 (4 tiers + GCash claim modal).
     6.5e Hardening — security review, store_id in the integration suites,
          this README.                                              [IN PROGRESS]
 
   SCOPE (v1): Asia/PH, PHP only. AI stays on the Groq free tier.
   Deferred: multi-currency, email invites, annual billing, Redis scaling.
+
+  ──────────────────────────────────────────────────────────────
+  PHASE 6.6: MANUAL GCASH BILLING BRIDGE             [IN PROGRESS]
+  ──────────────────────────────────────────────────────────────
+
+  Replaces the Phase 6.5 Lemon Squeezy billing with a manual GCash flow good for
+  the first ~50 paying stores while the founder isn't yet a registered business.
+  Full build spec: celsopos_P6-6.txt at the repo root. PayMongo (native GCash/Maya
+  recurring) is the documented successor once registered + at scale (P6-6 §13).
+
+  HOW IT WORKS:
+    - Tiers are PHP (free/basic/plus/pro = ₱0/₱299/₱799/₱1299; seats 0/0/1/2);
+      14-day trial grants Basic. Entitlement resolves per request via
+      config/plans.resolveBilling — paid while now <= paid_until + 3-day grace,
+      lazily (no cron), grandfathering active rows with no paid_until.
+    - Owner opens the shared Upgrade modal (billing.modal.js), pays the global
+      GCash QR, and submits the reference number → a `pending` payment_claims row
+      (VERIFY-FIRST; the plan does not change yet).
+    - The platform SUPER-ADMIN (a user with no tenant store, role 'superadmin';
+      seeded by scripts/create-superadmin.js) reviews claims in pages/admin.html
+      and approves/rejects. Approve is transactional + idempotent, anchors the new
+      paid_until to the due date, and reconciles cashier seats.
+    - Nav is SHOW-LOCKED for owners (greyed paid links open the modal) and HIDDEN
+      for cashiers. The dashboard shows one reminder/upsell card (grace > trial >
+      free promo). First-login welcome reveals the trial gift (owner-only confetti).
+
+  MODULES (build order — see celsopos_P6-6.txt §11):
+    6.6a plans.js (PHP tiers + grace) + schema/migrate_billing_bridge.sql  [DONE]
+    6.6b tenant billing: claim/state, retire Lemon Squeezy                 [DONE]
+    6.6c super-admin API: approve/reject + QR upload                       [DONE]
+    6.6d GCash Upgrade modal + billing page rewrite                        [DONE]
+    6.6e show-locked nav                                                   [DONE]
+    6.6f dashboard reminder/upgrade cards                                  [DONE]
+    6.6g operator dashboard (admin.html)                                   [PENDING]
+    6.6h README sync + test-tenancy claims/super-admin additions           [PENDING]
+
+  PRICING NOTE: prices live in code (config/plans.js pricePhp), not the DB —
+  only the plan enum (free|basic|plus|pro) is persisted.
 
   ──────────────────────────────────────────────────────────────
   PHASE 7: WEB APP DEPLOYMENT
@@ -2274,7 +2369,7 @@
     Module 7.5 — First-run setup
       - Owner registers via the register page. Under Phase 6.5 EVERY signup
         creates its own ISOLATED store and the signer is that store's
-        owner-admin (a 14-day no-card Pro trial starts automatically). There is
+        owner-admin (a 14-day no-card Basic trial starts automatically). There is
         no "first account is admin, rest are cashiers" rule anymore — cashiers
         are sub-accounts the owner adds later on the Team page. Admins can
         restock, use Finance, delete products, and change settings; cashiers are
@@ -2398,10 +2493,11 @@
   NODE REQUIREMENT: >= 18.0.0
 
 ================================================================
-  END OF DOCUMENT — Version 8.0
+  END OF DOCUMENT — Version 8.1
   Phase 4 AI · Phase 5 Finance · Phase 6 Onboarding — COMPLETE
-  Phase 6.5 Multi-Tenant SaaS (tenancy + RBAC + Team + Lemon Squeezy billing)
-    — code-complete; live billing checkout pending LS account approval
+  Phase 6.5 Multi-Tenant SaaS (tenancy + RBAC + Team) — COMPLETE
+  Phase 6.6 Manual GCash billing bridge (4 PHP tiers, verify-first claims,
+    super-admin approval; PayMongo later) — IN PROGRESS (6.6a–f done; 6.6g–h next)
   Post-ship:
     • Sales — Admin sale-edit (PUT /api/sales/:id): edit a past sale from
                    History with full server-side reconciliation (stock
