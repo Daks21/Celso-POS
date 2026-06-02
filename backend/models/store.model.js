@@ -28,7 +28,7 @@ const findByLsSubscription = async (subscriptionId) => {
 // never blank a column we didn't mean to touch. Column names come from a fixed
 // allowlist — never from request data — so interpolating them is safe.
 const updateBilling = async (storeId, fields) => {
-  const ALLOWED = ['plan', 'subscription_status', 'trial_ends_at',
+  const ALLOWED = ['plan', 'subscription_status', 'trial_ends_at', 'paid_until',
                    'ls_customer_id', 'ls_subscription_id'];
   const sets = [], vals = [];
   for (const key of ALLOWED) {

@@ -27,7 +27,6 @@ const financeRouter    = require('./routes/finance.routes');
 const aiRouter         = require('./routes/ai.routes');
 const settingsRouter   = require('./routes/settings.routes');
 const billingRouter    = require('./routes/billing.routes');
-const billingController = require('./controllers/billing.controller');
 const teamRouter       = require('./routes/team.routes');
 const errorMiddleware  = require('./middleware/error.middleware');
 const pool             = require('./config/db.config');
@@ -85,14 +84,10 @@ app.use(cors({
 // --- Request logging ---
 app.use(morgan('dev'));
 
-// --- Lemon Squeezy webhook (raw body for HMAC) — MUST be before express.json ---
-// LS posts subscription events here; authenticity is the X-Signature HMAC over
-// the raw request bytes, so this one route takes the raw Buffer and bypasses the
-// JSON body parser below. (Phase 6.5 §6.3.)
-app.post('/api/billing/webhook',
-  express.raw({ type: 'application/json' }), billingController.webhook);
-
 // --- Body parser with size limit (DoS protection) ---
+// (Phase 6.6: the Lemon Squeezy raw-body webhook that used to mount before this
+// is gone — billing is the manual GCash bridge now. A future PayMongo webhook
+// would re-introduce a raw-body route here; see celsopos_P6-6.txt §13.)
 app.use(express.json({ limit: '10kb' }));
 
 // --- Rate limiting on auth endpoints ---
@@ -103,6 +98,10 @@ app.use('/api/auth/register', authLimiter);
 // --- Rate limiting on stock adjustment write endpoint only ---
 const adjustLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 60 });
 app.use('/api/inventory/:productId/adjust', adjustLimiter);
+
+// --- Rate limiting on manual billing claim submission (Phase 6.6) ---
+const claimLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
+app.use('/api/billing/claim', claimLimiter);
 
 // --- Health check ---
 app.get('/api/health', async (req, res) => {

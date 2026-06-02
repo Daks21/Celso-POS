@@ -5,12 +5,11 @@ const { authMiddleware, adminMiddleware } = require('../middleware/auth.middlewa
 const { loadStore } = require('../middleware/tenant.middleware');
 
 // Billing is owner-only: auth + loadStore + admin on every route. No plan gate —
-// a Free owner must be able to reach checkout to upgrade. (The webhook is NOT
-// here; it's mounted in server.js before express.json with raw-body HMAC.)
+// a Free owner must reach /state and /claim to upgrade. (Phase 6.6 manual GCash
+// bridge; the Lemon Squeezy checkout/portal/webhook routes are removed.)
 router.use(authMiddleware, loadStore, adminMiddleware);
 
-router.post('/checkout', controller.checkout);
-router.post('/portal',   controller.portal);
-router.get('/state',     controller.state);
+router.get('/state',  controller.state);
+router.post('/claim', controller.claim);
 
 module.exports = router;

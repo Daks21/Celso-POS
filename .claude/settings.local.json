@@ -106,7 +106,8 @@
       "PowerShell(Invoke-WebRequest -Uri \"https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js\" -OutFile \"frontend\\\\assets\\\\vendor\\\\chart.umd.min.js\"; Get-Item \"frontend\\\\assets\\\\vendor\\\\chart.umd.min.js\" | Select-Object Name,Length)",
       "PowerShell(node --check frontend\\\\js\\\\pages\\\\dashboard.js; if \\($?\\) { \"OK: dashboard.js parses clean\" })",
       "Bash(echo \"===EXIT $?===\")",
-      "WebSearch"
+      "WebSearch",
+      "PowerShell(& \"C:\\\\Program Files\\\\MySQL\\\\MySQL Server 8.0\\\\bin\\\\mysql.exe\" -u root -p celsopos_db -e \"SHOW COLUMNS FROM stores LIKE 'paid_until'; SHOW TABLES LIKE 'payment_claims'; SHOW TABLES LIKE 'platform_config'; SHOW COLUMNS FROM users LIKE 'store_id'; SHOW COLUMNS FROM users LIKE 'role'; SELECT name, applied_at FROM schema_migrations;\")"
     ]
   }
 }
