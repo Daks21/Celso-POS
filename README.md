@@ -300,9 +300,10 @@
   │  claim.model + platformConfig.model, platform.middleware (requireSuperAdmin),
   │  migrate_billing_bridge.sql (paid_until, payment_claims, platform_config,
   │  users superadmin), scripts/create-superadmin.js. Frontend adds
-  │  components/billing.modal.js (shared GCash Upgrade modal), pages/admin.html
-  │  (operator dashboard), show-locked nav (sidebar.js), and the dashboard
-  │  reminder/upgrade cards. See celsopos_P6-6.txt + Section 10, Phase 6.6.
+  │  components/billing.modal.js (payment-only GCash modal; plan selection lives
+  │  on pages/billing.html), pages/admin.html (operator dashboard), show-locked
+  │  nav (sidebar.js), and the dashboard reminder/upgrade cards. See
+  │  celsopos_P6-6.txt + Section 10, Phase 6.6.
   │
   └── tests/
       ├── test-checkpoint37.js ← Security + integration tests (37 checks)
@@ -2296,16 +2297,19 @@
       14-day trial grants Basic. Entitlement resolves per request via
       config/plans.resolveBilling — paid while now <= paid_until + 3-day grace,
       lazily (no cron), grandfathering active rows with no paid_until.
-    - Owner opens the shared Upgrade modal (billing.modal.js), pays the global
-      GCash QR, and submits the reference number → a `pending` payment_claims row
-      (VERIFY-FIRST; the plan does not change yet).
+    - Owner compares + picks a plan on the Billing page (billing.html); that opens
+      the payment-only GCash modal (billing.modal.js) for the chosen plan, where
+      they pay the global QR and submit the reference number → a `pending`
+      payment_claims row (VERIFY-FIRST; the plan does not change yet).
     - The platform SUPER-ADMIN (a user with no tenant store, role 'superadmin';
       seeded by scripts/create-superadmin.js) reviews claims in pages/admin.html
       and approves/rejects. Approve is transactional + idempotent, anchors the new
       paid_until to the due date, and reconciles cashier seats.
-    - Nav is SHOW-LOCKED for owners (greyed paid links open the modal) and HIDDEN
-      for cashiers. The dashboard shows one reminder/upsell card (grace > trial >
-      free promo). First-login welcome reveals the trial gift (owner-only confetti).
+    - Nav is SHOW-LOCKED for owners (greyed paid links open an in-page locked
+      overlay whose CTA routes to the Billing page) and HIDDEN for cashiers. The
+      dashboard shows one reminder/upsell card (grace > trial > free promo) that
+      also routes to Billing. First-login welcome reveals the trial gift
+      (owner-only confetti).
 
   MODULES (build order — see celsopos_P6-6.txt §11):
     6.6a plans.js (PHP tiers + grace) + schema/migrate_billing_bridge.sql  [DONE]

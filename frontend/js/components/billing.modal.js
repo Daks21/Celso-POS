@@ -1,29 +1,24 @@
-// frontend/js/components/billing.modal.js — shared Upgrade modal (Phase 6.6).
+// frontend/js/components/billing.modal.js — GCash payment modal (Phase 6.6).
 //
-// Opened from the Billing page AND from locked nav links on any page, so it is
-// self-contained: it injects its own overlay (styles live in css/components.css),
-// fetches /api/billing/state on open, and walks the owner through:
-//   choose a paid plan -> scan the GCash QR + pay -> paste the reference number.
-// Verify-first: submitting records a `pending` claim (POST /billing/claim); the
-// plan only turns on after the operator approves it. If a claim is already
-// pending, the modal opens straight into the "under review" state.
+// Payment-only. Plan SELECTION lives on the Billing page (billing.html); every
+// "choose a plan" entry point (locked-page overlay, dashboard promo, deep-link
+// fallback) routes there. The Billing page's plan buttons are the only thing
+// that opens this modal, and always with a concrete plan — so the modal never
+// renders a plan list. It fetches /api/billing/state and walks the owner
+// through: scan the GCash QR + pay -> paste the reference number. Verify-first:
+// submitting records a `pending` claim (POST /billing/claim); the plan only
+// turns on after the operator approves it. If a claim is already pending, the
+// modal opens straight into the "under review" state.
 //
 // UI-only: the server enforces everything. All dynamic/operator-set strings are
 // rendered with textContent / <img src> (never interpolated into HTML).
 
 window.BillingModal = (function () {
-  var RANK  = { free: 0, basic: 1, plus: 2, pro: 3 };
-  var ORDER = ['basic', 'plus', 'pro'];
   var LABELS = { free: 'Free', basic: 'Basic', plus: 'Plus', pro: 'Pro' };
-  var FEATURES = {
-    basic: ['Finance & cashflow', 'Analytics + charts', 'No cashier seats'],
-    plus:  ['Everything in Basic', 'Advanced Analytics', 'Os AI Assistant', '1 cashier seat'],
-    pro:   ['Everything in Plus', '2 cashier seats'],
-  };
 
   var _built = false;
   var _state = null;
-  var _selected = null;
+  var _plan = null;
 
   function peso(n) { return '₱' + Number(n || 0).toLocaleString('en-PH'); }
 
@@ -34,7 +29,7 @@ window.BillingModal = (function () {
     overlay.id = 'bm-overlay';
     overlay.innerHTML =
       '<div class="modal-card bm-card">' +
-        '<div class="modal-header"><h2 id="bm-title">Upgrade your plan</h2>' +
+        '<div class="modal-header"><h2 id="bm-title">Complete your upgrade</h2>' +
         '<button type="button" class="modal-close-button" id="bm-close">&times;</button></div>' +
         '<div id="bm-body"></div>' +
       '</div>';
@@ -50,7 +45,15 @@ window.BillingModal = (function () {
     if (o) o.style.display = 'none';
   }
 
-  async function open(planHint) {
+  // Always called with the plan the owner already picked on the Billing page.
+  // Without a valid paid plan there's nothing to pay for, so send them to the
+  // Billing page to choose — the modal itself never shows a chooser.
+  async function open(plan) {
+    if (!plan || !LABELS[plan] || plan === 'free') {
+      window.location.href = 'billing.html';
+      return;
+    }
+    _plan = plan;
     build();
     var overlay = document.getElementById('bm-overlay');
     var body = document.getElementById('bm-body');
@@ -64,58 +67,22 @@ window.BillingModal = (function () {
     }
     _state = res.data;
     if (_state.pendingClaim) { renderPending(_state.pendingClaim); return; }
-
-    // Default selection: the hint (if it's an upgrade) else the next tier up.
-    var cur = RANK[_state.plan] != null ? RANK[_state.plan] : 0;
-    if (planHint && RANK[planHint] > cur) _selected = planHint;
-    else _selected = ORDER.find(function (p) { return RANK[p] > cur; }) || 'pro';
-    renderChooser();
-  }
-
-  function renderChooser() {
-    document.getElementById('bm-title').textContent = 'Upgrade your plan';
-    var cur = RANK[_state.plan] != null ? RANK[_state.plan] : 0;
-    var body = document.getElementById('bm-body');
-
-    var cards = ORDER.map(function (p) {
-      var isCurrent = p === _state.plan;
-      var isDowngrade = RANK[p] < cur;
-      var sel = p === _selected ? ' is-sel' : '';
-      var price = (_state.prices && _state.prices[p]) || 0;
-      var feats = FEATURES[p].map(function (f) { return '<li>' + f + '</li>'; }).join('');
-      return '<button type="button" class="bm-plan' + sel + '" data-plan="' + p + '"' +
-        ((isCurrent || isDowngrade) ? ' disabled' : '') + '>' +
-        '<h4>' + LABELS[p] + (isCurrent ? ' <span class="bm-cur">Current</span>' : '') + '</h4>' +
-        '<div class="bm-price">' + peso(price) + '<span>/mo</span></div>' +
-        '<ul>' + feats + '</ul></button>';
-    }).join('');
-
-    body.innerHTML =
-      '<div class="bm-plans">' + cards + '</div>' +
-      '<div id="bm-payslot"></div>';
-
-    body.querySelector('.bm-plans').addEventListener('click', function (e) {
-      var btn = e.target.closest('.bm-plan[data-plan]');
-      if (!btn || btn.disabled) return;
-      _selected = btn.getAttribute('data-plan');
-      renderChooser();
-    });
-
     renderPay();
   }
 
   function renderPay() {
-    var slot = document.getElementById('bm-payslot');
+    document.getElementById('bm-title').textContent = 'Pay for ' + (LABELS[_plan] || _plan);
+    var body = document.getElementById('bm-body');
     var g = _state.gcash || {};
-    var amount = (_state.prices && _state.prices[_selected]) || 0;
+    var amount = (_state.prices && _state.prices[_plan]) || 0;
 
     if (!g.qrUrl) {
-      slot.innerHTML = '<div class="bm-pay"><p class="bm-err">Online payments aren’t set ' +
+      body.innerHTML = '<div class="bm-pay"><p class="bm-err">Online payments aren’t set ' +
         'up yet. Please contact support to upgrade.</p></div>';
       return;
     }
 
-    slot.innerHTML =
+    body.innerHTML =
       '<div class="bm-pay">' +
         '<div class="bm-qr">' +
           '<img id="bm-qrimg" alt="GCash QR code">' +
@@ -133,18 +100,18 @@ window.BillingModal = (function () {
           'placeholder="GCash reference number">' +
         '<div class="bm-err" id="bm-err"></div>' +
         '<button type="button" class="bm-submit" id="bm-submit">I’ve paid — submit for review</button>' +
-        '<p class="bm-note">We’ll verify your payment and activate ' + LABELS[_selected] +
+        '<p class="bm-note">We’ll verify your payment and activate ' + LABELS[_plan] +
           ' (usually within a day). You’ll keep your current access until then.</p>' +
       '</div>';
 
     // textContent for dynamic/operator-set values.
-    slot.querySelector('#bm-qrimg').src = g.qrUrl;
-    slot.querySelector('#bm-amount').textContent = peso(amount);
-    slot.querySelector('#bm-gname').textContent = g.name || '';
-    slot.querySelector('#bm-gnumber').textContent = g.number || '';
+    body.querySelector('#bm-qrimg').src = g.qrUrl;
+    body.querySelector('#bm-amount').textContent = peso(amount);
+    body.querySelector('#bm-gname').textContent = g.name || '';
+    body.querySelector('#bm-gnumber').textContent = g.number || '';
 
-    slot.querySelector('#bm-submit').addEventListener('click', submit);
-    slot.querySelector('#bm-ref').addEventListener('keydown', function (e) {
+    body.querySelector('#bm-submit').addEventListener('click', submit);
+    body.querySelector('#bm-ref').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') submit();
     });
   }
@@ -160,9 +127,9 @@ window.BillingModal = (function () {
       return;
     }
     btn.disabled = true; btn.textContent = 'Submitting…';
-    var res = await submitClaim(_selected, ref);
+    var res = await submitClaim(_plan, ref);
     if (res && res.success) {
-      renderPending({ plan: _selected, amountPhp: (_state.prices && _state.prices[_selected]) || 0, gcashRef: ref });
+      renderPending({ plan: _plan, amountPhp: (_state.prices && _state.prices[_plan]) || 0, gcashRef: ref });
     } else {
       errEl.textContent = (res && res.message) || 'Could not submit. Please try again.';
       btn.disabled = false; btn.textContent = 'I’ve paid — submit for review';

@@ -111,6 +111,18 @@
     });
   }
 
+  // Deep-link from a locked page / dashboard promo: ?plan=plus highlights and
+  // scrolls to that card so the suggested plan isn't lost in the grid.
+  function highlightSuggested() {
+    var plan;
+    try { plan = new URLSearchParams(window.location.search).get('plan'); } catch (_) { return; }
+    if (!plan || !RANK.hasOwnProperty(plan)) return;
+    var card = document.getElementById('card-' + plan);
+    if (!card) return;
+    card.classList.add('is-suggested');
+    try { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+  }
+
   async function load() {
     var res = await getBillingState();
     if (!res || !res.success) { chipsEl.innerHTML = chip('Could not load billing', 'bad'); return; }
@@ -124,6 +136,7 @@
     } else {
       noteEl.textContent = 'Pay via GCash, then submit your reference number — we verify and activate (usually within a day). Prices in PHP, billed monthly.';
     }
+    highlightSuggested();
   }
 
   document.querySelector('.bill-grid').addEventListener('click', function (e) {

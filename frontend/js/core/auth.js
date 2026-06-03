@@ -243,11 +243,9 @@ function showUpgradeToastIfRedirected() {
     if (sessionStorage.getItem('os_upgrade_redirect') === '1') {
       sessionStorage.removeItem('os_upgrade_redirect');
       // Show-locked (6.6): a typed/bookmarked deep link to a locked page lands
-      // here on the dashboard — open the Upgrade modal so the intent isn't lost.
-      if (typeof BillingModal !== 'undefined') { BillingModal.open(); return; }
-      if (typeof showApiError === 'function') {
-        showApiError("That page isn't available on your current plan.");
-      }
+      // here on the dashboard — send the owner to the Billing page to choose a
+      // plan so the upgrade intent isn't lost.
+      window.location.href = 'billing.html';
     }
   } catch (_) {}
 }

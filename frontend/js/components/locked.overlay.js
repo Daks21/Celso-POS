@@ -4,8 +4,10 @@
 // instead of a redirect + a cascade of red 402 toasts we blur the page's own
 // layout as a teaser and float a centered lock card with an Upgrade CTA. The
 // page's data calls may still 402, but showApiError is suppressed while a lock is
-// active (see core/utils.js). The CTA opens the shared BillingModal. Owner-only —
-// cashiers never reach gated pages (their links are hidden and they redirect).
+// active (see core/utils.js). The CTA sends the owner to the Billing page (deep-
+// linked to the suggested plan) where plans are compared and chosen; the GCash
+// payment modal opens from there. Owner-only — cashiers never reach gated pages
+// (their links are hidden and they redirect).
 //
 // Styling lives in css/layout.css (.lock-overlay / .lock-card / .page-body.is-locked).
 
@@ -58,7 +60,7 @@ window.LockedOverlay = (function () {
     var cta = ov.querySelector('#lock-cta');
     cta.textContent = 'Upgrade to ' + planLabel;
     cta.addEventListener('click', function () {
-      if (typeof BillingModal !== 'undefined') BillingModal.open(meta.plan);
+      window.location.href = 'billing.html?plan=' + encodeURIComponent(meta.plan);
     });
 
     if (typeof lucide !== 'undefined') lucide.createIcons();

@@ -606,7 +606,8 @@ function _baWire(slot, planHint, onDismiss) {
   var cta = slot.querySelector('#ba-cta');
   var x   = slot.querySelector('#ba-x');
   if (cta) cta.addEventListener('click', function () {
-    if (typeof BillingModal !== 'undefined') BillingModal.open(planHint);
+    // Plans are chosen on the Billing page; deep-link to the suggested one.
+    window.location.href = planHint ? ('billing.html?plan=' + encodeURIComponent(planHint)) : 'billing.html';
   });
   if (x) x.addEventListener('click', function () {
     try { if (onDismiss) onDismiss(); } catch (e) {}
