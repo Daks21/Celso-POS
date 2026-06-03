@@ -21,7 +21,7 @@ dotenv.config();
 const db     = require('./config/db.config');
 const bcrypt = require('bcrypt');
 const http   = require('http');
-const { effectivePlan, hasFeature, cashierSeats } = require('./config/plans');
+const { effectivePlan, resolveBilling, hasFeature, cashierSeats } = require('./config/plans');
 
 const req = (method, path, body, token) => new Promise((resolve, reject) => {
   const opts = {
@@ -171,6 +171,85 @@ async function run() {
   check('cashierSeats free/basic/plus/pro = 0/0/1/2', cashierSeats('free') === 0 && cashierSeats('basic') === 0 && cashierSeats('plus') === 1 && cashierSeats('pro') === 2);
   check('hasFeature(pro,cashier,finance) false', hasFeature('pro', 'cashier', 'finance') === false);
   check('hasFeature(pro,admin,ai) true',         hasFeature('pro', 'admin', 'ai') === true);
+  check('resolveBilling grace (paid_until 1d ago) → grace',
+    resolveBilling({ plan: 'plus', subscription_status: 'active', paid_until: new Date(now - 86400000) }).state === 'grace');
+  check('resolveBilling lapsed (paid_until 4d ago) → free',
+    resolveBilling({ plan: 'plus', subscription_status: 'active', paid_until: new Date(now - 4 * 86400000) }).plan === 'free');
+  check('grandfather active + NULL paid_until → plan kept',
+    effectivePlan({ subscription_status: 'active', plan: 'pro' }) === 'pro');
+
+  // ── Billing bridge: claims + super-admin operator (Phase 6.6) ──
+  console.log('\n── Billing bridge: claims + super-admin (6.6) ─────────────');
+  const saEmail = `superadmin_${RUN}@celsopos.com`;
+  await db.query(
+    'INSERT INTO users (full_name, email, password, role, store_id, is_active) VALUES (?,?,?,?,NULL,1)',
+    ['Platform Admin', saEmail, hash, 'superadmin']
+  );
+  const loginSA = await req('POST', '/api/auth/login', { email: saEmail, password: PASS });
+  const tokenSA = loginSA.body.token;
+  check('Super-admin login → 200 + token', loginSA.status === 200 && !!tokenSA);
+  const [saRow] = await db.query('SELECT store_id, role FROM users WHERE email = ?', [saEmail]);
+  check('Super-admin has NO tenant store (store_id NULL)', saRow[0] && saRow[0].store_id === null && saRow[0].role === 'superadmin');
+
+  // Operator surface is invisible to tenants (404), reachable by the super-admin.
+  check('Tenant A GET /api/admin/claims → 404', (await req('GET', '/api/admin/claims', null, tokenA)).status === 404);
+  check('Super-admin GET /api/admin/claims → 200', (await req('GET', '/api/admin/claims', null, tokenSA)).status === 200);
+
+  const refA = '90' + String(RUN).slice(-9);
+  const refB = '91' + String(RUN).slice(-9);
+
+  // A submits a paid claim — VERIFY-FIRST: plan must not change yet.
+  const claimA = await req('POST', '/api/billing/claim', { plan: 'plus', gcashRef: refA }, tokenA);
+  check('A POST /claim → 201 pending', claimA.status === 201 && claimA.body.data && claimA.body.data.status === 'pending');
+  const [stAclaim] = await db.query('SELECT subscription_status FROM stores WHERE id = ?', [storeA]);
+  check('Verify-first: claim did NOT change A subscription', stAclaim[0] && stAclaim[0].subscription_status === 'trialing');
+
+  // Guards.
+  check('A second /claim while one pending → 409',
+    (await req('POST', '/api/billing/claim', { plan: 'basic', gcashRef: '92' + String(RUN).slice(-9) }, tokenA)).status === 409);
+  const claimB = await req('POST', '/api/billing/claim', { plan: 'basic', gcashRef: refB }, tokenB);
+  check('B POST /claim → 201 pending', claimB.status === 201);
+
+  // A can't see B's claim — /state only exposes the caller's own pending claim.
+  const aState1 = await req('GET', '/api/billing/state', null, tokenA);
+  check("A's /state pendingClaim is A's own (not B's)",
+    aState1.body.data.pendingClaim && aState1.body.data.pendingClaim.gcashRef === refA);
+
+  // Super-admin sees both, with store + owner joined.
+  const saList = await req('GET', '/api/admin/claims?status=pending', null, tokenSA);
+  const claims = (saList.body && saList.body.data) || [];
+  const aClaim = claims.find(c => c.gcash_ref === refA);
+  const bClaim = claims.find(c => c.gcash_ref === refB);
+  check('Super-admin lists both pending claims w/ owner email', !!aClaim && !!bClaim && aClaim.owner_email === aEmail);
+
+  // A tenant cannot approve (operator-only).
+  check('Tenant A cannot approve a claim → 404',
+    bClaim ? (await req('POST', `/api/admin/claims/${bClaim.id}/approve`, null, tokenA)).status === 404 : false);
+
+  // Approve A → plan activates, paid_until set, pending cleared.
+  const appr = aClaim ? await req('POST', `/api/admin/claims/${aClaim.id}/approve`, null, tokenSA) : { status: 0, body: {} };
+  check('Super-admin approve A → 200 plan=plus', appr.status === 200 && appr.body.data && appr.body.data.plan === 'plus');
+  const aState2 = await req('GET', '/api/billing/state', null, tokenA);
+  check('A now plan=plus / state=active / no pending',
+    aState2.body.data.plan === 'plus' && aState2.body.data.state === 'active' && !aState2.body.data.pendingClaim);
+  const [stA2] = await db.query('SELECT subscription_status, plan, paid_until FROM stores WHERE id = ?', [storeA]);
+  check('A store row: active + plus + paid_until set',
+    stA2[0] && stA2[0].subscription_status === 'active' && stA2[0].plan === 'plus' && !!stA2[0].paid_until);
+
+  // Idempotent: re-approving the same (now non-pending) claim is rejected.
+  check('Re-approve same claim → 409 (idempotent)',
+    aClaim ? (await req('POST', `/api/admin/claims/${aClaim.id}/approve`, null, tokenSA)).status === 409 : false);
+
+  // Reject B → no plan change; B stays on its trial.
+  const rej = bClaim ? await req('POST', `/api/admin/claims/${bClaim.id}/reject`, { note: 'test reject' }, tokenSA) : { status: 0 };
+  check('Super-admin reject B → 200', rej.status === 200);
+  const bState = await req('GET', '/api/billing/state', null, tokenB);
+  check('B unchanged after reject (still trial, no pending)',
+    bState.body.data.state === 'trial' && !bState.body.data.pendingClaim);
+
+  // gcash_ref is globally unique — A (now no pending) reusing B's ref is rejected.
+  check('Duplicate gcash_ref → 409',
+    (await req('POST', '/api/billing/claim', { plan: 'basic', gcashRef: refB }, tokenA)).status === 409);
 
   // ── Cleanup (best-effort) ────────────────────────────────────
   console.log('\n── Cleanup ────────────────────────────────────────────────');
@@ -179,11 +258,13 @@ async function run() {
     await db.query('DELETE FROM sale_items WHERE sale_id IN (SELECT id FROM sales WHERE store_id IN (?,?))', ids);
     await db.query('DELETE FROM inventory_adjustments WHERE store_id IN (?,?)', ids);
     await db.query('DELETE FROM cash_movements WHERE store_id IN (?,?)', ids);
+    await db.query('DELETE FROM payment_claims WHERE store_id IN (?,?)', ids);
     await db.query('DELETE FROM sales WHERE store_id IN (?,?)', ids);
     await db.query('DELETE FROM products WHERE store_id IN (?,?)', ids);
     await db.query('DELETE FROM users WHERE store_id IN (?,?)', ids);
+    await db.query('DELETE FROM users WHERE email = ?', [saEmail]);   // super-admin (store_id NULL)
     await db.query('DELETE FROM stores WHERE id IN (?,?)', ids);
-    console.log('  🧹 removed test stores A & B and all their rows');
+    console.log('  🧹 removed test stores A & B, their rows, claims, and the super-admin');
   } catch (e) {
     console.log('  ⚠  cleanup skipped (app DB user may lack DELETE):', e.message);
     console.log(`     Manually remove test stores ${storeA} & ${storeB} if needed.`);

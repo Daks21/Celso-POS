@@ -580,23 +580,6 @@ var PROMO_BENEFITS = [
   'Add a cashier so your staff can ring up sales.',
 ];
 
-function _baInjectStyles() {
-  if (document.getElementById('ba-styles')) return;
-  var css = ''
-    + '.ba-card{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:16px;border-radius:var(--radius-md);border:1px solid var(--color-border);background:var(--color-surface);box-shadow:var(--shadow-sm)}'
-    + '.ba-card.ba-warn{border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.06)}'
-    + '.ba-card.ba-promo{border-color:rgba(90,158,111,.4);background:rgba(90,158,111,.06)}'
-    + '.ba-ico{flex-shrink:0;width:22px;height:22px;color:var(--color-primary)}'
-    + '.ba-warn .ba-ico{color:var(--color-error)}'
-    + '.ba-body{flex:1;font-size:14px;color:var(--color-text);line-height:1.35}'
-    + '.ba-cta{flex-shrink:0;padding:8px 14px;border:none;border-radius:var(--radius-sm);background:var(--color-primary);color:#fff;font-family:inherit;font-weight:600;font-size:13px;cursor:pointer}'
-    + '.ba-x{flex-shrink:0;background:none;border:none;color:var(--color-text-muted);font-size:20px;line-height:1;cursor:pointer;padding:0 4px}'
-    + 'html[data-theme="dark"] .ba-warn .ba-ico{color:#f87171}'   /* lift the red icon on dark */
-    + '@media(max-width:560px){.ba-card{flex-wrap:wrap}.ba-body{flex:1 1 100%}}';
-  var s = document.createElement('style'); s.id = 'ba-styles'; s.textContent = css;
-  document.head.appendChild(s);
-}
-
 function _baTodayKey() { return new Date().toISOString().slice(0, 10); }
 function _baPlanLabel(p) { return ({ free: 'Free', basic: 'Basic', plus: 'Plus', pro: 'Pro' })[p] || p; }
 function _baDaysLeft(iso) {
@@ -653,7 +636,6 @@ async function renderBillingCards() {
   try { res = await getBillingState(); } catch (e) { return; }
   if (!res || !res.success) return;
   var d = res.data;
-  _baInjectStyles();
 
   // 1) Grace renewal reminder (daily snooze).
   if (d.state === 'grace') {

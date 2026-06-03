@@ -2307,8 +2307,8 @@
     6.6d GCash Upgrade modal + billing page rewrite                        [DONE]
     6.6e show-locked nav                                                   [DONE]
     6.6f dashboard reminder/upgrade cards                                  [DONE]
-    6.6g operator dashboard (admin.html)                                   [PENDING]
-    6.6h README sync + test-tenancy claims/super-admin additions           [PENDING]
+    6.6g operator dashboard (admin.html)                                   [DONE]
+    6.6h README sync + test-tenancy claims/super-admin additions           [DONE]
 
   PRICING NOTE: prices live in code (config/plans.js pricePhp), not the DB —
   only the plan enum (free|basic|plus|pro) is persisted.
@@ -2497,7 +2497,8 @@
   Phase 4 AI · Phase 5 Finance · Phase 6 Onboarding — COMPLETE
   Phase 6.5 Multi-Tenant SaaS (tenancy + RBAC + Team) — COMPLETE
   Phase 6.6 Manual GCash billing bridge (4 PHP tiers, verify-first claims,
-    super-admin approval; PayMongo later) — IN PROGRESS (6.6a–f done; 6.6g–h next)
+    super-admin approval; PayMongo later) — code-complete (6.6a–h); pending a live
+    test-tenancy green run + live GCash payment validation
   Post-ship:
     • Sales — Admin sale-edit (PUT /api/sales/:id): edit a past sale from
                    History with full server-side reconciliation (stock

@@ -1,8 +1,8 @@
 // frontend/js/components/billing.modal.js — shared Upgrade modal (Phase 6.6).
 //
 // Opened from the Billing page AND from locked nav links on any page, so it is
-// self-contained: it injects its own overlay + scoped styles once, fetches
-// /api/billing/state on open, and walks the owner through:
+// self-contained: it injects its own overlay (styles live in css/components.css),
+// fetches /api/billing/state on open, and walks the owner through:
 //   choose a paid plan -> scan the GCash QR + pay -> paste the reference number.
 // Verify-first: submitting records a `pending` claim (POST /billing/claim); the
 // plan only turns on after the operator approves it. If a claim is already
@@ -27,43 +27,8 @@ window.BillingModal = (function () {
 
   function peso(n) { return '₱' + Number(n || 0).toLocaleString('en-PH'); }
 
-  function injectStyles() {
-    if (document.getElementById('bm-styles')) return;
-    var css = ''
-      + '.bm-card{max-width:560px}'
-      + '.bm-plans{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}'
-      + '.bm-plan{border:1px solid var(--color-border);border-radius:var(--radius-md);padding:12px;cursor:pointer;background:var(--color-background);text-align:left}'
-      + '.bm-plan:disabled{opacity:.5;cursor:default}'
-      + '.bm-plan.is-sel{border-color:var(--color-primary);box-shadow:0 0 0 1px var(--color-primary)}'
-      + '.bm-plan h4{margin:0;font-size:14px}'
-      + '.bm-plan .bm-price{font-size:18px;font-weight:700;margin:4px 0}'
-      + '.bm-plan .bm-price span{font-size:11px;font-weight:500;color:var(--color-text-muted)}'
-      + '.bm-plan ul{list-style:none;padding:0;margin:6px 0 0;font-size:11.5px;color:var(--color-text-muted)}'
-      + '.bm-plan li{padding:1px 0}'
-      + '.bm-plan .bm-cur{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--color-primary)}'
-      + '.bm-pay{border-top:1px solid var(--color-border);padding-top:16px}'
-      + '.bm-qr{display:flex;gap:16px;align-items:center;flex-wrap:wrap}'
-      + '.bm-qr img{width:160px;height:160px;object-fit:contain;border:1px solid var(--color-border);border-radius:var(--radius-md);background:#fff}'
-      + '.bm-paymeta{font-size:13px;color:var(--color-text)}'
-      + '.bm-paymeta b{display:block;font-size:20px}'
-      + '.bm-steps{font-size:13px;color:var(--color-text-muted);margin:14px 0 8px;padding-left:18px}'
-      + '.bm-input{width:100%;padding:11px 12px;border:1px solid var(--color-border);border-radius:var(--radius-sm);font-family:inherit;font-size:15px;background:var(--color-surface);color:var(--color-text)}'
-      + '.bm-submit{width:100%;margin-top:12px;padding:12px;border:none;border-radius:var(--radius-sm);background:var(--color-primary);color:#fff;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer}'
-      + '.bm-submit:disabled{opacity:.6;cursor:default}'
-      + '.bm-err{color:var(--color-error);font-size:13px;margin-top:8px;min-height:1em}'
-      + '.bm-note{font-size:12px;color:var(--color-text-muted);margin-top:14px;text-align:center}'
-      + '.bm-pending{text-align:center;padding:8px 0}'
-      + '.bm-pending .bm-check{font-size:40px;color:var(--color-primary)}'
-      + '@media(max-width:560px){.bm-plans{grid-template-columns:1fr}}';
-    var s = document.createElement('style');
-    s.id = 'bm-styles';
-    s.textContent = css;
-    document.head.appendChild(s);
-  }
-
   function build() {
     if (_built) return;
-    injectStyles();
     var overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'bm-overlay';
