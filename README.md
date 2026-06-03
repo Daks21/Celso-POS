@@ -394,7 +394,8 @@
   ─────────────────────────────────────────────────────────────
   TABLE: platform_config  (single global row id=1 — Phase 6.6)
   ─────────────────────────────────────────────────────────────
-    gcash_qr_path       VARCHAR served path to the receiving GCash QR image
+    gcash_qr            MEDIUMTEXT  receiving QR as a data-URL (stored in the DB so
+                                    it survives redeploys); served by GET /api/billing/qr
     gcash_name, gcash_number   receiving account shown in the Upgrade modal
 
   Also (6.6): users.store_id is now NULLABLE and users.role gains 'superadmin'
@@ -1028,8 +1029,13 @@
 
     GET    /qr   ·   POST /qr   Body: { imageBase64?, name?, number? }
       The QR upload gets its own express.json({1mb}); image validated by MAGIC
-      BYTES (PNG/JPEG), ≤500 KB, random filename.
-      → 200 { success, data: { qrUrl, name, number } }
+      BYTES (PNG/JPEG), ≤500 KB, then stored as a data-URL in the DB (no
+      filesystem — survives redeploys).
+      → 200 { success, data: { qrUrl, name, number } }   (qrUrl = /api/billing/qr?v=…)
+
+  Plus a PUBLIC image route (no auth — the receiving QR is shown to anyone paying):
+    GET  /api/billing/qr   Serves the stored QR as an image (decoded data-URL).
+      → 200 image/png|jpeg | 404 if no QR set.  Mounted before the billing router.
 
   ──────────────────────────────────────────────────────────────
   HEALTH CHECK  /api/health
@@ -1246,7 +1252,8 @@
     gcash_ref is globally UNIQUE (no reference reuse). Approval is transactional
     + idempotent (FOR UPDATE on a still-pending claim). Operator routes require
     role 'superadmin' (no tenant store) and 404 everyone else. The QR upload
-    validates by magic bytes, caps size, and writes a random filename. ALL
+    validates by magic bytes, caps size, and stores the image as a data-URL in
+    the DB (no filesystem; the public GET /api/billing/qr serves it). ALL
     billing state changes go through the API (which reconciles cashier seats) —
     never raw DB. The owner's email/password change is admin-gated; cashier
     credentials are set/reset only by the store owner.

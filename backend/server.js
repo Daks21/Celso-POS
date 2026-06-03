@@ -27,6 +27,7 @@ const financeRouter    = require('./routes/finance.routes');
 const aiRouter         = require('./routes/ai.routes');
 const settingsRouter   = require('./routes/settings.routes');
 const billingRouter    = require('./routes/billing.routes');
+const billingController = require('./controllers/billing.controller');
 const adminRouter      = require('./routes/admin.routes');
 const teamRouter       = require('./routes/team.routes');
 const errorMiddleware  = require('./middleware/error.middleware');
@@ -137,6 +138,9 @@ app.use('/api/inventory', inventoryRouter);
 app.use('/api/finance',   financeRouter);
 app.use('/api/ai',        aiRouter);
 app.use('/api/settings',  settingsRouter);
+// Public QR image (no auth — shown to anyone paying). Registered BEFORE the
+// billing router so it isn't caught by that router's auth chain.
+app.get('/api/billing/qr', billingController.qrImage);
 app.use('/api/billing',   billingRouter);
 app.use('/api/admin',     adminRouter);
 app.use('/api/team',      teamRouter);

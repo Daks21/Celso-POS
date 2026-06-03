@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS payment_claims (
 
 CREATE TABLE IF NOT EXISTS platform_config (
   id            TINYINT      NOT NULL PRIMARY KEY,
-  gcash_qr_path VARCHAR(255) DEFAULT NULL,
+  gcash_qr      MEDIUMTEXT   DEFAULT NULL,
   gcash_name    VARCHAR(120) DEFAULT NULL,
   gcash_number  VARCHAR(32)  DEFAULT NULL,
   updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -108,3 +108,25 @@ DELIMITER ;
 
 CALL _billing_bridge_v2();
 DROP PROCEDURE _billing_bridge_v2;
+
+-- v3: store the GCash QR as a data-URL in the DB (gcash_qr MEDIUMTEXT) instead of
+-- a filesystem path, so it survives redeploys on an ephemeral host. The old
+-- gcash_qr_path column (if present) is left in place but unused. Existing installs
+-- pick this up on a re-run of the same file.
+DROP PROCEDURE IF EXISTS _billing_bridge_v3;
+DELIMITER //
+CREATE PROCEDURE _billing_bridge_v3()
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE name = 'billing_bridge_v3') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'platform_config'
+                       AND COLUMN_NAME = 'gcash_qr') THEN
+      ALTER TABLE platform_config ADD COLUMN gcash_qr MEDIUMTEXT DEFAULT NULL AFTER id;
+    END IF;
+    INSERT INTO schema_migrations (name) VALUES ('billing_bridge_v3');
+  END IF;
+END //
+DELIMITER ;
+
+CALL _billing_bridge_v3();
+DROP PROCEDURE _billing_bridge_v3;

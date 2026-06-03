@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS payment_claims (
 -- admin.html) and the receiving account name/number shown in the Upgrade modal.
 CREATE TABLE IF NOT EXISTS platform_config (
   id            TINYINT      NOT NULL PRIMARY KEY,  -- always 1
-  gcash_qr_path VARCHAR(255) DEFAULT NULL,          -- served static path to the image
+  gcash_qr      MEDIUMTEXT   DEFAULT NULL,          -- QR as a data-URL (survives redeploys); served by GET /api/billing/qr
   gcash_name    VARCHAR(120) DEFAULT NULL,
   gcash_number  VARCHAR(32)  DEFAULT NULL,
   updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

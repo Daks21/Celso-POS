@@ -10,20 +10,16 @@
 //   GET  /api/admin/qr                      current GCash QR + name/number
 //   POST /api/admin/qr                      replace QR image / name / number
 
-const crypto = require('crypto');
-const fs     = require('fs');
-const path   = require('path');
-
 const claimModel     = require('../models/claim.model');
 const userModel      = require('../models/user.model');
 const platformConfig = require('../models/platformConfig.model');
 const pool           = require('../config/db.config');
 const { resolveBilling, addOneMonth, cashierSeats } = require('../config/plans');
 
-// Uploaded QR lives under the served frontend so <img src> works on one origin.
-const UPLOAD_DIR     = path.join(__dirname, '..', '..', 'frontend', 'assets', 'uploads');
-const UPLOAD_URL_REL = '/assets/uploads';
-const MAX_QR_BYTES   = 500 * 1024;
+// The QR is stored as a data-URL in the DB (platform_config.gcash_qr) so it
+// survives redeploys on an ephemeral filesystem, and served as an image by the
+// public GET /api/billing/qr route (billing.controller.qrImage).
+const MAX_QR_BYTES = 500 * 1024;
 
 // ── GET /api/admin/claims?status=pending|approved|rejected ─────────────────
 const listClaims = async (req, res, next) => {
@@ -130,9 +126,9 @@ const getQr = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        qrUrl:  (cfg && cfg.gcash_qr_path) || null,
-        name:   (cfg && cfg.gcash_name)    || null,
-        number: (cfg && cfg.gcash_number)  || null,
+        qrUrl:  platformConfig.qrUrl(cfg),
+        name:   (cfg && cfg.gcash_name)   || null,
+        number: (cfg && cfg.gcash_number) || null,
       },
     });
   } catch (err) {
@@ -172,25 +168,19 @@ const uploadQr = async (req, res, next) => {
         return res.status(400).json({ success: false, message: 'Only PNG or JPEG images are allowed.' });
       }
 
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-      const fname = 'gcash-qr-' + crypto.randomBytes(8).toString('hex') + '.' + ext;
-      fs.writeFileSync(path.join(UPLOAD_DIR, fname), buf);
-
-      // Best-effort cleanup of the previous QR file.
-      const prev = await platformConfig.get();
-      if (prev && prev.gcash_qr_path) {
-        try { fs.unlinkSync(path.join(UPLOAD_DIR, path.basename(prev.gcash_qr_path))); } catch (_) {}
-      }
-      fields.gcash_qr_path = UPLOAD_URL_REL + '/' + fname;
+      // Store a normalized data-URL in the DB (no filesystem). re-encode from the
+      // validated buffer so the stored mime matches the sniffed bytes.
+      const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+      fields.gcash_qr = 'data:' + mime + ';base64,' + buf.toString('base64');
     }
 
     const cfg = await platformConfig.update(fields);
     res.json({
       success: true,
       data: {
-        qrUrl:  cfg.gcash_qr_path || null,
-        name:   cfg.gcash_name    || null,
-        number: cfg.gcash_number  || null,
+        qrUrl:  platformConfig.qrUrl(cfg),
+        name:   cfg.gcash_name   || null,
+        number: cfg.gcash_number || null,
       },
     });
   } catch (err) {

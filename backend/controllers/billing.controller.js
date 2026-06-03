@@ -42,9 +42,9 @@ const state = async (req, res, next) => {
           submittedAt: pending.submitted_at,
         } : null,
         gcash: {
-          qrUrl:  (cfg && cfg.gcash_qr_path) || null,
-          name:   (cfg && cfg.gcash_name)    || null,
-          number: (cfg && cfg.gcash_number)  || null,
+          qrUrl:  platformConfig.qrUrl(cfg),
+          name:   (cfg && cfg.gcash_name)   || null,
+          number: (cfg && cfg.gcash_number) || null,
         },
       },
     });
@@ -101,4 +101,23 @@ const claim = async (req, res, next) => {
   }
 };
 
-module.exports = { state, claim };
+// ── GET /api/billing/qr ───────────────────────────────────────────────────
+// PUBLIC (no auth): serves the global receiving GCash QR as an image. The QR is
+// public-by-design (it's shown to anyone paying), and an <img> tag can't send an
+// auth header. Decodes the data-URL stored in platform_config.gcash_qr.
+const qrImage = async (req, res, next) => {
+  try {
+    const cfg = await platformConfig.get();
+    const data = cfg && cfg.gcash_qr;
+    const m = data && /^data:(image\/(?:png|jpeg));base64,(.+)$/.exec(data);
+    if (!m) return res.sendStatus(404);
+    const buf = Buffer.from(m[2], 'base64');
+    res.set('Content-Type', m[1]);
+    res.set('Cache-Control', 'public, max-age=86400');   // ?v= busts this when the QR changes
+    res.send(buf);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { state, claim, qrImage };
