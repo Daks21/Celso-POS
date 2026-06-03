@@ -1037,18 +1037,22 @@
     Non-super-admins get 404 (the surface is invisible). Seed the one operator
     with backend/scripts/create-superadmin.js.
 
-    GET    /stats
-      Platform analytics for the operator overview. Plan/state counts derive from
-      the LIVE effective plan (resolveBilling per store — lazy date math), not the
-      raw stores.plan column. MRR sums currently-entitled paid plans (active +
-      grace; trials are free until they convert). Activity is from users.last_login_at.
+    GET    /stats?period=this_month|last_month|last_3_months|all   (default this_month)
+      Platform analytics for the operator overview. Current-state counts derive
+      from the LIVE effective plan (resolveBilling per store — lazy date math),
+      not the raw stores.plan column. A store on its free 14-day trial is counted
+      ONLY under stores.trial — never in paying / plans / mrrPhp / revenue. MRR
+      sums currently-entitled PAID plans (active + grace). The `period` filter
+      drives ONLY the event-based figures (periodSignups by created_at,
+      periodRevenuePhp by approved claims' reviewed_at); plan/MRR/active-users are
+      always "now". Activity is from users.last_login_at.
       → 200 { success, data: {
-              stores:  { total, paying, trial, free },
-              plans:   { basic, plus, pro },          // effective, paying tiers
+              period, periodLabel,
+              stores:  { total, paying, trial, free },     // paying EXCLUDES trials
+              plans:   { basic, plus, pro },               // effective PAID tiers
               mrrPhp,
               users:   { total, owners, cashiers, suspended, active7d, active30d },
-              signups: { last7d, last30d },           // new stores
-              revenue30dPhp,                           // approved claims, last 30d
+              periodSignups, periodRevenuePhp,             // move with `period`
               pendingClaims } }
 
     GET    /claims?status=pending|approved|rejected
@@ -2346,8 +2350,9 @@
       and approves/rejects. Approve is transactional + idempotent, anchors the new
       paid_until to the due date, and reconciles cashier seats. The console also
       shows a PLATFORM OVERVIEW (GET /api/admin/stats): stores, paying vs trial vs
-      free, the Basic/Plus/Pro split, MRR, active users (7d/30d, from
-      last_login_at), new signups, and 30-day approved revenue.
+      free (trials excluded from paying/MRR), the Basic/Plus/Pro split, MRR, active
+      users (7d/30d, from last_login_at), plus new signups + approved revenue with
+      a period filter (this month / last month / last 3 months / all-time).
     - Nav is SHOW-LOCKED for owners (greyed paid links open an in-page locked
       overlay whose CTA routes to the Billing page; on a page that has its own
       onboarding tour the overlay holds back until that tour has been seen) and

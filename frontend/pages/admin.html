@@ -58,6 +58,9 @@
     .op-btn-primary{align-self:flex-start;padding:11px 20px;border:none;border-radius:var(--radius-sm);
       background:var(--color-primary);color:#fff;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer}
 
+    .op-period{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--color-text-muted)}
+    .op-period select{padding:6px 10px;border:1px solid var(--color-border);background:var(--color-surface);
+      color:var(--color-text);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer}
     .op-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
     .op-stat{background:var(--color-background);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:14px}
     .op-stat-num{display:block;font-size:24px;font-weight:700;color:var(--color-text);line-height:1.1}
@@ -85,7 +88,17 @@
   <main class="op-main">
 
     <section class="op-card">
-      <div class="op-section-head"><h2>Platform overview</h2></div>
+      <div class="op-section-head">
+        <h2>Platform overview</h2>
+        <label class="op-period">Revenue &amp; signups:
+          <select id="op-period">
+            <option value="this_month">This month</option>
+            <option value="last_month">Last month</option>
+            <option value="last_3_months">Last 3 months</option>
+            <option value="all">All-time</option>
+          </select>
+        </label>
+      </div>
       <div class="op-stats">
         <div class="op-stat"><span class="op-stat-num" id="st-stores">—</span><span class="op-stat-label">Stores</span><span class="op-stat-sub" id="st-signups"></span></div>
         <div class="op-stat"><span class="op-stat-num" id="st-paying">—</span><span class="op-stat-label">Paying</span><span class="op-stat-sub" id="st-mrr"></span></div>
@@ -93,7 +106,7 @@
         <div class="op-stat"><span class="op-stat-num" id="st-free">—</span><span class="op-stat-label">Free / lapsed</span></div>
         <div class="op-stat"><span class="op-stat-num" id="st-active">—</span><span class="op-stat-label">Active users (30d)</span><span class="op-stat-sub" id="st-active7"></span></div>
         <div class="op-stat"><span class="op-stat-num" id="st-accounts">—</span><span class="op-stat-label">User accounts</span><span class="op-stat-sub" id="st-accounts-sub"></span></div>
-        <div class="op-stat"><span class="op-stat-num" id="st-rev">—</span><span class="op-stat-label">Revenue (30d)</span></div>
+        <div class="op-stat"><span class="op-stat-num" id="st-rev">—</span><span class="op-stat-label">Revenue</span><span class="op-stat-sub" id="st-rev-period"></span></div>
       </div>
       <div class="op-plan-split">
         <div class="op-plan-row"><span>Basic</span><div class="op-plan-bar"><div id="bar-basic"></div></div><b id="st-basic">0</b></div>

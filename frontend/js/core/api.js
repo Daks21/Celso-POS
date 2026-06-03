@@ -376,7 +376,9 @@ async function submitClaim(plan, gcashRef) {
 }
 
 // --- Operator / super-admin (Phase 6.6; /api/admin — 404s for non-super-admins) ---
-async function getAdminStats() { return apiCall('/admin/stats'); }
+async function getAdminStats(period) {
+  return apiCall('/admin/stats' + (period ? ('?period=' + encodeURIComponent(period)) : ''));
+}
 async function getAdminClaims(status) {
   return apiCall('/admin/claims' + (status ? ('?status=' + encodeURIComponent(status)) : ''));
 }

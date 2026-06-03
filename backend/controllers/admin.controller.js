@@ -195,19 +195,41 @@ const uploadQr = async (req, res, next) => {
 // a trial counts as a trial — the same truth the rest of the app enforces. MRR
 // sums the price of currently-entitled paid plans (active + grace; trials are
 // free until they convert). Activity is from users.last_login_at.
+// Period windows for the period-driven figures (new signups + approved revenue).
+// Calendar-aligned in UTC (created_at / reviewed_at are stored UTC). The current-
+// state figures — stores/plans/MRR/active users — are always "now"; only signups
+// and revenue move with the filter.
+const STATS_PERIODS = ['this_month', 'last_month', 'last_3_months', 'all'];
+function periodBounds(key, now) {
+  const y = now.getUTCFullYear(), m = now.getUTCMonth();
+  if (key === 'last_month')
+    return { start: new Date(Date.UTC(y, m - 1, 1)), end: new Date(Date.UTC(y, m, 1)), label: 'Last month' };
+  if (key === 'last_3_months')
+    return { start: new Date(Date.UTC(y, m - 2, 1)), end: now, label: 'Last 3 months' };
+  if (key === 'all')
+    return { start: null, end: now, label: 'All-time' };
+  return { start: new Date(Date.UTC(y, m, 1)), end: now, label: 'This month' };
+}
+
 const getStats = async (req, res, next) => {
   try {
     const now = new Date();
     const d7  = new Date(now.getTime() - 7  * 86400000);
     const d30 = new Date(now.getTime() - 30 * 86400000);
 
+    const periodKey = STATS_PERIODS.includes(req.query.period) ? req.query.period : 'this_month';
+    const { start, end, label } = periodBounds(periodKey, now);
+    const inPeriod = (dt) => dt && (!start || dt >= start) && dt < end;
+
     const stats = {
-      stores:  { total: 0, paying: 0, trial: 0, free: 0 },
-      plans:   { basic: 0, plus: 0, pro: 0 },   // effective, paying tiers only
-      mrrPhp:  0,
+      period: periodKey,
+      periodLabel: label,
+      stores:  { total: 0, paying: 0, trial: 0, free: 0 },   // "paying" EXCLUDES trials
+      plans:   { basic: 0, plus: 0, pro: 0 },                // effective PAID tiers only
+      mrrPhp:  0,                                            // paid plans only (trials = 0)
       users:   { total: 0, owners: 0, cashiers: 0, suspended: 0, active7d: 0, active30d: 0 },
-      signups: { last7d: 0, last30d: 0 },        // new stores (businesses)
-      revenue30dPhp: 0,                          // approved claims in the last 30 days
+      periodSignups: 0,        // new stores created in the selected window
+      periodRevenuePhp: 0,     // approved GCash claims in the selected window
       pendingClaims: 0,
     };
 
@@ -217,6 +239,8 @@ const getStats = async (req, res, next) => {
     stats.stores.total = stores.length;
     for (const s of stores) {
       const b = resolveBilling(s, now);
+      // A store on its free 14-day trial resolves to state 'trial' (effective
+      // Basic) and is counted ONLY here — never in paying / plans / MRR / revenue.
       if (b.state === 'trial') {
         stats.stores.trial++;
       } else if (b.state === 'active' || b.state === 'grace') {
@@ -226,11 +250,7 @@ const getStats = async (req, res, next) => {
       } else {
         stats.stores.free++;
       }
-      if (s.created_at) {
-        const c = new Date(s.created_at);
-        if (c >= d7)  stats.signups.last7d++;
-        if (c >= d30) stats.signups.last30d++;
-      }
+      if (s.created_at && inPeriod(new Date(s.created_at))) stats.periodSignups++;
     }
 
     const [users] = await pool.query(
@@ -248,15 +268,15 @@ const getStats = async (req, res, next) => {
       }
     }
 
-    const [[rev]]  = await pool.query(
-      "SELECT COALESCE(SUM(amount_php), 0) AS php FROM payment_claims WHERE status = 'approved' AND reviewed_at >= ?",
-      [d30]
-    );
-    const [[pend]] = await pool.query(
-      "SELECT COUNT(*) AS n FROM payment_claims WHERE status = 'pending'"
-    );
-    stats.revenue30dPhp = Number(rev.php) || 0;
-    stats.pendingClaims = Number(pend.n) || 0;
+    // Approved GCash revenue in the window (trials never create a claim).
+    let revSql = "SELECT COALESCE(SUM(amount_php), 0) AS php FROM payment_claims WHERE status = 'approved'";
+    const revParams = [];
+    if (start) { revSql += ' AND reviewed_at >= ?'; revParams.push(start); }
+    revSql += ' AND reviewed_at < ?'; revParams.push(end);
+    const [[rev]]  = await pool.query(revSql, revParams);
+    const [[pend]] = await pool.query("SELECT COUNT(*) AS n FROM payment_claims WHERE status = 'pending'");
+    stats.periodRevenuePhp = Number(rev.php) || 0;
+    stats.pendingClaims    = Number(pend.n) || 0;
 
     res.json({ success: true, data: stats });
   } catch (err) {

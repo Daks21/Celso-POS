@@ -138,14 +138,17 @@ checkAuth();
     if (el) el.style.width = (max > 0 ? Math.round((val / max) * 100) : 0) + '%';
   }
 
+  var periodSel = document.getElementById('op-period');
+  function currentPeriod() { return periodSel ? periodSel.value : 'this_month'; }
+
   async function loadStats() {
-    var res = await safe(getAdminStats());
+    var res = await safe(getAdminStats(currentPeriod()));
     if (!res || !res.success) return;
     var d = res.data || {};
-    var s = d.stores || {}, u = d.users || {}, p = d.plans || {}, g = d.signups || {};
+    var s = d.stores || {}, u = d.users || {}, p = d.plans || {};
 
+    // Current-state figures (always "now")
     setText('st-stores', s.total != null ? s.total : '—');
-    setText('st-signups', '+' + (g.last30d || 0) + ' this month');
     setText('st-paying', s.paying || 0);
     setText('st-mrr', peso(d.mrrPhp) + '/mo');
     setText('st-trial', s.trial || 0);
@@ -156,13 +159,19 @@ checkAuth();
     setText('st-accounts-sub',
       (u.owners || 0) + ' owners · ' + (u.cashiers || 0) + ' cashiers' +
       (u.suspended ? ' · ' + u.suspended + ' suspended' : ''));
-    setText('st-rev', peso(d.revenue30dPhp));
+
+    // Period-driven figures (move with the selector)
+    setText('st-signups', '+' + (d.periodSignups || 0) + ' new');
+    setText('st-rev', peso(d.periodRevenuePhp));
+    setText('st-rev-period', d.periodLabel || '');
 
     var maxPlan = Math.max(1, p.basic || 0, p.plus || 0, p.pro || 0);
     setText('st-basic', p.basic || 0); setBar('bar-basic', p.basic || 0, maxPlan);
     setText('st-plus',  p.plus  || 0); setBar('bar-plus',  p.plus  || 0, maxPlan);
     setText('st-pro',   p.pro   || 0); setBar('bar-pro',   p.pro   || 0, maxPlan);
   }
+
+  if (periodSel) periodSel.addEventListener('change', loadStats);
 
   loadStats();
   loadClaims();
