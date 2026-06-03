@@ -2497,8 +2497,11 @@
   Phase 4 AI · Phase 5 Finance · Phase 6 Onboarding — COMPLETE
   Phase 6.5 Multi-Tenant SaaS (tenancy + RBAC + Team) — COMPLETE
   Phase 6.6 Manual GCash billing bridge (4 PHP tiers, verify-first claims,
-    super-admin approval; PayMongo later) — code-complete (6.6a–h); pending a live
-    test-tenancy green run + live GCash payment validation
+    super-admin approval; PayMongo later) — COMPLETE (6.6a–h); test-tenancy 57/57
+    green. Pending only live GCash payment validation (set QR in the operator
+    console). DEPLOY NOTE: after running migrate_billing_bridge.sql, RESTART the
+    API server — pooled DB connections cache the old plan enum and 500 on 'basic'
+    inserts until reconnected.
   Post-ship:
     • Sales — Admin sale-edit (PUT /api/sales/:id): edit a past sale from
                    History with full server-side reconciliation (stock
