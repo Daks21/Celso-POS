@@ -85,6 +85,21 @@ function hasEntitlement(feature) {
   return e.features.indexOf(feature) !== -1;
 }
 
+// Re-pull entitlements from the server and re-cache them. The plan resolves live
+// from the store row on every /me request, so this picks up an operator-approved
+// upgrade (or a downgrade / trial expiry / seat change) WITHOUT a re-login — the
+// login-time cache alone goes stale the moment the plan changes server-side.
+// Returns true if the cached snapshot actually changed. UI-only; server enforces.
+async function refreshEntitlements() {
+  if (!localStorage.getItem('token')) return false;
+  var before = localStorage.getItem('entitlements') || '';
+  var res;
+  try { res = await getMe(); } catch (e) { return false; }
+  if (!res || !res.success || !res.plan) return false;   // leave the cache as-is on any miss
+  cacheEntitlements(res);                                 // /me returns the same top-level shape as login
+  return (localStorage.getItem('entitlements') || '') !== before;
+}
+
 // Wipes client-side state on sign-out / session-end. Sari-sari store devices
 // are commonly shared, so a partial clear (token + currentUser only) would let
 // the next user read the previous user's preferences and — critically — their

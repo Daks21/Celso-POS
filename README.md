@@ -572,7 +572,10 @@
       (reachable by cashiers; the POS + History need the reads)
   login + GET /me also return { plan, features, role, cashierSeats, state,
   paidUntil, graceEndsAt, trialEndsAt } for the client to mirror the gating
-  (UI only — the server is the boundary).
+  (UI only — the server is the boundary). The client caches this snapshot at
+  login AND refreshes it from /me on every app-page load (core/api.js
+  refreshEntitlements); if it changed it reloads once, so a server-side plan
+  change — e.g. an operator-approved GCash upgrade — applies WITHOUT a re-login.
 
   ──────────────────────────────────────────────────────────────
   AUTHENTICATION  /api/auth

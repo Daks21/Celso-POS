@@ -253,7 +253,23 @@ function showUpgradeToastIfRedirected() {
 document.addEventListener('DOMContentLoaded', function () {
   guardCurrentPage();
   showUpgradeToastIfRedirected();
+  syncEntitlementsOnLoad();
 });
+
+// Entitlements are cached at login for synchronous gating, but a plan can change
+// server-side mid-session (e.g. an operator approves a GCash upgrade). Refresh the
+// cache on every app-page load; if it changed, reload ONCE so the sidebar locks,
+// the page guard, and the locked overlay all re-apply against the new plan — no
+// re-login needed. Loop-safe: after the reload the fresh snapshot matches, so the
+// next load detects no change. Fails open (network/auth miss leaves the cache).
+async function syncEntitlementsOnLoad() {
+  var page = window.location.pathname.split('/').pop();
+  if (APP_PAGES.indexOf(page) === -1) return;            // app pages only (skip login/register/operator console)
+  if (typeof refreshEntitlements !== 'function') return;
+  var changed = false;
+  try { changed = await refreshEntitlements(); } catch (_) { return; }
+  if (changed) window.location.reload();
+}
 
 // Writes DB preferences into individual localStorage keys (no external deps).
 // Called once on login before redirecting so every page reads from cache.
