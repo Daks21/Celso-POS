@@ -2308,7 +2308,10 @@
     plan was replaced by a manual GCash bridge: PH MSME buyers pay by GCash, not
     card, and an aggregator needs business registration the founder doesn't have
     yet. A billing change still reconciles cashier seats — suspends the newest
-    excess on downgrade, reactivates on re-upgrade — and never deletes data.)
+    excess on downgrade, reactivates on re-upgrade — and never deletes data. A
+    LAPSE (non-renewal → Free after grace) is lazy date-math with no approve
+    event, so loadStore reconciles seats to 0 the next time the lapsed store is
+    touched, suspending any cashiers it can no longer afford.)
 
   MODULES (build order):
     6.5a Tenancy core — plans.js, stores schema + migrate_multitenant.sql,

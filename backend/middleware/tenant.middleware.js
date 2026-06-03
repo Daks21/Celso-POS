@@ -1,5 +1,6 @@
 const storeModel = require('../models/store.model');
-const { effectivePlan, hasFeature } = require('../config/plans');
+const { effectivePlan, hasFeature, cashierSeats } = require('../config/plans');
+const { reconcileCashierSeats } = require('../models/user.model');
 
 // loadStore resolves the caller's store from the DB on every request and attaches
 // it (plus the effective plan) to req. MUST run AFTER authMiddleware — it reads
@@ -19,6 +20,22 @@ async function loadStore(req, res, next) {
     }
     req.store = store;
     req.plan = effectivePlan(store);
+
+    // Lazy lapse enforcement. An approved downgrade reconciles cashier seats in
+    // admin.controller, but a LAPSE is lazy date-math with no event — so a store
+    // that lapsed to Free from Plus/Pro would otherwise keep its cashiers able to
+    // log in and ring up sales (the POS itself is a Free feature). A Free/Basic
+    // plan allows 0 cashier seats, so suspend any still-active cashiers now. Both
+    // owner and cashier requests hit loadStore, so either party's next action
+    // triggers it; the suspended cashier is then signed out by authMiddleware's
+    // is_active check on its following request. Re-upgrade reactivates them
+    // (oldest-first) on approve. Fire-and-forget + a cheap no-op once none remain
+    // — seat bookkeeping must never 500 a request.
+    if (cashierSeats(req.plan) === 0) {
+      reconcileCashierSeats(store.id, 0).catch((e) =>
+        console.error('[loadStore] lapse seat reconcile failed:', e.message));
+    }
+
     next();
   } catch (e) {
     next(e);
