@@ -57,8 +57,11 @@ if (loginForm) {
         }
       } catch (e) { /* non-fatal — localStorage defaults will be used */ }
 
-      // Cashiers have no dashboard — send them straight to the POS.
-      window.location.href = result.role === 'cashier' ? "pages/order.html" : "pages/dashboard.html";
+      // Route by role: cashiers -> POS, platform super-admin -> operator console,
+      // owners -> dashboard.
+      window.location.href = result.role === 'cashier'    ? "pages/order.html"
+                           : result.role === 'superadmin' ? "pages/admin.html"
+                           : "pages/dashboard.html";
     } else {
       loginError.textContent = result ? result.message : "Login failed. Please try again.";
     }
@@ -195,8 +198,23 @@ var PAGE_FEATURE = {
 
 function guardCurrentPage() {
   var page = window.location.pathname.split('/').pop();
-  if (APP_PAGES.indexOf(page) === -1) return; // not a gated app page (login/register)
   var e = (typeof getEntitlements === 'function') ? getEntitlements() : null;
+
+  // Operator console: only the platform super-admin may view it; a tenant user
+  // is bounced out (the API 404s anyway). Unknown role -> allow, API enforces.
+  if (page === 'admin.html') {
+    if (e && e.role && e.role !== 'superadmin') window.location.replace('dashboard.html');
+    return;
+  }
+  // A super-admin who lands on a tenant app page is sent to the console (both
+  // live in pages/, so the relative replace resolves correctly). Login/register
+  // and other non-app pages are left alone.
+  if (e && e.role === 'superadmin' && APP_PAGES.indexOf(page) !== -1) {
+    window.location.replace('admin.html');
+    return;
+  }
+
+  if (APP_PAGES.indexOf(page) === -1) return; // not a gated app page (login/register)
   if (!e || !Array.isArray(e.features)) return; // unknown → allow (server enforces)
 
   // Cashier role-lock: only New Order + History.

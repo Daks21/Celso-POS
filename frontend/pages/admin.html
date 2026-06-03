@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    (function () {
+      var theme = localStorage.getItem('theme') || 'light';
+      if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Celso POS | Operator</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%235a9e6f'/%3E%3Ctext x='16' y='23' font-family='sans-serif' font-size='20' font-weight='700' text-anchor='middle' fill='white'%3EC%3C/text%3E%3C/svg%3E">
+  <script src="../assets/vendor/lucide.min.js?v=11"></script>
+
+  <link rel="stylesheet" href="../css/main.css?v=11">
+  <link rel="stylesheet" href="../css/layout.css?v=11">
+  <link rel="stylesheet" href="../css/components.css?v=11">
+  <style>
+    .op-topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;
+      padding:14px 24px;background:var(--color-surface);border-bottom:1px solid var(--color-border)}
+    .op-brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--color-text);font-size:16px}
+    .op-brand svg{width:20px;height:20px;color:var(--color-primary)}
+    .op-actions{display:flex;align-items:center;gap:8px}
+    .op-btn-ghost{display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--color-border);
+      background:transparent;color:var(--color-text);border-radius:var(--radius-sm);font-family:inherit;font-weight:600;font-size:13px;cursor:pointer}
+    .op-btn-ghost:hover{border-color:var(--color-primary);color:var(--color-primary)}
+    .op-btn-ghost svg{width:15px;height:15px}
+
+    .op-main{max-width:1000px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:20px}
+    .op-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);padding:20px}
+    .op-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+    .op-section-head h2{font-size:17px;margin:0;color:var(--color-text);display:flex;align-items:center;gap:8px}
+    .op-badge{background:var(--color-error);color:#fff;font-size:12px;font-weight:700;min-width:20px;height:20px;
+      border-radius:var(--radius-full);display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
+    .op-tabs{display:flex;gap:6px}
+    .op-tab{padding:6px 12px;border:1px solid var(--color-border);background:transparent;color:var(--color-text-muted);
+      border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer}
+    .op-tab.is-active{background:rgba(90,158,111,.12);border-color:var(--color-primary);color:var(--color-primary)}
+
+    .op-muted{color:var(--color-text-muted);font-size:13px}
+    .op-actions-cell{white-space:nowrap}
+    .op-btn-sm{padding:6px 10px;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;margin-right:6px}
+    .op-approve{background:var(--color-primary);color:#fff}
+    .op-reject{background:transparent;border:1px solid var(--color-border);color:var(--color-error)}
+    .op-btn-sm:disabled{opacity:.6;cursor:default}
+    .op-status{font-size:12px;font-weight:700;text-transform:capitalize}
+    .op-status--approved{color:var(--color-primary)}
+    .op-status--rejected{color:var(--color-error)}
+
+    .op-qr-grid{display:grid;grid-template-columns:200px 1fr;gap:20px;align-items:start}
+    .op-qr-preview img{width:180px;height:180px;object-fit:contain;border:1px solid var(--color-border);border-radius:var(--radius-md);background:#fff}
+    .op-qr-form{display:flex;flex-direction:column;gap:12px}
+    .op-qr-form label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--color-text)}
+    .op-qr-form input[type=text]{padding:10px 12px;border:1px solid var(--color-border);border-radius:var(--radius-sm);
+      background:var(--color-surface);color:var(--color-text);font-family:inherit;font-size:14px;font-weight:400}
+    .op-qr-form input[type=file]{font-size:13px;font-weight:400}
+    .op-btn-primary{align-self:flex-start;padding:11px 20px;border:none;border-radius:var(--radius-sm);
+      background:var(--color-primary);color:#fff;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer}
+
+    @media (max-width:640px){ .op-qr-grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body class="app-body">
+
+  <header class="op-topbar">
+    <div class="op-brand"><i data-lucide="shield"></i> Celso POS · Operator</div>
+    <div class="op-actions">
+      <button type="button" class="topbar-icon-button" id="theme-toggle" title="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
+      <button type="button" class="op-btn-ghost" id="op-logout"><i data-lucide="log-out"></i> Logout</button>
+    </div>
+  </header>
+
+  <main class="op-main">
+
+    <section class="op-card">
+      <div class="op-section-head">
+        <h2>Payment claims <span class="op-badge" id="op-pending-count" style="display:none"></span></h2>
+        <div class="op-tabs">
+          <button type="button" class="op-tab is-active" data-status="pending">Pending</button>
+          <button type="button" class="op-tab" data-status="approved">Approved</button>
+          <button type="button" class="op-tab" data-status="rejected">Rejected</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr><th>Store</th><th>Owner</th><th>Plan</th><th>Amount</th><th>GCash Ref</th><th>Submitted</th><th>Status / Action</th></tr>
+          </thead>
+          <tbody id="op-claims-body">
+            <tr><td colspan="7" class="op-muted">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="op-card">
+      <div class="op-section-head"><h2>GCash receiving QR</h2></div>
+      <div class="op-qr-grid">
+        <div class="op-qr-preview">
+          <img id="op-qr-img" alt="Current GCash QR" style="display:none">
+          <p id="op-qr-empty" class="op-muted">No QR uploaded yet.</p>
+        </div>
+        <form id="op-qr-form" class="op-qr-form" autocomplete="off">
+          <label>Receiving name<input type="text" id="op-qr-name" maxlength="120"></label>
+          <label>GCash number<input type="text" id="op-qr-number" maxlength="32"></label>
+          <label>QR image (PNG/JPEG, ≤500&nbsp;KB)<input type="file" id="op-qr-file" accept="image/png,image/jpeg"></label>
+          <button type="submit" class="op-btn-primary">Save</button>
+          <p class="op-muted" id="op-qr-msg"></p>
+        </form>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="../js/core/theme.js?v=11"></script>
+  <script src="../js/core/api.js?v=11"></script>
+  <script src="../js/core/utils.js?v=11"></script>
+  <script src="../js/core/auth.js?v=11"></script>
+  <script src="../js/pages/admin.js?v=11"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

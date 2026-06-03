@@ -360,6 +360,21 @@ async function submitClaim(plan, gcashRef) {
   return apiCall('/billing/claim', { method: 'POST', body: JSON.stringify({ plan, gcashRef }) });
 }
 
+// --- Operator / super-admin (Phase 6.6; /api/admin — 404s for non-super-admins) ---
+async function getAdminClaims(status) {
+  return apiCall('/admin/claims' + (status ? ('?status=' + encodeURIComponent(status)) : ''));
+}
+async function approveAdminClaim(id) {
+  return apiCall('/admin/claims/' + id + '/approve', { method: 'POST' });
+}
+async function rejectAdminClaim(id, note) {
+  return apiCall('/admin/claims/' + id + '/reject', { method: 'POST', body: JSON.stringify({ note: note || '' }) });
+}
+async function getAdminQr() { return apiCall('/admin/qr'); }
+async function saveAdminQr(payload) {
+  return apiCall('/admin/qr', { method: 'POST', body: JSON.stringify(payload) });
+}
+
 // --- Password (owner self-service change; admin-gated server-side) ---
 async function changePassword(data) {
   return apiCall('/auth/password', { method: 'PUT', body: JSON.stringify(data) });
