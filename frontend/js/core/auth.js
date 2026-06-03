@@ -230,6 +230,18 @@ function guardCurrentPage() {
   // 402 data calls don't spray red toasts and the owner still sees the feature.
   var feature = PAGE_FEATURE[page];
   if (feature && e.features.indexOf(feature) === -1 && page !== 'dashboard.html') {
+    // Hold the visible lock card back while a first-time owner is still being
+    // guided through this page's own onboarding tour (e.g. Finance). The card
+    // would otherwise blur + inert the page and pre-empt the tour. We still mark
+    // the gate active (gateSilently) so the page's 402 data calls don't spray red
+    // toasts. Once the tour has been seen the card shows normally on the next
+    // visit. Pages without a tour (Analytics, AI) lock immediately as before.
+    var pageKey = page.replace(/\.html$/, '');
+    if (typeof OnboardingCore !== 'undefined' &&
+        OnboardingCore.hasOnboarding(pageKey) && !OnboardingCore.isTourSeen(pageKey)) {
+      if (typeof LockedOverlay !== 'undefined') LockedOverlay.gateSilently();
+      return;
+    }
     if (typeof LockedOverlay !== 'undefined') { LockedOverlay.show(feature); return; }
     // Fallback if the overlay component isn't loaded: redirect as before.
     try { sessionStorage.setItem('os_upgrade_redirect', '1'); } catch (_) {}

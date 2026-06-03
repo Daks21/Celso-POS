@@ -67,5 +67,15 @@ window.LockedOverlay = (function () {
     try { cta.focus(); } catch (_) {}
   }
 
-  return { show: show, isActive: isActive };
+  // Mark the gate active for 402-toast suppression WITHOUT rendering the lock
+  // card or blurring the page. Used by the page guard while a first-time owner is
+  // still being walked through this page's onboarding tour: the tour, not the
+  // lock card, should own the screen, but the page's gated data calls still 402
+  // and we don't want that red-toast cascade. The visible card returns on the
+  // next visit, once the tour has been seen (see auth.guardCurrentPage).
+  function gateSilently() {
+    _active = true;
+  }
+
+  return { show: show, isActive: isActive, gateSilently: gateSilently };
 })();

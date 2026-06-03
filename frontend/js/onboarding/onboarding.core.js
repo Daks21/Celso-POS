@@ -37,25 +37,45 @@ const OnboardingCore = (() => {
     }
   }
 
+  // Onboarding flags are stored PER USER. Sari-sari devices are shared, and the
+  // flags are intentionally preserved across logout (see api.clearSession) so a
+  // returning user doesn't replay the welcome modal + tours. Without scoping,
+  // those global flags would leak to the next account that signs in on the same
+  // browser — so a freshly-created user would inherit the previous user's "seen"
+  // flags and get NO onboarding. Suffixing every key with the signed-in user id
+  // gives each user their own onboarding state.
+  function userScope() {
+    try {
+      const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+      return (user && user.id != null) ? String(user.id) : 'anon';
+    } catch (e) {
+      return 'anon';
+    }
+  }
+
+  function scopedKey(base) {
+    return base + ':u' + userScope();
+  }
+
   function isFirstLogin() {
-    return localStorage.getItem(KEYS.welcomeSeen) !== 'true';
+    return localStorage.getItem(scopedKey(KEYS.welcomeSeen)) !== 'true';
   }
 
   function markWelcomeSeen() {
-    localStorage.setItem(KEYS.welcomeSeen, 'true');
+    localStorage.setItem(scopedKey(KEYS.welcomeSeen), 'true');
   }
 
   function isChecklistDismissed() {
-    return localStorage.getItem(KEYS.checklistDismissed) === 'true';
+    return localStorage.getItem(scopedKey(KEYS.checklistDismissed)) === 'true';
   }
 
   function dismissChecklist() {
-    localStorage.setItem(KEYS.checklistDismissed, 'true');
+    localStorage.setItem(scopedKey(KEYS.checklistDismissed), 'true');
   }
 
   function getChecklistProgress() {
     try {
-      const raw = localStorage.getItem(KEYS.checklistProgress);
+      const raw = localStorage.getItem(scopedKey(KEYS.checklistProgress));
       return raw ? Object.assign({}, PROGRESS_DEFAULTS, JSON.parse(raw)) : Object.assign({}, PROGRESS_DEFAULTS);
     } catch (e) {
       return Object.assign({}, PROGRESS_DEFAULTS);
@@ -65,23 +85,32 @@ const OnboardingCore = (() => {
   function completeChecklistItem(itemKey) {
     const progress = getChecklistProgress();
     progress[itemKey] = true;
-    localStorage.setItem(KEYS.checklistProgress, JSON.stringify(progress));
+    localStorage.setItem(scopedKey(KEYS.checklistProgress), JSON.stringify(progress));
   }
 
   function isTourSeen(page) {
     const key = PAGE_TO_KEY[page];
     if (!key) return true;
-    return localStorage.getItem(KEYS[key]) === 'true';
+    return localStorage.getItem(scopedKey(KEYS[key])) === 'true';
   }
 
   function markTourSeen(page) {
     const key = PAGE_TO_KEY[page];
     if (!key) return;
-    localStorage.setItem(KEYS[key], 'true');
+    localStorage.setItem(scopedKey(KEYS[key]), 'true');
+  }
+
+  // True for pages that ship a guided tour (finance, products, inventory, order,
+  // dashboard). The plan-gate uses this to know whether to hold a locked-feature
+  // overlay back until the page's onboarding has run — pages without a tour
+  // (analytics, ai) lock immediately.
+  function hasOnboarding(page) {
+    return Object.prototype.hasOwnProperty.call(PAGE_TO_KEY, page);
   }
 
   function resetAll() {
-    Object.values(KEYS).forEach(k => localStorage.removeItem(k));
+    // Reset the current user's onboarding only (keys are per-user scoped).
+    Object.values(KEYS).forEach(base => localStorage.removeItem(scopedKey(base)));
     console.log('[Onboarding] State reset. Redirecting to Dashboard...');
     window.location.replace('dashboard.html');
   }
@@ -196,6 +225,7 @@ const OnboardingCore = (() => {
     completeChecklistItem,
     isTourSeen,
     markTourSeen,
+    hasOnboarding,
     resetAll,
     renderEmptyState,
     guardFirstLogin,
