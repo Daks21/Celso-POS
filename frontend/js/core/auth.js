@@ -108,8 +108,11 @@ if (registerForm) {
       return;
     }
 
-    if (password.length < 8) {
-      showFieldError(passwordInput, passwordError, "Password must be at least 8 characters");
+    var pwCheck = (typeof PasswordPolicy !== 'undefined')
+      ? PasswordPolicy.validate(password)
+      : { ok: password.length >= 12, message: 'Password must be at least 12 characters' };
+    if (!pwCheck.ok) {
+      showFieldError(passwordInput, passwordError, pwCheck.message);
       return;
     }
 
@@ -126,6 +129,11 @@ if (registerForm) {
       showFieldError(emailInput, emailError, result ? result.message : "Registration failed. Please try again.");
     }
   });
+
+  // Live strength meter — register page only (the element is absent on login).
+  if (typeof PasswordPolicy !== 'undefined') {
+    PasswordPolicy.attachMeter(passwordInput, document.getElementById('pw-meter'));
+  }
 }
 
 function isValidEmail(email) {

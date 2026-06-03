@@ -67,9 +67,14 @@
               type="password"
               id="password"
               name="password"
-              placeholder="Enter your password"
+              placeholder="At least 12 characters"
               required
             />
+            <div class="pw-meter" id="pw-meter" aria-hidden="true">
+              <div class="pw-meter-track"><div class="pw-meter-fill"></div></div>
+              <span class="pw-meter-label"></span>
+            </div>
+            <p class="pw-hint">Use at least 12 characters — a short phrase you'll remember works great.</p>
             <p id="password-error" class="form-error"></p>
           </div>
 
@@ -102,6 +107,7 @@
 
   <script src="../../js/core/api.js?v=13"></script>
   <script src="../../js/core/utils.js?v=13"></script>
+  <script src="../../js/core/password-policy.js?v=13"></script>
   <script src="../../js/core/auth.js?v=13"></script>
   <script>lucide.createIcons();</script>
 </body>

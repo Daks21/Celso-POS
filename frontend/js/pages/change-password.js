@@ -12,12 +12,19 @@
   var err  = document.getElementById('cp-error');
   var btn  = document.getElementById('cp-btn');
 
+  if (typeof PasswordPolicy !== 'undefined') {
+    PasswordPolicy.attachMeter(pw, document.getElementById('pw-meter'));
+  }
+
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
     err.textContent = '';
     var a = pw.value, b = cpw.value;
-    if (a.length < 8) { err.textContent = 'Password must be at least 8 characters.'; return; }
-    if (a !== b)      { err.textContent = 'Passwords do not match.'; return; }
+    var chk = (typeof PasswordPolicy !== 'undefined')
+      ? PasswordPolicy.validate(a)
+      : { ok: a.length >= 12, message: 'Password must be at least 12 characters.' };
+    if (!chk.ok)  { err.textContent = chk.message; return; }
+    if (a !== b)  { err.textContent = 'Passwords do not match.'; return; }
 
     btn.disabled = true;
     var res = await changePassword({ newPassword: a });

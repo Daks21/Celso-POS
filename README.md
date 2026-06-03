@@ -582,7 +582,7 @@
   ──────────────────────────────────────────────────────────────
 
     POST   /register       Public (rate-limited)
-      Body: { fullName, email, password }   (password ≥ 8 chars)
+      Body: { fullName, email, password }   (password policy — see below)
       → 201 { success, message }
       → 400 validation error | 409 email already exists
 
@@ -601,7 +601,22 @@
       Body: { newPassword, currentPassword? }
       Owner self-service password change. Admin-only — cashiers don't manage
       their own credentials (the owner resets them on the Team page).
-      → 200 { success } | 400 too short | 403 not admin
+      → 200 { success } | 400 weak password | 403 not admin
+
+    PASSWORD POLICY (backend/utils/passwordPolicy.js — the single source of
+    truth, enforced server-side on every entry point that sets a password:
+    register, /auth/password, and the Team cashier create + reset routes):
+      - Minimum 12 characters (NIST 800-63B: length over composition — no
+        forced symbol/character-class mix, which only breeds predictable
+        patterns for our mobile MSME users).
+      - Screened against a common/breached blocklist (config/common-passwords.js):
+        the password and its de-suffixed base ("Password123!" → "password") are
+        rejected, as are single-character repeats.
+      - Existing accounts are GRANDFATHERED — the rule runs only when a password
+        is set or changed, never on login, so no forced resets.
+      - The frontend mirrors this (js/core/password-policy.js) for inline
+        validation + a strength meter on the register and set-password forms,
+        but the server re-validates and is authoritative.
 
     Note: register now creates a NEW isolated store + its owner-admin (14-day
     Basic trial), replacing the single-tenant first-account-admin rule.

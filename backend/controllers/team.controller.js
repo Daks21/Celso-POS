@@ -11,6 +11,7 @@ const pool   = require('../config/db.config');
 const { findByEmail, createUser, countActiveCashiers } = require('../models/user.model');
 const saleModel = require('../models/sale.model');
 const { cashierSeats } = require('../config/plans');
+const { validatePassword } = require('../utils/passwordPolicy');
 const { dateInTz } = require('../utils/tz');
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -55,8 +56,9 @@ const create = async (req, res, next) => {
     if (!emailRegex.test(email)) {
       return res.status(400).json({ success: false, message: 'Enter a valid email address' });
     }
-    if (String(password).length < 8) {
-      return res.status(400).json({ success: false, message: 'Temporary password must be at least 8 characters' });
+    const pwCheck = validatePassword(String(password));
+    if (!pwCheck.ok) {
+      return res.status(400).json({ success: false, message: pwCheck.message });
     }
 
     // Seat gate — plan caps active cashiers (Free 0 / Plus 1 / Pro 2).
@@ -143,8 +145,9 @@ const resetPassword = async (req, res, next) => {
     if (isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid user ID' });
 
     const { password } = req.body;
-    if (!password || String(password).length < 8) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+    const pwCheck = validatePassword(String(password || ''));
+    if (!pwCheck.ok) {
+      return res.status(400).json({ success: false, message: pwCheck.message });
     }
 
     const cashier = await _storeCashier(req.user.storeId, id);

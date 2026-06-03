@@ -5,6 +5,7 @@ const { findByEmail, getPreferences, savePreferences, setSessionId } = require('
 const settings   = require('../models/settings.model');
 const storeModel = require('../models/store.model');
 const { entitlements } = require('../config/plans');
+const { validatePassword } = require('../utils/passwordPolicy');
 const pool       = require('../config/db.config');
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,8 +22,9 @@ const register = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Enter a valid email address' });
     }
 
-    if (password.length < 8) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.ok) {
+      return res.status(400).json({ success: false, message: pwCheck.message });
     }
 
     if (await findByEmail(email)) {
@@ -163,8 +165,9 @@ const savePreferencesHandler = async (req, res, next) => {
 const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
-      return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
+    const pwCheck = validatePassword(newPassword);
+    if (!pwCheck.ok) {
+      return res.status(400).json({ success: false, message: pwCheck.message });
     }
 
     const user = await findByEmail(req.user.email);

@@ -248,6 +248,45 @@ body {
   display: block;
 }
 
+/* Password strength meter (register + set-password). Hidden until typing; the
+   level class pw-meter--0..4 colours the fill. JS in core/password-policy.js. */
+.pw-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 6px 0 0;
+}
+.pw-meter {
+  display: none;
+  margin-top: 8px;
+}
+.pw-meter.is-on {
+  display: block;
+}
+.pw-meter-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+.pw-meter-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--color-error);
+  transition: width 0.2s ease, background 0.2s ease;
+}
+.pw-meter-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.pw-meter--0 .pw-meter-fill,
+.pw-meter--1 .pw-meter-fill { background: var(--color-error); }
+.pw-meter--2 .pw-meter-fill { background: #eab308; }
+.pw-meter--3 .pw-meter-fill { background: #3b82f6; }
+.pw-meter--4 .pw-meter-fill { background: var(--color-primary); }
+
 .submit-button {
   width: 100%;
   padding: 12px 16px;

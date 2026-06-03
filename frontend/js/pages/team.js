@@ -140,7 +140,10 @@
     var ok = true;
     if (!fullName) { nameErr.textContent = 'Name is required.'; ok = false; }
     if (!email)    { emailErr.textContent = 'Email is required.'; ok = false; }
-    if (password.length < 8) { passErr.textContent = 'Password must be at least 8 characters.'; ok = false; }
+    var pwChk = (typeof PasswordPolicy !== 'undefined')
+      ? PasswordPolicy.validate(password)
+      : { ok: password.length >= 12, message: 'Password must be at least 12 characters.' };
+    if (!pwChk.ok) { passErr.textContent = pwChk.message; ok = false; }
     if (!ok) return;
 
     var res = await createCashier({ fullName: fullName, email: email, password: password });
@@ -180,7 +183,10 @@
     e.preventDefault();
     rpError.textContent = '';
     var pw = rpInput.value;
-    if (!pw || pw.length < 8) { rpError.textContent = 'Password must be at least 8 characters.'; return; }
+    var rpChk = (typeof PasswordPolicy !== 'undefined')
+      ? PasswordPolicy.validate(pw)
+      : { ok: (pw || '').length >= 12, message: 'Password must be at least 12 characters.' };
+    if (!rpChk.ok) { rpError.textContent = rpChk.message; return; }
     var res = await resetCashierPassword(rpTarget, pw);
     if (res && res.success) {
       if (typeof showApiSuccess === 'function') showApiSuccess('Password updated.');
