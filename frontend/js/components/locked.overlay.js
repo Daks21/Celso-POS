@@ -50,7 +50,6 @@ window.LockedOverlay = (function () {
         '<div class="lock-badge"><i data-lucide="lock"></i></div>' +
         '<h2></h2><p></p>' +
         '<button type="button" class="lock-cta" id="lock-cta"></button>' +
-        '<span class="lock-tag">Sample view</span>' +
       '</div>';
     host.appendChild(ov);
 
