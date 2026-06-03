@@ -1,8 +1,10 @@
 const OnboardingWelcome = (() => {
 
   // Set in render(): the owner of a freshly-created (trialing) store gets a
-  // celebratory "14-day Basic trial" gift + confetti on panel 2. Cashiers and
-  // non-trial stores don't (the trial is store-level and granted at signup).
+  // celebratory "14-day Basic trial" gift + confetti on panel 2. Non-trial
+  // stores don't (the trial is store-level and granted at signup). The welcome
+  // modal only ever runs for store owners — it inits on the dashboard, the one
+  // page cashiers and super-admins never reach — so all copy here is owner-only.
   let _giftEligible = false;
 
   const STORE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"
@@ -13,17 +15,11 @@ const OnboardingWelcome = (() => {
     <rect x="9" y="14" width="6" height="6" rx="1"/>
   </svg>`;
 
-  const PANEL_2_COPY = {
-    admin:   'Your store dashboard is ready. Start by logging your starting capital, then add the products you sell.',
-    cashier: 'Your POS is ready. Start by making your first sale.',
-  };
+  // Panel-2 description (owner-only modal — see header note).
+  const PANEL_2_DESC = 'Your store dashboard is ready. Start by logging your starting capital, then add the products you sell.';
 
-  // Panel-1 "here's the path" steps, role-aware so a cashier isn't shown
-  // owner-only setup tasks (log capital / restock) they can't actually do.
-  const STEPS_BY_ROLE = {
-    admin:   ['Log starting capital', 'Add your products', 'Restock them', 'Make your first sale'],
-    cashier: ['Make a sale', 'Check your sales history'],
-  };
+  // Panel-1 "here's the path" setup steps.
+  const WELCOME_STEPS = ['Log starting capital', 'Add your products', 'Restock them', 'Make your first sale'];
 
   function init() {
     if (!OnboardingCore.isFirstLogin()) return false;
@@ -33,20 +29,14 @@ const OnboardingWelcome = (() => {
   }
 
   function render() {
-    const role = OnboardingCore.getUserRole();
-    const desc = PANEL_2_COPY[role] || PANEL_2_COPY.cashier;
-
-    // Timezone confirmation (admins only — the store timezone is store-wide).
-    // Pre-select the device's detected zone; the owner can change it here or
-    // later in Account Settings.
-    const isAdmin = role === 'admin';
+    const desc = PANEL_2_DESC;
 
     // Trial gift (owner of a trialing store): a 14-day Basic trial reveal on
     // panel 2 with confetti. Reads the cached entitlements snapshot.
     let _ent = (typeof getEntitlements === 'function') ? getEntitlements() : null;
     let onTrial = !!(_ent && (_ent.state === 'trial' ||
       (_ent.trialEndsAt && new Date(_ent.trialEndsAt) > new Date())));
-    _giftEligible = isAdmin && onTrial;
+    _giftEligible = onTrial;
     let trialDays = 14;
     if (_ent && _ent.trialEndsAt) {
       const dl = Math.ceil((new Date(_ent.trialEndsAt).getTime() - Date.now()) / 86400000);
@@ -60,9 +50,8 @@ const OnboardingWelcome = (() => {
           'Finance &amp; Analytics are on us — explore them during your trial.</div>'
       : '';
 
-    // Build the role-aware step pills for panel 1.
-    const steps = STEPS_BY_ROLE[role] || STEPS_BY_ROLE.cashier;
-    const stepsHtml = steps.map(function (label, i) {
+    // Build the setup step pills for panel 1.
+    const stepsHtml = WELCOME_STEPS.map(function (label, i) {
       return '<div class="onb-step">' +
                '<span class="onb-step-num">' + (i + 1) + '</span>' +
                '<span>' + label + '</span>' +
@@ -83,13 +72,15 @@ const OnboardingWelcome = (() => {
     const tzOptions = zones.map(function (z) {
       return '<option value="' + z + '"' + (z === detectedTz ? ' selected' : '') + '>' + z + '</option>';
     }).join('');
-    const tzFieldHtml = isAdmin
-      ? '<div class="onb-tz-field">' +
-          '<label for="onb-tz-select">Store timezone</label>' +
-          '<select id="onb-tz-select" class="onb-tz-select">' + tzOptions + '</select>' +
-          '<p class="onb-tz-hint">We detected this from your device. Sales and daily totals use it to know when each day starts. You can change it later in Account Settings.</p>' +
-        '</div>'
-      : '';
+    // Timezone confirmation — the store timezone is store-wide. Pre-select the
+    // device's detected zone; the owner can change it here or later in Account
+    // Settings.
+    const tzFieldHtml =
+      '<div class="onb-tz-field">' +
+        '<label for="onb-tz-select">Store timezone</label>' +
+        '<select id="onb-tz-select" class="onb-tz-select">' + tzOptions + '</select>' +
+        '<p class="onb-tz-hint">We detected this from your device. Sales and daily totals use it to know when each day starts. You can change it later in Account Settings.</p>' +
+      '</div>';
 
     const html = `
 <div id="onb-welcome-overlay" class="onb-overlay onb-overlay--welcome"
