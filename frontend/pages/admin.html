@@ -58,6 +58,17 @@
     .op-btn-primary{align-self:flex-start;padding:11px 20px;border:none;border-radius:var(--radius-sm);
       background:var(--color-primary);color:#fff;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer}
 
+    .op-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+    .op-stat{background:var(--color-background);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:14px}
+    .op-stat-num{display:block;font-size:24px;font-weight:700;color:var(--color-text);line-height:1.1}
+    .op-stat-label{display:block;margin-top:2px;font-size:12px;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.03em}
+    .op-stat-sub{display:block;margin-top:4px;font-size:12px;color:var(--color-primary);font-weight:600;min-height:16px}
+    .op-plan-split{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+    .op-plan-row{display:grid;grid-template-columns:54px 1fr 36px;align-items:center;gap:10px;font-size:13px;color:var(--color-text)}
+    .op-plan-bar{height:8px;background:var(--color-border);border-radius:999px;overflow:hidden}
+    .op-plan-bar>div{height:100%;width:0;background:var(--color-primary);border-radius:999px;transition:width .3s ease}
+    .op-plan-row b{text-align:right;font-variant-numeric:tabular-nums}
+
     @media (max-width:640px){ .op-qr-grid{grid-template-columns:1fr} }
   </style>
 </head>
@@ -72,6 +83,24 @@
   </header>
 
   <main class="op-main">
+
+    <section class="op-card">
+      <div class="op-section-head"><h2>Platform overview</h2></div>
+      <div class="op-stats">
+        <div class="op-stat"><span class="op-stat-num" id="st-stores">—</span><span class="op-stat-label">Stores</span><span class="op-stat-sub" id="st-signups"></span></div>
+        <div class="op-stat"><span class="op-stat-num" id="st-paying">—</span><span class="op-stat-label">Paying</span><span class="op-stat-sub" id="st-mrr"></span></div>
+        <div class="op-stat"><span class="op-stat-num" id="st-trial">—</span><span class="op-stat-label">On trial</span></div>
+        <div class="op-stat"><span class="op-stat-num" id="st-free">—</span><span class="op-stat-label">Free / lapsed</span></div>
+        <div class="op-stat"><span class="op-stat-num" id="st-active">—</span><span class="op-stat-label">Active users (30d)</span><span class="op-stat-sub" id="st-active7"></span></div>
+        <div class="op-stat"><span class="op-stat-num" id="st-accounts">—</span><span class="op-stat-label">User accounts</span><span class="op-stat-sub" id="st-accounts-sub"></span></div>
+        <div class="op-stat"><span class="op-stat-num" id="st-rev">—</span><span class="op-stat-label">Revenue (30d)</span></div>
+      </div>
+      <div class="op-plan-split">
+        <div class="op-plan-row"><span>Basic</span><div class="op-plan-bar"><div id="bar-basic"></div></div><b id="st-basic">0</b></div>
+        <div class="op-plan-row"><span>Plus</span><div class="op-plan-bar"><div id="bar-plus"></div></div><b id="st-plus">0</b></div>
+        <div class="op-plan-row"><span>Pro</span><div class="op-plan-bar"><div id="bar-pro"></div></div><b id="st-pro">0</b></div>
+      </div>
+    </section>
 
     <section class="op-card">
       <div class="op-section-head">

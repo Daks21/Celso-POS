@@ -14,7 +14,7 @@ const claimModel     = require('../models/claim.model');
 const userModel      = require('../models/user.model');
 const platformConfig = require('../models/platformConfig.model');
 const pool           = require('../config/db.config');
-const { resolveBilling, addOneMonth, cashierSeats } = require('../config/plans');
+const { resolveBilling, addOneMonth, cashierSeats, PLANS } = require('../config/plans');
 
 // The QR is stored as a data-URL in the DB (platform_config.gcash_qr) so it
 // survives redeploys on an ephemeral filesystem, and served as an image by the
@@ -188,4 +188,80 @@ const uploadQr = async (req, res, next) => {
   }
 };
 
-module.exports = { listClaims, approveClaim, rejectClaim, getQr, uploadQr };
+// ── GET /api/admin/stats ───────────────────────────────────────────────────
+// Platform-wide operator analytics. Plan/state counts are derived from the LIVE
+// effective plan (resolveBilling per store — lazy date math), NOT the raw
+// stores.plan column, so a store whose paid_until has lapsed counts as free, and
+// a trial counts as a trial — the same truth the rest of the app enforces. MRR
+// sums the price of currently-entitled paid plans (active + grace; trials are
+// free until they convert). Activity is from users.last_login_at.
+const getStats = async (req, res, next) => {
+  try {
+    const now = new Date();
+    const d7  = new Date(now.getTime() - 7  * 86400000);
+    const d30 = new Date(now.getTime() - 30 * 86400000);
+
+    const stats = {
+      stores:  { total: 0, paying: 0, trial: 0, free: 0 },
+      plans:   { basic: 0, plus: 0, pro: 0 },   // effective, paying tiers only
+      mrrPhp:  0,
+      users:   { total: 0, owners: 0, cashiers: 0, suspended: 0, active7d: 0, active30d: 0 },
+      signups: { last7d: 0, last30d: 0 },        // new stores (businesses)
+      revenue30dPhp: 0,                          // approved claims in the last 30 days
+      pendingClaims: 0,
+    };
+
+    const [stores] = await pool.query(
+      'SELECT plan, subscription_status, trial_ends_at, paid_until, created_at FROM stores'
+    );
+    stats.stores.total = stores.length;
+    for (const s of stores) {
+      const b = resolveBilling(s, now);
+      if (b.state === 'trial') {
+        stats.stores.trial++;
+      } else if (b.state === 'active' || b.state === 'grace') {
+        stats.stores.paying++;
+        if (stats.plans[b.plan] !== undefined) stats.plans[b.plan]++;
+        stats.mrrPhp += (PLANS[b.plan] && PLANS[b.plan].pricePhp) || 0;
+      } else {
+        stats.stores.free++;
+      }
+      if (s.created_at) {
+        const c = new Date(s.created_at);
+        if (c >= d7)  stats.signups.last7d++;
+        if (c >= d30) stats.signups.last30d++;
+      }
+    }
+
+    const [users] = await pool.query(
+      "SELECT role, is_active, last_login_at FROM users WHERE role != 'superadmin'"
+    );
+    stats.users.total = users.length;
+    for (const u of users) {
+      if (u.role === 'admin')        stats.users.owners++;
+      else if (u.role === 'cashier') stats.users.cashiers++;
+      if (!u.is_active)              stats.users.suspended++;
+      if (u.last_login_at) {
+        const ll = new Date(u.last_login_at);
+        if (ll >= d7)  stats.users.active7d++;
+        if (ll >= d30) stats.users.active30d++;
+      }
+    }
+
+    const [[rev]]  = await pool.query(
+      "SELECT COALESCE(SUM(amount_php), 0) AS php FROM payment_claims WHERE status = 'approved' AND reviewed_at >= ?",
+      [d30]
+    );
+    const [[pend]] = await pool.query(
+      "SELECT COUNT(*) AS n FROM payment_claims WHERE status = 'pending'"
+    );
+    stats.revenue30dPhp = Number(rev.php) || 0;
+    stats.pendingClaims = Number(pend.n) || 0;
+
+    res.json({ success: true, data: stats });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { listClaims, approveClaim, rejectClaim, getQr, uploadQr, getStats };

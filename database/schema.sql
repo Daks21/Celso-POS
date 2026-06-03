@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS users (
   is_active            TINYINT(1) NOT NULL DEFAULT 1,  -- suspended cashiers can't log in
   must_change_password TINYINT(1) NOT NULL DEFAULT 0,  -- reserved (unused; passwords are admin-managed)
   session_id           VARCHAR(64) DEFAULT NULL,        -- single active session: id of the most recent login
+  last_login_at        DATETIME    DEFAULT NULL,         -- stamped on each successful login (operator activity stats)
   preferences JSON DEFAULT NULL,
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (store_id) REFERENCES stores(id),

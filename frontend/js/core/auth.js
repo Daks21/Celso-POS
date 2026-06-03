@@ -304,7 +304,12 @@ function _cachePreferences(prefs, userId) {
   };
   var p = Object.assign({}, DEFAULTS, prefs);
 
-  localStorage.setItem('theme',                p.theme);
+  // Theme is a device-local choice (set client-side by theme.js, and also used by
+  // the pre-login pages). Only sync it from the server when one is actually saved
+  // there — otherwise keep the device's current theme so a login never resets it
+  // to light. The super-admin never visits the tenant Settings page that persists
+  // prefs, so getPreferences returns {} and the 'light' default used to clobber it.
+  if (prefs && prefs.theme) localStorage.setItem('theme', prefs.theme);
   localStorage.setItem('taxEnabled',           String(p.taxEnabled));
   localStorage.setItem('taxRate',              String(p.taxRate));
   localStorage.setItem('taxDefaultOn',         String(p.taxDefaultOn));

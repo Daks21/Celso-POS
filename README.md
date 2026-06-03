@@ -422,6 +422,9 @@
     is_active   TINYINT(1)    0 = suspended (can't log in); 1 = active
     must_change_password TINYINT(1)  reserved (unused — passwords are admin-managed)
     session_id  VARCHAR(64)   id of the most recent login (single active session)
+    last_login_at DATETIME    stamped NOW() on each successful login; powers the
+                              operator active-users-in-7d/30d stats (NULL until
+                              the user's next login after this shipped)
     created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
     updated_at  TIMESTAMP     AUTO UPDATE
 
@@ -1033,6 +1036,20 @@
     Every route: Auth + requireSuperAdmin (role 'superadmin'; NO loadStore).
     Non-super-admins get 404 (the surface is invisible). Seed the one operator
     with backend/scripts/create-superadmin.js.
+
+    GET    /stats
+      Platform analytics for the operator overview. Plan/state counts derive from
+      the LIVE effective plan (resolveBilling per store — lazy date math), not the
+      raw stores.plan column. MRR sums currently-entitled paid plans (active +
+      grace; trials are free until they convert). Activity is from users.last_login_at.
+      → 200 { success, data: {
+              stores:  { total, paying, trial, free },
+              plans:   { basic, plus, pro },          // effective, paying tiers
+              mrrPhp,
+              users:   { total, owners, cashiers, suspended, active7d, active30d },
+              signups: { last7d, last30d },           // new stores
+              revenue30dPhp,                           // approved claims, last 30d
+              pendingClaims } }
 
     GET    /claims?status=pending|approved|rejected
       → 200 { success, data: [ claim + store_name + owner_email ] } (pending first)
@@ -2327,7 +2344,10 @@
     - The platform SUPER-ADMIN (a user with no tenant store, role 'superadmin';
       seeded by scripts/create-superadmin.js) reviews claims in pages/admin.html
       and approves/rejects. Approve is transactional + idempotent, anchors the new
-      paid_until to the due date, and reconciles cashier seats.
+      paid_until to the due date, and reconciles cashier seats. The console also
+      shows a PLATFORM OVERVIEW (GET /api/admin/stats): stores, paying vs trial vs
+      free, the Basic/Plus/Pro split, MRR, active users (7d/30d, from
+      last_login_at), new signups, and 30-day approved revenue.
     - Nav is SHOW-LOCKED for owners (greyed paid links open an in-page locked
       overlay whose CTA routes to the Billing page; on a page that has its own
       onboarding tour the overlay holds back until that tour has been seen) and

@@ -59,9 +59,11 @@ const savePreferences = async (userId, prefs) => {
 // ── Single active session (Phase 6.5) ──
 
 // Store the id of the user's most recent login (rotated on every login). Used by
-// auth.middleware to reject tokens from a device that's been superseded.
+// auth.middleware to reject tokens from a device that's been superseded. Also
+// stamps last_login_at (NOW() is UTC — the pool pins the session tz) for the
+// operator activity stats. Called once per successful login.
 const setSessionId = async (userId, sessionId) => {
-  await db.query('UPDATE users SET session_id = ? WHERE id = ?', [sessionId, userId]);
+  await db.query('UPDATE users SET session_id = ?, last_login_at = NOW() WHERE id = ?', [sessionId, userId]);
 };
 
 // The fields auth.middleware needs per request: the current session id + whether

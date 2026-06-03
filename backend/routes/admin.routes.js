@@ -9,6 +9,8 @@ const { requireSuperAdmin } = require('../middleware/platform.middleware');
 // the surface is invisible to tenant users. (Phase 6.6.)
 router.use(authMiddleware, requireSuperAdmin);
 
+router.get('/stats',               controller.getStats);
+
 router.get('/claims',              controller.listClaims);
 router.post('/claims/:id/approve', controller.approveClaim);
 router.post('/claims/:id/reject',  controller.rejectClaim);
