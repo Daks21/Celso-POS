@@ -330,6 +330,9 @@ function attachCartEvents() {
 
 function renderProductGrid(productList) {
   productGrid.innerHTML = "";
+  // Default: a real product grid. The empty/placeholder branch below switches it
+  // to a centering flexbox so a lone message sits in the middle, not the first cell.
+  productGrid.classList.remove('is-empty');
 
   const source = productList || products;
   // Hide out-of-stock items — an operator can't sell what isn't there, and a
@@ -337,6 +340,7 @@ function renderProductGrid(productList) {
   const list = source.filter(function (p) { return p.stock > 0; });
 
   if (list.length === 0) {
+    productGrid.classList.add('is-empty');
     if (products.length === 0 && typeof OnboardingCore !== 'undefined') {
       OnboardingCore.renderEmptyState(productGrid, 'order', null);
     } else if (source.length > 0) {

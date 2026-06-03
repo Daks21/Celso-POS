@@ -55,6 +55,15 @@
   scrollbar-width: none;
 }
 
+/* Empty catalog / out-of-stock / no-match: a single placeholder is injected into
+   the grid, which would drop it into the first cell (top-left). Switch to a
+   centering flexbox so it sits in the middle of the full product area instead. */
+.pos-product-grid.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .pos-product-grid::-webkit-scrollbar {
   display: none;
 }
