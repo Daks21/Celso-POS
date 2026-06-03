@@ -108,7 +108,12 @@
       "Bash(echo \"===EXIT $?===\")",
       "WebSearch",
       "PowerShell(& \"C:\\\\Program Files\\\\MySQL\\\\MySQL Server 8.0\\\\bin\\\\mysql.exe\" -u root -p celsopos_db -e \"SHOW COLUMNS FROM stores LIKE 'paid_until'; SHOW TABLES LIKE 'payment_claims'; SHOW TABLES LIKE 'platform_config'; SHOW COLUMNS FROM users LIKE 'store_id'; SHOW COLUMNS FROM users LIKE 'role'; SELECT name, applied_at FROM schema_migrations;\")",
-      "Bash(findstr /V \"Connection\")"
+      "Bash(findstr /V \"Connection\")",
+      "Bash(npx --no-install playwright --version)",
+      "Bash(export NODE_PATH=\"C:/Users/Sonsuman/AppData/Roaming/npm/node_modules\")",
+      "Bash(export SHOTS=\"C:/Users/Sonsuman/AppData/Local/Temp/celso_shots\")",
+      "Bash(powershell -NoProfile -Command 'Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue | Select-Object -Expand OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }')",
+      "Bash(rm -f /tmp/verify_onb.js /tmp/static5173.js)"
     ]
   }
 }

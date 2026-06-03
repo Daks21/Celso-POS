@@ -2072,14 +2072,19 @@
         modules (welcome, checklist, tour, empty states)
       - Tracks: welcome seen, checklist dismissed, checklist
         progress per item, tour seen per page
-      - Exposes resetAll() for dev/debug use
+      - Keys are namespaced per signed-in user id (scopedKey),
+        so on a shared device a newly created owner gets a fresh
+        onboarding instead of inheriting a previous user's flags
+        (the flags are preserved across logout by clearSession)
+      - Exposes resetAll() (scoped to the current user) for dev/debug
       - Role-aware: reads admin | cashier from auth session
 
     Module 6.2 — Welcome Modal                         [COMPLETE]
       - Full-screen overlay on first login (dashboard only)
       - Two panels: value proposition + critical path preview
-      - Role-aware copy: admin sees 4-step path,
-        cashier sees 2-step path
+      - Owner-only: inits on the dashboard, the one page
+        cashiers/super-admins never reach, so its copy is
+        store-owner-specific (4-step setup path + trial gift)
       - No skip button — short enough to click through
       - On close: marks welcome as seen, fires checklist +
         sidebar pill init; scroll locked on .page-body during
@@ -2309,7 +2314,9 @@
       and approves/rejects. Approve is transactional + idempotent, anchors the new
       paid_until to the due date, and reconciles cashier seats.
     - Nav is SHOW-LOCKED for owners (greyed paid links open an in-page locked
-      overlay whose CTA routes to the Billing page) and HIDDEN for cashiers. The
+      overlay whose CTA routes to the Billing page; on a page that has its own
+      onboarding tour the overlay holds back until that tour has been seen) and
+      HIDDEN for cashiers. The
       dashboard shows one reminder/upsell card (grace > trial > free promo) that
       also routes to Billing. First-login welcome reveals the trial gift
       (owner-only confetti).
