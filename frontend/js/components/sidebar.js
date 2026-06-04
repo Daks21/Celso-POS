@@ -2,7 +2,7 @@
 
 var NAV_PREFS_DEFAULTS = {
   navLabel:        'app',
-  logoTarget:      'order.html',
+  logoTarget:      'dashboard.html',
   showThemeToggle: false
 };
 

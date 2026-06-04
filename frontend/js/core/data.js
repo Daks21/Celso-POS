@@ -90,7 +90,7 @@ var PREF_DEFAULTS = {
   dashboardItemsPopover:     true,
   dashboardWidgets:          [],
   navLabel:                 'app',
-  logoTarget:               'order.html',
+  logoTarget:               'dashboard.html',
   showThemeToggle:          false,
   financeDebtBalanceVisible: true,
   osEnabled:                false,

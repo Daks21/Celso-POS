@@ -298,7 +298,7 @@ function _cachePreferences(prefs, userId) {
     theme: 'light', taxEnabled: false, taxRate: '0.03', taxDefaultOn: false,
     lowStockThreshold: 50, stockColors: { ok: '#5a9e6f', low: '#eab308', out: '#dc2626' },
     dashboardRecentCount: 5, dashboardWidgets: [],
-    navLabel: 'app', logoTarget: 'order.html', showThemeToggle: false,
+    navLabel: 'app', logoTarget: 'dashboard.html', showThemeToggle: false,
     financeDebtBalanceVisible: true, osEnabled: false,
     numpadOnDesktop: false,
   };
