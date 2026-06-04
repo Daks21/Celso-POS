@@ -521,9 +521,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // ── Os AI Feature Toggle ──
     var osToggle = document.getElementById('os-enabled-toggle');
     if (osToggle && typeof hasEntitlement === 'function' && !hasEntitlement('ai')) {
-      // AI is a Pro feature — hide the whole setting row when not entitled.
+      // The Os AI assistant unlocks on the Plus plan. Show an inline locked
+      // state instead of leaving the card empty.
       var osRow = osToggle.closest('.account-theme-row');
-      if (osRow) osRow.style.display = 'none';
+      if (osRow) {
+        renderFeatureLocked(osRow, 'plus',
+          'Sales insights, restock advice, and finance answers from Os.',
+          currentUser.role === 'admin');
+      }
       osToggle = null;
     }
     if (osToggle) {
@@ -549,9 +554,15 @@ document.addEventListener('DOMContentLoaded', function() {
     var advToggle = document.getElementById('advanced-analytics-toggle');
 
     if (advToggle && typeof hasEntitlement === 'function' && !hasEntitlement('advanced_analytics')) {
-      // Advanced analytics is a Pro feature — hide the row when not entitled.
+      // Advanced Analytics unlocks on the Plus plan. Rather than hide the row and
+      // leave an empty card, show an inline locked state (+ an Upgrade CTA for
+      // owners; cashiers just see that the owner can upgrade).
       var advRow = advToggle.closest('.account-theme-row');
-      if (advRow) advRow.style.display = 'none';
+      if (advRow) {
+        renderFeatureLocked(advRow, 'plus',
+          'Goal projections and inventory health on the Analytics page.',
+          currentUser.role === 'admin');
+      }
       advToggle = null;
     }
     if (advToggle) {
@@ -569,3 +580,24 @@ document.addEventListener('DOMContentLoaded', function() {
     window.location.href = '../index.html';
   }
 });
+
+// Replace a settings row whose plan isn't active with an inline locked state:
+// a lock icon, a "Available on <Plan>" line + blurb, and (owners only) an
+// Upgrade CTA deep-linked to the Billing page. Mirrors LockedOverlay's copy
+// convention but stays inline — no page blur. plan: 'basic'|'plus'|'pro'.
+function renderFeatureLocked(rowEl, plan, blurb, isOwner) {
+  var planLabel = { basic: 'Basic', plus: 'Plus', pro: 'Pro' }[plan] || plan;
+  rowEl.classList.add('feature-locked');
+  rowEl.innerHTML =
+    '<div class="feature-locked-icon"><i data-lucide="lock"></i></div>' +
+    '<div class="feature-locked-body"><h3></h3><p></p></div>' +
+    (isOwner
+      ? '<a class="feature-locked-cta" href="billing.html?plan=' +
+          encodeURIComponent(plan) + '">Upgrade to ' + planLabel + '</a>'
+      : '');
+  // textContent for the dynamic copy (no interpolation into innerHTML).
+  rowEl.querySelector('h3').textContent = 'Available on ' + planLabel;
+  rowEl.querySelector('p').textContent =
+    blurb + (isOwner ? '' : ' Ask the store owner to upgrade.');
+  if (window.lucide) lucide.createIcons();
+}
