@@ -166,10 +166,11 @@
   │   │   ├── api.js           ← Centralized HTTP client (JWT auth,
   │   │   │                       401 handling, auto-redirect to login)
   │   │   ├── lite-mode.js     ← Lite Mode: sets html.lite-mode before paint
-  │   │   │                       (non-deferred <head> script). Device-local
-  │   │   │                       pref 'auto'|'on'|'off'; 'auto' detects
-  │   │   │                       saveData / deviceMemory / hardwareConcurrency /
-  │   │   │                       prefers-reduced-motion. window.LiteMode API.
+  │   │   │                       (non-deferred <head> script). Auto-only by
+  │   │   │                       default — detects saveData / deviceMemory /
+  │   │   │                       hardwareConcurrency / prefers-reduced-motion.
+  │   │   │                       No Settings UI; hidden ?lite=on|off|auto
+  │   │   │                       override (sticky) for QA/support. LiteMode API.
   │   │   └── utils.js         ← Loading states, toast notifications, shared UX
   │   │                           helpers; ensureChart() (lazy Chart.js) +
   │   │                           renderLiteChartTable() (Lite Mode chart→table)
@@ -265,20 +266,22 @@
     which must set its class before paint to avoid a flash.
 
   LITE MODE (low-end devices):
-    A device-local setting (Account ▸ Performance: Auto / On / Off; default
-    Auto) for budget phones and slow links. core/lite-mode.js resolves it
-    before first paint and toggles html.lite-mode. Auto turns ON when any of:
-    Save-Data header, navigator.deviceMemory <= 2, hardwareConcurrency <= 2,
-    or prefers-reduced-motion. Effects when active:
+    AUTOMATIC, no Settings UI — by design. Our non-technical users won't hunt
+    for a toggle, and the device that needs Lite gets it on its own.
+    core/lite-mode.js resolves it before first paint and toggles html.lite-mode.
+    It turns ON when any of: Save-Data header, navigator.deviceMemory <= 2,
+    hardwareConcurrency <= 2, or prefers-reduced-motion. Effects when active:
       • main.css html.lite-mode block strips transitions, animations (instant,
         not "none", so entrance states still settle), box/text shadows, and
         backdrop/lock blur — the loading spinner is exempted so it still spins.
       • Charts skip Chart.js ENTIRELY and render as compact tables
         (renderLiteChartTable) on the dashboard + analytics, using the same
         data — so the 205 KB never downloads on a constrained device.
-    The pref lives in localStorage (not synced) on purpose: the same owner may
-    want Lite on a cheap phone but Off on a desktop. Chart pages pick up the
-    table fallback on next load after the toggle changes.
+    Escape hatch (no UI): ?lite=on|off|auto forces the mode and STICKS
+    (persisted to localStorage), so QA/support can override the heuristic on a
+    device it gets wrong. The pref is device-local (never synced). window.LiteMode
+    { isActive, get, detect, set } remains for programmatic/console use and lets
+    a real toggle be re-surfaced later if ever needed.
 
   ─────────────────────────────────────────────────────────────
 

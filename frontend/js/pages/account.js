@@ -391,21 +391,6 @@ document.addEventListener('DOMContentLoaded', function() {
       applyNavPrefs();
     });
 
-    // Lite Mode (device-local: not synced to the account; same owner may want
-    // it on a cheap phone but off on a desktop). LiteMode.set() re-applies the
-    // html.lite-mode class live; chart pages pick up the table fallback on next load.
-    if (window.LiteMode) {
-      initRadioGroup('lite-mode-group', LiteMode.get(), function(value) {
-        LiteMode.set(value);
-        if (typeof showApiSuccess === 'function') {
-          var label = value === 'auto'
-            ? (LiteMode.detect() ? 'Lite Mode: Auto (on for this device)' : 'Lite Mode: Auto (off for this device)')
-            : 'Lite Mode: ' + (value === 'on' ? 'On' : 'Off');
-          showApiSuccess(label);
-        }
-      });
-    }
-
     // ── Finance Preferences ──
     initPrefToggle(
       'debt-balance-toggle',

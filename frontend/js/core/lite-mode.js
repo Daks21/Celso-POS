@@ -18,6 +18,18 @@
     try { return localStorage.getItem(KEY) || 'auto'; } catch (_) { return 'auto'; }
   }
 
+  // Hidden escape hatch (no UI): ?lite=on|off|auto forces the mode and STICKS
+  // (persisted), so QA/support — or a rare power user — can override the
+  // auto-detection on a device the heuristic gets wrong. There is intentionally
+  // no Settings toggle: our non-technical users won't find one, and the device
+  // that needs Lite gets it automatically.
+  function applyUrlOverride() {
+    try {
+      var m = /[?&]lite=(on|off|auto)\b/i.exec(window.location.search);
+      if (m) localStorage.setItem(KEY, m[1].toLowerCase());
+    } catch (_) {}
+  }
+
   // Auto-detect a constrained device / connection. Any one signal is enough.
   function detect() {
     try {
@@ -47,6 +59,7 @@
   }
 
   // Apply now — we're in <head>, before <body> renders.
+  applyUrlOverride();
   apply(resolve());
 
   window.LiteMode = {
