@@ -608,6 +608,18 @@
       their own credentials (the owner resets them on the Team page).
       → 200 { success } | 400 weak password | 403 not admin
 
+    GET    /preferences    Auth required
+      → 200 { success, data: {...} }
+      Per-user UI preferences (theme, table row counts, popover toggles, pinned
+      analytics widgets) stored as JSON on users.preferences. Returns {} when
+      unset. Backs the client's settings persistence (core/data.js, account +
+      analytics pages); NOT store-wide config — that's /api/settings.
+
+    PUT    /preferences    Auth required
+      Body: { ...arbitrary preference keys }
+      → 200 { success, data: <echoed body> }
+      Whole-object upsert of the caller's own preferences.
+
     PASSWORD POLICY (backend/utils/passwordPolicy.js — the single source of
     truth, enforced server-side on every entry point that sets a password:
     register, /auth/password, and the Team cashier create + reset routes):
@@ -630,10 +642,12 @@
   PRODUCTS  /api/products
   ──────────────────────────────────────────────────────────────
 
-    GET    /               Public
+    GET    /               Auth required
       Query: ?search=<string>&category=<string>
       → 200 { success, data: Product[] }
       Returns only active products, sorted A→Z
+      (A product has no meaning without a store context, so reads are now
+       auth + loadStore — reachable by cashiers, no plan gate.)
 
     GET    /archived       Auth required
       Query: ?search=<string>
@@ -645,7 +659,7 @@
       hasMore = true means older items exist beyond the cap — narrow
       with ?search. Search matches the product name (case-insensitive).
 
-    GET    /:id            Public
+    GET    /:id            Auth required
       → 200 { success, data: Product }
       → 404 not found
 
@@ -701,8 +715,9 @@
       → 400 insufficient stock | price mismatch | validation
 
     GET    /               Auth required
-      Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD
+      Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=<int>
       → 200 { success, data: Sale[] }
+      limit caps the number of rows (newest first); omitted = no cap.
 
     GET    /:id            Auth required
       → 200 { success, data: Sale }
