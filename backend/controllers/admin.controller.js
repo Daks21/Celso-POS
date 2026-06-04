@@ -69,13 +69,23 @@ const approveClaim = async (req, res, next) => {
     else                                             base = now;                           // free/lapsed: fresh start
     const periodEnd = addOneMonth(base);
 
+    // Snapshot the store's billing BEFORE we overwrite it, so a mistaken approval
+    // can be reverted exactly (incl. a tier change, where period_start alone can't
+    // recover the prior plan). Stored on the claim as prev_billing JSON.
+    const prevBilling = JSON.stringify({
+      plan:                store.plan,
+      subscription_status: store.subscription_status,
+      paid_until:          store.paid_until,
+      trial_ends_at:       store.trial_ends_at,
+    });
+
     await conn.query(
       "UPDATE stores SET plan = ?, subscription_status = 'active', paid_until = ?, trial_ends_at = NULL WHERE id = ?",
       [claim.plan, periodEnd, store.id]
     );
     await conn.query(
-      "UPDATE payment_claims SET status = 'approved', reviewed_by = ?, reviewed_at = NOW(), period_start = ?, period_end = ? WHERE id = ?",
-      [req.user.id, base, periodEnd, claim.id]
+      "UPDATE payment_claims SET status = 'approved', reviewed_by = ?, reviewed_at = NOW(), period_start = ?, period_end = ?, prev_billing = ? WHERE id = ?",
+      [req.user.id, base, periodEnd, prevBilling, claim.id]
     );
 
     await conn.commit();
@@ -117,6 +127,85 @@ const rejectClaim = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+};
+
+// ── POST /api/admin/claims/:id/revert ──────────────────────────────────────
+// Undo a mistaken approval: roll the store's billing back to the snapshot taken
+// at approve time, and return the claim to 'pending' (the operator then rejects
+// it via the normal flow). Transactional + FOR UPDATE. Guarded: only undo if the
+// store still matches THIS approval's output — if a later renewal/edit changed
+// it, refuse rather than clobber newer state. Approvals made before prev_billing
+// existed can't be auto-reverted.
+const revertApproval = async (req, res, next) => {
+  const conn = await pool.getConnection();
+  let released = false;
+  let result = null;
+  try {
+    await conn.beginTransaction();
+
+    const [claims] = await conn.query(
+      "SELECT * FROM payment_claims WHERE id = ? AND status = 'approved' FOR UPDATE",
+      [req.params.id]
+    );
+    const claim = claims[0];
+    if (!claim) {
+      await conn.rollback(); conn.release(); released = true;
+      return res.status(409).json({ success: false, message: 'Only an approved claim can be reverted.' });
+    }
+    if (!claim.prev_billing) {
+      await conn.rollback(); conn.release(); released = true;
+      return res.status(422).json({ success: false, message: "This approval predates undo support and can't be auto-reverted — adjust the store manually." });
+    }
+
+    const [stores] = await conn.query('SELECT * FROM stores WHERE id = ? FOR UPDATE', [claim.store_id]);
+    const store = stores[0];
+    if (!store) {
+      await conn.rollback(); conn.release(); released = true;
+      return res.status(404).json({ success: false, message: 'Store not found.' });
+    }
+
+    // Only undo if this approval is still the store's live state.
+    const samePlan = store.plan === claim.plan;
+    const samePaidUntil = store.paid_until && claim.period_end &&
+      new Date(store.paid_until).getTime() === new Date(claim.period_end).getTime();
+    if (!samePlan || !samePaidUntil) {
+      await conn.rollback(); conn.release(); released = true;
+      return res.status(409).json({ success: false, message: "The store's billing changed since this approval — revert it manually." });
+    }
+
+    const prev = typeof claim.prev_billing === 'object' ? claim.prev_billing : JSON.parse(claim.prev_billing);
+    const restorePaidUntil   = prev.paid_until    ? new Date(prev.paid_until)    : null;
+    const restoreTrialEndsAt = prev.trial_ends_at ? new Date(prev.trial_ends_at) : null;
+
+    await conn.query(
+      "UPDATE stores SET plan = ?, subscription_status = ?, paid_until = ?, trial_ends_at = ? WHERE id = ?",
+      [prev.plan, prev.subscription_status, restorePaidUntil, restoreTrialEndsAt, store.id]
+    );
+    // Back to a pending request; clear the review + snapshot.
+    await conn.query(
+      "UPDATE payment_claims SET status = 'pending', reviewed_by = NULL, reviewed_at = NULL, period_start = NULL, period_end = NULL, prev_billing = NULL WHERE id = ?",
+      [claim.id]
+    );
+
+    await conn.commit();
+    result = { claimId: claim.id, storeId: store.id, restoredPlan: prev.plan };
+  } catch (err) {
+    try { await conn.rollback(); } catch (_) {}
+    conn.release(); released = true;
+    return next(err);
+  }
+  if (!released) conn.release();
+
+  // Reconcile seats to the RESTORED effective plan (re-suspends any cashiers the
+  // mistaken approval reactivated). Post-commit + non-fatal, mirroring approve.
+  try {
+    const [rows] = await pool.query('SELECT * FROM stores WHERE id = ?', [result.storeId]);
+    if (rows[0]) await userModel.reconcileCashierSeats(result.storeId, cashierSeats(resolveBilling(rows[0]).plan));
+  } catch (e) {
+    console.error('[admin] seat reconcile after revert failed:', e.message);
+  }
+
+  res.json({ success: true, data: result });
 };
 
 // ── GET /api/admin/qr ──────────────────────────────────────────────────────
@@ -284,4 +373,4 @@ const getStats = async (req, res, next) => {
   }
 };
 
-module.exports = { listClaims, approveClaim, rejectClaim, getQr, uploadQr, getStats };
+module.exports = { listClaims, approveClaim, rejectClaim, revertApproval, getQr, uploadQr, getStats };

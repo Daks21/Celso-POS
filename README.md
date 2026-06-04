@@ -1059,13 +1059,23 @@
       → 200 { success, data: [ claim + store_name + owner_email ] } (pending first)
 
     POST   /claims/:id/approve
-      Transactional + idempotent (FOR UPDATE on a still-pending claim). Sets the
+      Transactional + idempotent (FOR UPDATE on a still-pending claim). Snapshots
+      the store's prior billing into claim.prev_billing (for revert), sets the
       store's plan + paid_until (anchored to the due date on renewal; preserves
       remaining trial days), then reconciles cashier seats.
       → 200 { success, data: { storeId, plan, paidUntil } } | 409 not pending
 
     POST   /claims/:id/reject   Body: { note? }
       → 200 { success } (no plan change) | 404 | 409 already reviewed
+
+    POST   /claims/:id/revert
+      Undo a mistaken approval: restores the store's billing from the snapshot
+      taken at approve time (claim.prev_billing) and returns the claim to 'pending'
+      (then reject it normally). Transactional + FOR UPDATE; reconciles cashier
+      seats to the restored plan. Refuses if the store's billing changed since
+      approval, or if the approval predates prev_billing (no snapshot to restore).
+      → 200 { success, data: { claimId, storeId, restoredPlan } }
+        | 409 not approved / state changed | 422 no snapshot | 404 store
 
     GET    /qr   ·   POST /qr   Body: { imageBase64?, name?, number? }
       The QR upload gets its own express.json({1mb}); image validated by MAGIC
@@ -2351,7 +2361,9 @@
     - The platform SUPER-ADMIN (a user with no tenant store, role 'superadmin';
       seeded by scripts/create-superadmin.js) reviews claims in pages/admin.html
       and approves/rejects. Approve is transactional + idempotent, anchors the new
-      paid_until to the due date, and reconciles cashier seats. The console also
+      paid_until to the due date, and reconciles cashier seats. A mistaken approval
+      can be Undone (rolls the store back via the prev_billing snapshot, returns the
+      claim to Pending to reject normally). The console also
       shows a PLATFORM OVERVIEW (GET /api/admin/stats): stores, paying vs trial vs
       free (trials excluded from paying/MRR), the Basic/Plus/Pro split, MRR, active
       users (7d/30d, from last_login_at), plus new signups + approved revenue with

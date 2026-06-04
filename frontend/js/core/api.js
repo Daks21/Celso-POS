@@ -388,6 +388,9 @@ async function approveAdminClaim(id) {
 async function rejectAdminClaim(id, note) {
   return apiCall('/admin/claims/' + id + '/reject', { method: 'POST', body: JSON.stringify({ note: note || '' }) });
 }
+async function revertAdminClaim(id) {
+  return apiCall('/admin/claims/' + id + '/revert', { method: 'POST' });
+}
 async function getAdminQr() { return apiCall('/admin/qr'); }
 async function saveAdminQr(payload) {
   return apiCall('/admin/qr', { method: 'POST', body: JSON.stringify(payload) });

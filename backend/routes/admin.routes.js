@@ -14,6 +14,7 @@ router.get('/stats',               controller.getStats);
 router.get('/claims',              controller.listClaims);
 router.post('/claims/:id/approve', controller.approveClaim);
 router.post('/claims/:id/reject',  controller.rejectClaim);
+router.post('/claims/:id/revert',  controller.revertApproval);
 
 router.get('/qr', controller.getQr);
 // The QR upload carries a base64 image — give it a 1mb body limit. The global

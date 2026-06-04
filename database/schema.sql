@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS payment_claims (
   review_note  VARCHAR(255) DEFAULT NULL,
   period_start DATETIME    DEFAULT NULL,           -- set on approve
   period_end   DATETIME    DEFAULT NULL,           -- set on approve (= new paid_until)
+  prev_billing JSON        DEFAULT NULL,           -- store billing snapshot at approve, for revert/undo (6.6)
   UNIQUE KEY uniq_gcash_ref (gcash_ref),
   KEY idx_claims_store_status (store_id, status),
   KEY idx_claims_status_submitted (status, submitted_at),

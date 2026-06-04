@@ -43,6 +43,9 @@ checkAuth();
       if (c.status === 'pending') {
         action = '<button class="op-btn-sm op-approve" data-id="' + c.id + '">Approve</button>' +
                  '<button class="op-btn-sm op-reject" data-id="' + c.id + '">Reject</button>';
+      } else if (c.status === 'approved') {
+        action = '<span class="op-status op-status--approved">approved</span>' +
+                 ' <button class="op-btn-sm op-revert" data-id="' + c.id + '">Undo</button>';
       } else {
         action = '<span class="op-status op-status--' + c.status + '">' + c.status + '</span>' +
                  (c.review_note ? (' <span class="op-muted">— ' + esc(c.review_note) + '</span>') : '');
@@ -62,6 +65,20 @@ checkAuth();
   tbody.addEventListener('click', async function (e) {
     var ap = e.target.closest('.op-approve');
     var rj = e.target.closest('.op-reject');
+    var rv = e.target.closest('.op-revert');
+    if (rv) {
+      if (!window.confirm('Undo this approval? The store is rolled back to its pre-approval plan and the claim returns to Pending, where you can reject it.')) return;
+      rv.disabled = true; rv.textContent = '…';
+      var r3 = await safe(revertAdminClaim(rv.getAttribute('data-id')));
+      if (r3 && r3.success) {
+        if (typeof showApiSuccess === 'function') showApiSuccess('Approval reverted — claim is back in Pending.');
+        loadClaims(); loadStats();
+      } else {
+        if (typeof showApiError === 'function') showApiError((r3 && r3.message) || 'Revert failed.');
+        rv.disabled = false; rv.textContent = 'Undo';
+      }
+      return;
+    }
     if (ap) {
       ap.disabled = true; ap.textContent = '…';
       var r1 = await safe(approveAdminClaim(ap.getAttribute('data-id')));
