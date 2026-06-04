@@ -1179,7 +1179,10 @@
     DB_POOL_SIZE       5        Connection pool size
     FRONTEND_URL       http://localhost:5173   CORS origin
     JWT_EXPIRES_IN     1d       Token lifetime (e.g. 1d, 12h, 30m; any
-                                jsonwebtoken-accepted span)
+                                jsonwebtoken-accepted span). Devices are commonly
+                                SHARED — prefer a shift-bound 12h in production so a
+                                session a cashier forgot to log out of dies
+                                overnight instead of lasting a full day.
 
   AI Provider (Phase 4 — required when AI module is enabled):
 
@@ -1226,6 +1229,13 @@
     (admin/cashier), store_id, and the login session id are embedded in the
     payload. Entitlements are NOT in the token — they resolve from the DB per
     request (so a token can't elevate a plan).
+    Shared-device model: the token is cleared on explicit logout and on any 401
+    (clearSession wipes localStorage + sessionStorage, so the previous user's
+    prefs and Os chat history don't survive). There is deliberately NO idle
+    timeout — this is a POS, and an idle timer would log a cashier out during a
+    slow stretch between customers. On shared store devices, bound the ABSOLUTE
+    lifetime instead (JWT_EXPIRES_IN=12h) so a forgotten session can't outlive a
+    shift, and keep Logout prominent.
 
   SINGLE ACTIVE SESSION (last-login-wins, Phase 6.5)
     Each login mints a random session_id, stores it on the user row, and signs

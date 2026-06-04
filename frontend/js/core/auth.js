@@ -35,7 +35,15 @@ if (loginForm) {
 
     if (hasError) return;
 
-    const result = await login(email, password);
+    let result;
+    try {
+      result = await login(email, password);
+    } catch (e) {
+      // Network/server unreachable — give explicit feedback instead of a silent
+      // no-op (the form would otherwise just appear to do nothing).
+      loginError.textContent = "Couldn't reach the server — check your connection and try again.";
+      return;
+    }
 
     if (result && result.success) {
       localStorage.setItem('token', result.token);
@@ -121,7 +129,13 @@ if (registerForm) {
       return;
     }
 
-    const result = await register(fullName, email, password);
+    let result;
+    try {
+      result = await register(fullName, email, password);
+    } catch (e) {
+      showFieldError(emailInput, emailError, "Couldn't reach the server — check your connection and try again.");
+      return;
+    }
 
     if (result && result.success) {
       window.location.href = "../../index.html";
