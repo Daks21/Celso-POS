@@ -198,9 +198,16 @@
       ├── fonts/               ← Self-hosted DM Sans (woff2, latin + latin-ext
                                   variable subsets) loaded via @font-face in
                                   main.css — no Google Fonts CDN
-      └── vendor/              ← Self-hosted third-party libs (lucide icons +
-                                  Chart.js — no CDN, so they load offline / under
-                                  strict tracking-prevention)
+      └── vendor/              ← Self-hosted third-party libs (no CDN, so they
+                                  load offline / under strict tracking-prevention):
+                                  • icons.js — a ~10 KB GENERATED shim exposing the
+                                    Lucide API (window.lucide.createIcons) over an
+                                    inline subset of only the ~43 icons we use. It
+                                    replaces the full 265 KB lucide.min.js, which is
+                                    kept ONLY as the generator source for
+                                    scripts/gen-icons.js (never shipped to browsers).
+                                  • chart.umd.min.js — Chart.js, loaded `defer` and
+                                    only on the dashboard + analytics pages.
 
   ─────────────────────────────────────────────────────────────
 
@@ -226,6 +233,17 @@
   Core and component scripts always load before page scripts so
   that functions like formatPeso and checkAuth are available
   globally.
+
+  ASSET LOADING / LOW-END PERFORMANCE:
+    All app scripts (and Chart.js) carry `defer`, so HTML parses and the
+    page paints BEFORE any of them execute. `defer` preserves document
+    order, so the chain above is unchanged — only the timing improves.
+    The lone exception is assets/vendor/icons.js, which stays a normal
+    (non-deferred) <head> script: it's tiny (~10 KB) and defines
+    window.lucide so the trailing inline lucide.createIcons() works. This
+    matters because our target users run low-end Android phones on
+    throttled networks — render-blocking JS in <head> was the single
+    biggest first-paint cost (the old 265 KB Lucide runtime alone).
 
   ─────────────────────────────────────────────────────────────
 
