@@ -116,7 +116,9 @@
       "Bash(rm -f /tmp/verify_onb.js /tmp/static5173.js)",
       "Bash(powershell -NoProfile -Command 'Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -Expand OwningProcess -Unique | ForEach-Object { Write-Output \\('\\\\''killing PID '\\\\'' + $_\\); Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }')",
       "Bash(powershell -NoProfile -Command 'Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -Expand OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }')",
-      "Bash(powershell -NoProfile -Command 'Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '\\\\''*'\\\\'' } | Select-Object Id | Out-Null')"
+      "Bash(powershell -NoProfile -Command 'Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '\\\\''*'\\\\'' } | Select-Object Id | Out-Null')",
+      "Bash(sed -n '370,390p' css/layout.css)",
+      "Read(//c/Users/Sonsuman/OneDrive/Desktop/backend/**)"
     ]
   }
 }

@@ -389,3 +389,26 @@ html.lite-mode .api-spinner {
   font-variant-numeric: tabular-nums;
 }
 .lite-chart-table tr:last-child td { border-bottom: none; }
+
+/* ── Smooth cross-document navigation (incl. back/forward) ───────────────────
+   View Transitions give a quick cross-fade between page loads instead of a
+   white flash, in supporting browsers (Chrome/Edge 126+, Safari 18.2+);
+   silently ignored elsewhere (e.g. Firefox). Paired with bfcache (instant
+   restore on cached back-nav) this makes the trackpad swipe back/forward feel
+   smooth. Kept fast so it never slows down quick POS screen-switching, and
+   DISABLED for reduced-motion users and Lite Mode (low-end devices). */
+@view-transition { navigation: auto; }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.12s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
+}
+html.lite-mode::view-transition-group(*),
+html.lite-mode::view-transition-old(*),
+html.lite-mode::view-transition-new(*) { animation: none !important; }
