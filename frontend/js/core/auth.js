@@ -291,6 +291,16 @@ async function syncEntitlementsOnLoad() {
   if (changed) window.location.reload();
 }
 
+// "Logo tap goes to" default is role-aware: cashiers can't open the Dashboard
+// (they're routed to New Order), so theirs defaults to New Order; owners get the
+// Dashboard. An explicit saved choice (from the server prefs) always wins.
+function defaultLogoTarget() {
+  try {
+    var u = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    return (u && u.role === 'cashier') ? 'order.html' : 'dashboard.html';
+  } catch (e) { return 'dashboard.html'; }
+}
+
 // Writes DB preferences into individual localStorage keys (no external deps).
 // Called once on login before redirecting so every page reads from cache.
 function _cachePreferences(prefs, userId) {
@@ -298,7 +308,7 @@ function _cachePreferences(prefs, userId) {
     theme: 'light', taxEnabled: false, taxRate: '0.03', taxDefaultOn: false,
     lowStockThreshold: 50, stockColors: { ok: '#5a9e6f', low: '#eab308', out: '#dc2626' },
     dashboardRecentCount: 5, dashboardWidgets: [],
-    navLabel: 'app', logoTarget: 'dashboard.html', showThemeToggle: false,
+    navLabel: 'app', logoTarget: defaultLogoTarget(), showThemeToggle: false,
     financeDebtBalanceVisible: true, osEnabled: false,
     numpadOnDesktop: false,
   };

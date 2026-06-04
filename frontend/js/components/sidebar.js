@@ -6,6 +6,16 @@ var NAV_PREFS_DEFAULTS = {
   showThemeToggle: false
 };
 
+// "Logo tap goes to" default is role-aware: cashiers can't open the Dashboard
+// (they're routed to New Order), so theirs defaults to New Order; owners get the
+// Dashboard. An explicit saved choice always wins over this.
+function defaultLogoTarget() {
+  try {
+    var u = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    return (u && u.role === 'cashier') ? 'order.html' : 'dashboard.html';
+  } catch (e) { return 'dashboard.html'; }
+}
+
 function getNavPrefsKey() {
   try {
     var user = JSON.parse(localStorage.getItem('currentUser') || 'null');
@@ -17,13 +27,12 @@ function getNavPrefsKey() {
 }
 
 function getNavPrefs() {
+  var defaults = Object.assign({}, NAV_PREFS_DEFAULTS, { logoTarget: defaultLogoTarget() });
   try {
     var raw = localStorage.getItem(getNavPrefsKey());
-    return raw
-      ? Object.assign({}, NAV_PREFS_DEFAULTS, JSON.parse(raw))
-      : Object.assign({}, NAV_PREFS_DEFAULTS);
+    return raw ? Object.assign(defaults, JSON.parse(raw)) : defaults;
   } catch (e) {
-    return Object.assign({}, NAV_PREFS_DEFAULTS);
+    return Object.assign({}, NAV_PREFS_DEFAULTS, { logoTarget: defaultLogoTarget() });
   }
 }
 

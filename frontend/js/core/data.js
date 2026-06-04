@@ -96,6 +96,16 @@ var PREF_DEFAULTS = {
   osEnabled:                false,
 };
 
+// "Logo tap goes to" default is role-aware: cashiers can't open the Dashboard
+// (they're routed to New Order), so theirs defaults to New Order; owners get the
+// Dashboard. An explicit saved choice always wins over this.
+function defaultLogoTarget() {
+  try {
+    var u = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    return (u && u.role === 'cashier') ? 'order.html' : 'dashboard.html';
+  } catch (e) { return 'dashboard.html'; }
+}
+
 function collectCurrentPreferences(userId) {
   var navKey = 'celso_navprefs_' + String(userId);
   var nav = {};
@@ -122,7 +132,7 @@ function collectCurrentPreferences(userId) {
     dashboardItemsPopover:     localStorage.getItem('dashboardItemsPopover') !== 'false',
     dashboardWidgets:          widgets,
     navLabel:                 nav.navLabel        || PREF_DEFAULTS.navLabel,
-    logoTarget:               nav.logoTarget       || PREF_DEFAULTS.logoTarget,
+    logoTarget:               nav.logoTarget       || defaultLogoTarget(),
     showThemeToggle:          nav.showThemeToggle  === true,
     financeDebtBalanceVisible: localStorage.getItem('financeDebtBalanceVisible') !== 'false',
     osEnabled:                userPrefs.osEnabled === true,
