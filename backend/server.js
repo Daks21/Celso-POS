@@ -39,6 +39,17 @@ const fs               = require('fs');
 
 const app = express();
 
+// --- Trust proxy (reverse-proxy deploys) ---
+// Behind a PaaS reverse proxy (Railway/Render/Fly/Nginx), the real client IP
+// arrives in X-Forwarded-For; the socket IP is the proxy. Tell Express how many
+// proxy hops to trust so req.ip and the per-IP rate limiters key off the real
+// client — otherwise every request looks like it came from the proxy and the
+// auth/claim limiters would throttle ALL users collectively. Off by default for
+// local dev (direct connection); set TRUST_PROXY=1 in production (1 = first hop).
+if (process.env.TRUST_PROXY) {
+  app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1);
+}
+
 // --- Security headers (OWASP baseline) ---
 // The backend serves the frontend on the same origin (see below), so helmet's
 // CSP now applies to the pages. Those pages ship two inline <script> blocks
@@ -84,7 +95,9 @@ app.use(cors({
 }));
 
 // --- Request logging ---
-app.use(morgan('dev'));
+// 'combined' (Apache-style) in production for log aggregation; 'dev' (colorized,
+// concise) for local development.
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // --- Body parser with size limit (DoS protection) ---
 // (Phase 6.6: the Lemon Squeezy raw-body webhook that used to mount before this

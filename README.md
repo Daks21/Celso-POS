@@ -1183,6 +1183,14 @@
                                 SHARED — prefer a shift-bound 12h in production so a
                                 session a cashier forgot to log out of dies
                                 overnight instead of lasting a full day.
+    NODE_ENV           —        Set to 'production' on the live deploy (switches
+                                request logging to the 'combined' format).
+    TRUST_PROXY        —        Reverse-proxy hops to trust for the real client IP.
+                                REQUIRED in production behind a PaaS proxy
+                                (Railway/Render/Fly/Nginx) so the per-IP rate
+                                limiters key off the real client, not the shared
+                                proxy IP (which would throttle ALL users together).
+                                Unset locally; set to 1 for a single proxy hop.
 
   AI Provider (Phase 4 — required when AI module is enabled):
 
