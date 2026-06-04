@@ -582,19 +582,16 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Replace a settings row whose plan isn't active with an inline locked state:
-// a lock icon, a "Available on <Plan>" line + blurb, and (owners only) an
-// Upgrade CTA deep-linked to the Billing page. Mirrors LockedOverlay's copy
-// convention but stays inline — no page blur. plan: 'basic'|'plus'|'pro'.
+// a lock icon, an "Available on <Plan>" line, and a short blurb. No CTA — the
+// Billing page is in the nav for owners; cashiers are told to ask the owner.
+// Mirrors LockedOverlay's copy convention but stays inline (no page blur).
+// plan: 'basic'|'plus'|'pro'.
 function renderFeatureLocked(rowEl, plan, blurb, isOwner) {
   var planLabel = { basic: 'Basic', plus: 'Plus', pro: 'Pro' }[plan] || plan;
   rowEl.classList.add('feature-locked');
   rowEl.innerHTML =
     '<div class="feature-locked-icon"><i data-lucide="lock"></i></div>' +
-    '<div class="feature-locked-body"><h3></h3><p></p></div>' +
-    (isOwner
-      ? '<a class="feature-locked-cta" href="billing.html?plan=' +
-          encodeURIComponent(plan) + '">Upgrade to ' + planLabel + '</a>'
-      : '');
+    '<div class="feature-locked-body"><h3></h3><p></p></div>';
   // textContent for the dynamic copy (no interpolation into innerHTML).
   rowEl.querySelector('h3').textContent = 'Available on ' + planLabel;
   rowEl.querySelector('p').textContent =
