@@ -130,6 +130,10 @@ const chatStream = async (req, res, next) => {
 // ── GET /api/ai/summary ────────────────────────────────────────
 const dailySummary = async (req, res, next) => {
   try {
+    if (!checkRateLimit(req.user.id))
+      return res.status(429).json({ success: false,
+        message: 'Too many requests. Wait a moment and try again.' });
+
     const contextText = await getContextMessage(req);
     const question    =
       contextText + '\n\nGive a brief daily business summary. ' +
@@ -154,6 +158,10 @@ const dailySummary = async (req, res, next) => {
 // ── GET /api/ai/restock ────────────────────────────────────────
 const restockAdvice = async (req, res, next) => {
   try {
+    if (!checkRateLimit(req.user.id))
+      return res.status(429).json({ success: false,
+        message: 'Too many requests. Wait a moment and try again.' });
+
     const contextText = await getContextMessage(req);
     const question    =
       contextText + '\n\nProvide a ranked restock list based on ' +
@@ -177,6 +185,10 @@ const restockAdvice = async (req, res, next) => {
 // ── GET /api/ai/forecast ───────────────────────────────────────
 const forecast = async (req, res, next) => {
   try {
+    if (!checkRateLimit(req.user.id))
+      return res.status(429).json({ success: false,
+        message: 'Too many requests. Wait a moment and try again.' });
+
     const contextText = await getContextMessage(req);
     // Tomorrow's weekday in the store timezone (not the server's).
     const tomorrow    = new Date(Date.now() + 86400000);
@@ -205,6 +217,10 @@ const forecast = async (req, res, next) => {
 // ── GET /api/ai/profit ─────────────────────────────────────────
 const profitCoaching = async (req, res, next) => {
   try {
+    if (!checkRateLimit(req.user.id))
+      return res.status(429).json({ success: false,
+        message: 'Too many requests. Wait a moment and try again.' });
+
     const contextText = await getContextMessage(req);
     const question    =
       contextText + '\n\nAnalyze product margins and identify ' +

@@ -45,7 +45,7 @@ const CASHIER_FEATURES = ['order', 'history'];
 
 // Resolve a store's billing situation right now. Returns the effective plan plus
 // a `state` the UI uses for the reminder cards:
-//   trial  — within the 14-day no-card Pro trial (effective Pro).
+//   trial  — within the 14-day no-card trial (effective Basic).
 //   active — paid and inside the paid_until window (or legacy/grandfathered).
 //   grace  — past the due date but within GRACE_DAYS (still entitled).
 //   free   — everything else (trial expired, lapsed past grace, or never paid).

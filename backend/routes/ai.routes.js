@@ -5,8 +5,8 @@ const ai                 = require('../controllers/ai.controller');
 const { authMiddleware } = require('../middleware/auth.middleware');
 const { loadStore, requireFeature } = require('../middleware/tenant.middleware');
 
-// Os (AI) is a Pro-only feature: auth + loadStore + requireFeature('ai') on
-// every route (402 for Free/Plus and for cashiers).
+// Os (AI) is a Plus+ feature: auth + loadStore + requireFeature('ai') on
+// every route (402 for Free/Basic and for cashiers).
 router.use(authMiddleware, loadStore, requireFeature('ai'));
 
 router.post('/chat',        ai.chat);

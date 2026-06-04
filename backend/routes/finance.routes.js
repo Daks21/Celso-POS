@@ -4,7 +4,7 @@ const controller = require('../controllers/finance.controller');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth.middleware');
 const { loadStore, requireFeature } = require('../middleware/tenant.middleware');
 
-// Finance is a Plus+ feature: auth + loadStore + requireFeature('finance') on
+// Finance is a Basic+ feature: auth + loadStore + requireFeature('finance') on
 // every route (402 for Free / cashier). Writes additionally require admin.
 router.use(authMiddleware, loadStore, requireFeature('finance'));
 

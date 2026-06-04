@@ -53,7 +53,7 @@ const state = async (req, res, next) => {
   }
 };
 
-// ── POST /api/billing/claim  { plan: 'plus' | 'pro', gcashRef } ────────────
+// ── POST /api/billing/claim  { plan: 'basic' | 'plus' | 'pro', gcashRef } ──
 const claim = async (req, res, next) => {
   try {
     const plan     = req.body && req.body.plan;
