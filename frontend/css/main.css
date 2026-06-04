@@ -106,7 +106,10 @@ html[data-theme="dark"] {
 html {
   height: 100%;
   scrollbar-width: none;
-  overscroll-behavior: none;
+  /* y-only: keep vertical scroll containment (no bounce / pull-to-refresh) but
+     leave the x-axis at 'auto' so trackpad two-finger swipe back/forward and
+     the browser's edge-swipe history gesture keep working. */
+  overscroll-behavior-y: none;
 }
 
 html::-webkit-scrollbar {
