@@ -10,6 +10,13 @@ const pool = mysql.createPool({
   waitForConnections: true,
   queueLimit:         0,
   timezone:           'Z',        // mysql2 parses/serialises DATETIMEs as UTC
+  // Opt-in TLS for a managed MySQL reached over a PUBLIC network (e.g. testing
+  // from a laptop against a provider's public host). Inside the same private
+  // network as the DB (e.g. Railway's internal host) leave DB_SSL unset/false —
+  // the traffic never leaves the private network. When enabled we don't pin a CA
+  // (rejectUnauthorized:false): the public proxies present certs outside the
+  // default trust store, and this connection is for that test path, not prod.
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
 });
 
 // Pin every pooled connection's SESSION time zone to real UTC so NOW() /
