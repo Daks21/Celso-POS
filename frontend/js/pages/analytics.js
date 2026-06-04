@@ -668,10 +668,14 @@ async function renderAll() {
 
     if (chartResult && chartResult.success) {
       var cd = chartResult.data;
-      renderRevenueChart(_toRevenueChart(cd.revenueByDay));
-      renderTopRevenueChart(_toTopRevenue(cd.topByRevenue));
-      renderTopQtyChart(_toTopQty(cd.topByQty));
-      renderDayOfWeekChart(_toDayOfWeek(cd.byDayOfWeek));
+      // Chart.js is lazy-loaded on demand (core/utils.js ensureChart) so its
+      // ~205 KB stays off the critical path; draw once it's available.
+      (window.ensureChart ? ensureChart() : Promise.resolve()).then(function () {
+        renderRevenueChart(_toRevenueChart(cd.revenueByDay));
+        renderTopRevenueChart(_toTopRevenue(cd.topByRevenue));
+        renderTopQtyChart(_toTopQty(cd.topByQty));
+        renderDayOfWeekChart(_toDayOfWeek(cd.byDayOfWeek));
+      }).catch(function () { showApiError('Charts could not be loaded.'); });
     } else if (chartResult && !chartResult.success) {
       showApiError(chartResult.message || 'Failed to load chart data.');
     }

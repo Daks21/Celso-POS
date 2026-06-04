@@ -172,12 +172,18 @@
   │   │   ├── sidebar.js       ← Active nav link, user initials, nav prefs
   │   │   ├── receipt.js       ← Shared receipt modal logic
   │   │   ├── os.client.js     ← Pure chat client (no DOM): SSE streaming,
-  │   │   │                       sessionStorage history, AbortController
+  │   │   │                       sessionStorage history, AbortController.
+  │   │   │                       LAZY-loaded — only ai.html (Full View) ships it
+  │   │   │                       in markup; elsewhere os.js fetches it on demand.
   │   │   ├── os.widget.js     ← Docked Os chat panel (Messenger-style):
   │   │   │                       desktop bottom-right overlay + mobile
-  │   │   │                       full-screen bottom sheet, lazy-mount DOM
-  │   │   └── os.js            ← Os FAB bootstrapper: mounts the floating
-  │   │                           button on every page, toggles OsWidget
+  │   │   │                       full-screen bottom sheet, lazy-mount DOM. Never
+  │   │   │                       in page markup — os.js lazy-loads it (+os.client)
+  │   │   │                       on first FAB click or to restore an open panel.
+  │   │   └── os.js            ← Os FAB bootstrapper: mounts the floating button
+  │   │                           (only if osEnabled + AI entitlement) and
+  │   │                           lazy-loads the chat bundle on demand. This tiny
+  │   │                           file is the only Os script in page markup.
   │   │
   │   └── pages/               ← One script per page
   │       ├── dashboard.js     ← Summary stats, charts, heatmap
@@ -206,8 +212,13 @@
                                     replaces the full 265 KB lucide.min.js, which is
                                     kept ONLY as the generator source for
                                     scripts/gen-icons.js (never shipped to browsers).
-                                  • chart.umd.min.js — Chart.js, loaded `defer` and
-                                    only on the dashboard + analytics pages.
+                                  • chart.umd.min.js — Chart.js (~205 KB). NOT in any
+                                    page's markup; lazy-loaded on demand by
+                                    ensureChart() (core/utils.js) the moment a chart is
+                                    about to draw (dashboard + analytics only), so it
+                                    stays off the critical path and the DOMContentLoaded
+                                    gate. dashboard degrades to empty states, analytics
+                                    surfaces an error, if it can't load.
 
   ─────────────────────────────────────────────────────────────
 

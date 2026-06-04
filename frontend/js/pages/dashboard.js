@@ -318,7 +318,7 @@ function renderDashboardWidgets() {
         '</div>';
       grid.appendChild(card);
 
-      setTimeout(function () {
+      setTimeout(function renderWidgetChart() {
         var ctx     = document.getElementById(canvasId);
         var emptyEl = document.getElementById(emptyId);
         if (!ctx) return;
@@ -329,9 +329,17 @@ function renderDashboardWidgets() {
           if (emptyEl) emptyEl.style.display = hasData ? 'none' : 'flex';
         }
 
-        // Chart.js may be unavailable (offline / blocked CDN-era cache / strict
-        // tracking prevention). Degrade to the empty state instead of throwing.
-        if (typeof Chart === 'undefined') { showOrHide(false); return; }
+        // Chart.js is lazy-loaded (core/utils.js ensureChart). On the first
+        // widget it isn't on the page yet, so fetch it then re-run this render.
+        // If it can't load (offline / blocked), degrade to the empty state.
+        if (typeof Chart === 'undefined') {
+          if (window.ensureChart) {
+            ensureChart().then(renderWidgetChart).catch(function () { showOrHide(false); });
+          } else {
+            showOrHide(false);
+          }
+          return;
+        }
 
         if (widgetId === 'revenue-chart') {
           var d = _transformRevenue(apiCharts.revenueByDay);

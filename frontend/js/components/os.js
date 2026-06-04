@@ -27,6 +27,61 @@
     return window.location.pathname.indexOf('ai.html') !== -1;
   }
 
+  // ── Lazy bundle loader ──────────────────────────────────────────
+  // The chat client + docked widget (~23 KB) are NOT on the page at load.
+  // They're fetched on demand — on first FAB click, or to restore a panel
+  // left open across navigation — so they stay off initial load for the
+  // majority of users who never open Os. Idempotent (the promise is shared).
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload = function () { resolve(); };
+      s.onerror = function () { reject(new Error('failed to load ' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  // Reuse the ?v= cache stamp from an already-loaded script so lazy loads
+  // stay in lockstep with scripts/bust-cache.js.
+  function assetVersion() {
+    var ref = document.querySelector('script[src*="/js/"], script[src*="assets/vendor/"]');
+    var m = ref && ref.getAttribute('src').match(/\?v=[^"&]*/);
+    return m ? m[0] : '';
+  }
+
+  var _osLoad = null;
+  function ensureOsWidget() {
+    if (window.OsWidget) return Promise.resolve(window.OsWidget);
+    if (_osLoad) return _osLoad;
+    var ver  = assetVersion();
+    // os.widget depends on os.client; load the client first unless it's
+    // already present (ai.html keeps os.client.js eager).
+    var step = window.OsClient
+      ? Promise.resolve()
+      : loadScript('../js/components/os.client.js' + ver);
+    _osLoad = step
+      .then(function () { return loadScript('../js/components/os.widget.js' + ver); })
+      .then(function () { return window.OsWidget; })
+      .catch(function (e) { _osLoad = null; throw e; });
+    return _osLoad;
+  }
+
+  // Restore a panel the user left open before navigating. os.widget's own
+  // DOMContentLoaded restore can't fire (it's loaded late), so replicate it:
+  // yield a tick to any onboarding overlay first, then reopen.
+  function maybeRestorePanel() {
+    try { if (sessionStorage.getItem('osPanelOpen') !== '1') return; } catch (_) { return; }
+    ensureOsWidget().then(function (w) {
+      setTimeout(function () {
+        if (document.querySelector('.onb-welcome-modal') ||
+            document.querySelector('.onb-tour-overlay')) return;
+        if (w && typeof w.open === 'function' && !w.isOpen()) w.open();
+      }, 0);
+    }).catch(function () {});
+  }
+
   // ── FAB ─────────────────────────────────────────────────────────
 
   function mountFab() {
@@ -40,9 +95,9 @@
     btn.innerHTML = 'Os';
 
     btn.addEventListener('click', function () {
-      if (window.OsWidget && typeof OsWidget.toggle === 'function') {
-        OsWidget.toggle();
-      }
+      ensureOsWidget().then(function (w) {
+        if (w && typeof w.toggle === 'function') w.toggle();
+      });
     });
 
     document.body.appendChild(btn);
@@ -71,6 +126,7 @@
 
     if (isOsEnabled() && entitledToAi()) {
       mountFab();
+      maybeRestorePanel();
     } else {
       unmountFab();
     }

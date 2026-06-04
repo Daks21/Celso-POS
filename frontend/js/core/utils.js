@@ -127,3 +127,31 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+// Lazily fetch Chart.js (~205 KB) only when a chart is actually about to be
+// drawn (dashboard + analytics). Loading it on demand — instead of a <head>
+// <script> — keeps it off the critical path AND off the DOMContentLoaded
+// gate, so the page is interactive immediately on low-end / slow connections;
+// charts simply pop in once the lib arrives. Returns a Promise<Chart>.
+// Idempotent: the script is injected at most once and the promise is shared.
+var _chartLoad = null;
+function ensureChart() {
+  if (typeof Chart !== 'undefined') return Promise.resolve(Chart);
+  if (_chartLoad) return _chartLoad;
+  _chartLoad = new Promise(function (resolve, reject) {
+    // Reuse the ?v= cache stamp from an already-loaded vendor script (e.g.
+    // icons.js) so this stays in lockstep with scripts/bust-cache.js.
+    var ref = document.querySelector('script[src*="assets/vendor/"]');
+    var ver = ref && ref.getAttribute('src').match(/\?v=[^"&]*/);
+    var s = document.createElement('script');
+    s.src = '../assets/vendor/chart.umd.min.js' + (ver ? ver[0] : '');
+    s.onload = function () {
+      if (typeof Chart !== 'undefined') resolve(Chart);
+      else { _chartLoad = null; reject(new Error('Chart.js loaded but Chart is undefined')); }
+    };
+    s.onerror = function () { _chartLoad = null; reject(new Error('Chart.js failed to load')); };
+    document.head.appendChild(s);
+  });
+  return _chartLoad;
+}
+window.ensureChart = ensureChart;
