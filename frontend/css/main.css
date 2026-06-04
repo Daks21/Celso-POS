@@ -324,3 +324,65 @@ body {
 .register-link a:hover {
   color: var(--color-primary-dark);
 }
+
+/* ── Lite Mode ──────────────────────────────────────────────────────────────
+   Strips GPU/CPU-heavy visuals (animations, transitions, shadows, blur) for
+   low-end devices and slow links. Applied as html.lite-mode by
+   core/lite-mode.js (auto-detected, or set in Account ▸ Performance).
+   Uses the prefers-reduced-motion idiom (instant, not "none") so entrance
+   animations still reach their END state instead of getting stuck. */
+html.lite-mode *,
+html.lite-mode *::before,
+html.lite-mode *::after {
+  transition: none !important;
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+html.lite-mode *,
+html.lite-mode *::before,
+html.lite-mode *::after {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+/* The plan-gate lock blurs the page behind its card; pointer-events:none still
+   guards it, so dropping just the blur is safe and far cheaper to paint. */
+html.lite-mode .page-body.is-locked { filter: none !important; }
+/* Keep the loading spinner spinning — a cheap transform; a frozen one reads
+   as "broken". (api-spin keyframes are injected globally by core/utils.js.) */
+html.lite-mode .api-spinner {
+  animation: api-spin 0.7s linear infinite !important;
+}
+
+/* Lite Mode chart stand-in table (replaces a <canvas>; see renderLiteChartTable). */
+.lite-chart-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 4px;
+}
+.lite-chart-table th,
+.lite-chart-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lite-chart-table th {
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.lite-chart-table td.lite-chart-val,
+.lite-chart-table th:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.lite-chart-table tr:last-child td { border-bottom: none; }

@@ -329,6 +329,25 @@ function renderDashboardWidgets() {
           if (emptyEl) emptyEl.style.display = hasData ? 'none' : 'flex';
         }
 
+        // Lite Mode: render the widget's data as a table and skip Chart.js
+        // entirely (same numbers, none of the 205 KB / canvas paint cost).
+        if (window.LiteMode && LiteMode.isActive() &&
+            typeof renderLiteChartTable === 'function') {
+          var lite = {
+            'revenue-chart':        { d: _transformRevenue(apiCharts.revenueByDay),    fmt: _formatPeso,                              headers: ['Day', 'Revenue'] },
+            'top-products-revenue': { d: _transformTopRevenue(apiCharts.topByRevenue), fmt: _formatPeso,                              headers: ['Product', 'Revenue'] },
+            'top-products-qty':     { d: _transformTopQty(apiCharts.topByQty),         fmt: function (v) { return v + ' units'; },    headers: ['Product', 'Units'] },
+            'sales-by-day':         { d: _transformDayOfWeek(apiCharts.byDayOfWeek),   fmt: _formatPeso,                              headers: ['Day', 'Revenue'] }
+          }[widgetId];
+          if (!lite) { showOrHide(false); return; }
+          var liteHasData = lite.d.data.some(function (v) { return v > 0; }) && lite.d.labels.length > 0;
+          if (!liteHasData) { showOrHide(false); return; }
+          if (emptyEl) emptyEl.style.display = 'none';
+          var liteRows = lite.d.labels.map(function (lab, i) { return { label: lab, value: lite.d.data[i] }; });
+          renderLiteChartTable(ctx, liteRows, { headers: lite.headers, format: lite.fmt });
+          return;
+        }
+
         // Chart.js is lazy-loaded (core/utils.js ensureChart). On the first
         // widget it isn't on the page yet, so fetch it then re-run this render.
         // If it can't load (offline / blocked), degrade to the empty state.

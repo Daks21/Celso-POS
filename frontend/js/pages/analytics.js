@@ -263,6 +263,21 @@ function destroyChart(id) {
   }
 }
 
+// Lite Mode: render a chart's data as a compact table instead of loading
+// Chart.js. Returns true when it handled the render (caller then skips `new
+// Chart`). d is { labels, data }.
+function liteChartTable(canvasId, d, fmt, headers) {
+  if (!(window.LiteMode && LiteMode.isActive())) return false;
+  var canvas = document.getElementById(canvasId);
+  var rows = (d.labels || []).map(function (lab, i) {
+    return { label: lab, value: d.data[i] };
+  });
+  if (typeof renderLiteChartTable === 'function') {
+    renderLiteChartTable(canvas, rows, { headers: headers, format: fmt });
+  }
+  return true;
+}
+
 function isDark() {
   return document.documentElement.getAttribute('data-theme') === 'dark';
 }
@@ -334,6 +349,7 @@ function renderRevenueChart(d) {
   var hasData = d.data.some(function (v) { return v > 0; });
   showChartOrEmpty('chart-revenue', 'empty-revenue', hasData);
   if (!hasData) return;
+  if (liteChartTable('chart-revenue', d, formatPeso, ['Day', 'Revenue'])) return;
 
   var c = chartColors();
   var opts = baseOptions();
@@ -368,6 +384,7 @@ function renderTopRevenueChart(d) {
   var hasData = d.data.length > 0;
   showChartOrEmpty('chart-top-revenue', 'empty-top-revenue', hasData);
   if (!hasData) return;
+  if (liteChartTable('chart-top-revenue', d, formatPeso, ['Product', 'Revenue'])) return;
 
   var opts = baseOptions();
   opts.indexAxis = 'y';
@@ -392,6 +409,7 @@ function renderTopQtyChart(d) {
   var hasData = d.data.length > 0;
   showChartOrEmpty('chart-top-qty', 'empty-top-qty', hasData);
   if (!hasData) return;
+  if (liteChartTable('chart-top-qty', d, function (v) { return v + ' units'; }, ['Product', 'Units'])) return;
 
   var opts = baseOptions();
   opts.indexAxis = 'y';
@@ -416,6 +434,7 @@ function renderDayOfWeekChart(d) {
   var hasData = d.data.some(function (v) { return v > 0; });
   showChartOrEmpty('chart-by-day', 'empty-by-day', hasData);
   if (!hasData) return;
+  if (liteChartTable('chart-by-day', d, formatPeso, ['Day', 'Revenue'])) return;
 
   var c = chartColors();
   var max = Math.max.apply(null, d.data);
@@ -668,14 +687,22 @@ async function renderAll() {
 
     if (chartResult && chartResult.success) {
       var cd = chartResult.data;
-      // Chart.js is lazy-loaded on demand (core/utils.js ensureChart) so its
-      // ~205 KB stays off the critical path; draw once it's available.
-      (window.ensureChart ? ensureChart() : Promise.resolve()).then(function () {
+      var drawCharts = function () {
         renderRevenueChart(_toRevenueChart(cd.revenueByDay));
         renderTopRevenueChart(_toTopRevenue(cd.topByRevenue));
         renderTopQtyChart(_toTopQty(cd.topByQty));
         renderDayOfWeekChart(_toDayOfWeek(cd.byDayOfWeek));
-      }).catch(function () { showApiError('Charts could not be loaded.'); });
+      };
+      if (window.LiteMode && LiteMode.isActive()) {
+        // Lite Mode: each renderer draws a table and skips Chart.js entirely.
+        drawCharts();
+      } else {
+        // Chart.js is lazy-loaded on demand (core/utils.js ensureChart) so its
+        // ~205 KB stays off the critical path; draw once it's available.
+        (window.ensureChart ? ensureChart() : Promise.resolve())
+          .then(drawCharts)
+          .catch(function () { showApiError('Charts could not be loaded.'); });
+      }
     } else if (chartResult && !chartResult.success) {
       showApiError(chartResult.message || 'Failed to load chart data.');
     }

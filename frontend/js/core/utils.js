@@ -155,3 +155,29 @@ function ensureChart() {
   return _chartLoad;
 }
 window.ensureChart = ensureChart;
+
+// Lite Mode stand-in for a chart: hide the <canvas> and drop a compact
+// 2-column table in its place, built from the SAME data the chart would use.
+// Lets low-end devices skip Chart.js entirely while still showing the numbers.
+// rows: [{ label, value }]; opts: { headers:[colA,colB], format:fn(value) }.
+function renderLiteChartTable(canvas, rows, opts) {
+  if (!canvas) return;
+  opts = opts || {};
+  canvas.style.display = 'none';
+  // Replace any prior table for this canvas (e.g. on a date-range re-render).
+  var sib = canvas.nextElementSibling;
+  if (sib && sib.classList && sib.classList.contains('lite-chart-table')) sib.remove();
+  if (!rows || !rows.length) return;
+  var fmt = opts.format || function (v) { return v; };
+  var head = opts.headers
+    ? '<thead><tr><th>' + escapeHtml(opts.headers[0]) + '</th>' +
+      '<th>' + escapeHtml(opts.headers[1]) + '</th></tr></thead>'
+    : '';
+  var body = rows.map(function (r) {
+    return '<tr><td>' + escapeHtml(String(r.label)) + '</td>' +
+           '<td class="lite-chart-val">' + escapeHtml(String(fmt(r.value))) + '</td></tr>';
+  }).join('');
+  canvas.insertAdjacentHTML('afterend',
+    '<table class="lite-chart-table">' + head + '<tbody>' + body + '</tbody></table>');
+}
+window.renderLiteChartTable = renderLiteChartTable;
