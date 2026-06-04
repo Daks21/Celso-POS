@@ -79,47 +79,56 @@ const createSale = async (req, res, next) => {
       }
     }
 
-    // Server-side subtotal verification
-    let serverSubtotal = 0;
-    for (const item of items) {
-      const product = productCache[Number(item.productId)];
-      serverSubtotal += product.price * Number(item.quantity);
-    }
+    // Build the server-authoritative line items (price from the DB, never the
+    // client) and derive the header from THEM, so the stored subtotal always
+    // equals the exact sum of the persisted line totals.
+    const serverItems = items.map(item => {
+      const product  = productCache[Number(item.productId)];
+      const quantity = Number(item.quantity);
+      return {
+        productId: Number(item.productId),
+        name:      product.name,
+        price:     product.price,
+        quantity,
+        lineTotal: parseFloat((product.price * quantity).toFixed(2)),
+      };
+    });
+
+    const serverSubtotal = parseFloat(
+      serverItems.reduce((sum, it) => sum + it.lineTotal, 0).toFixed(2)
+    );
     if (Math.abs(serverSubtotal - subtotal) > 0.01) {
       return res.status(400).json({ success: false, message: 'Subtotal does not match item totals' });
     }
-    if (tax > 0) {
-      const expectedTax = parseFloat((serverSubtotal * parsedTaxRate).toFixed(2));
-      if (Math.abs(expectedTax - tax) > 0.02) {
-        return res.status(400).json({ success: false, message: 'Tax amount does not match the supplied tax rate' });
-      }
+
+    // Tax applies only when the client sent a positive tax; the rate was range-
+    // checked above. Recompute the amount from the server subtotal rather than
+    // trusting the client figure.
+    const serverTax = tax > 0 ? parseFloat((serverSubtotal * parsedTaxRate).toFixed(2)) : 0;
+    if (tax > 0 && Math.abs(serverTax - tax) > 0.02) {
+      return res.status(400).json({ success: false, message: 'Tax amount does not match the supplied tax rate' });
     }
     if (Math.abs((subtotal + tax) - total) > 0.01) {
       return res.status(400).json({ success: false, message: 'Total does not match subtotal + tax' });
     }
-    if (payment < total) {
+
+    const serverTotal = parseFloat((serverSubtotal + serverTax).toFixed(2));
+    if (payment < serverTotal) {
       return res.status(400).json({ success: false, message: 'Payment is less than the total' });
     }
 
-    // Phase 2 — build record with server-authoritative prices
+    // Phase 2 — record built entirely from server-recomputed values. The client
+    // numbers above were only the verification gate; what we persist is ours, so
+    // the header, the receipt line items, and Finance "Money In" agree to the centavo.
     const saleRecord = {
-      items: items.map(item => {
-        const product = productCache[Number(item.productId)];
-        return {
-          productId: Number(item.productId),
-          name:      product.name,
-          price:     product.price,
-          quantity:  Number(item.quantity),
-          lineTotal: product.price * Number(item.quantity),
-        };
-      }),
-      subtotal,
-      tax,
-      taxRate:   tax > 0 ? (taxRate || 0) : 0,
+      items:     serverItems,
+      subtotal:  serverSubtotal,
+      tax:       serverTax,
+      taxRate:   serverTax > 0 ? parsedTaxRate : 0,
       cartTaxOn: Boolean(cartTaxOn),
-      total,
+      total:     serverTotal,
       payment,
-      change:    payment - total,
+      change:    parseFloat((payment - serverTotal).toFixed(2)),
     };
 
     // Phase 3 — atomic transaction handles sale + stock + audit log
