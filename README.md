@@ -391,6 +391,8 @@
     gcash_ref           VARCHAR UNIQUE — a reference can be claimed once, ever
     status              ENUM    'pending' | 'approved' | 'rejected'
     submitted_by/at, reviewed_by/at, review_note, period_start, period_end
+    prev_billing        JSON    store billing snapshot taken at approve, so a
+                                mistaken approval can be reverted (POST /claims/:id/revert)
 
   ─────────────────────────────────────────────────────────────
   TABLE: platform_config  (single global row id=1 — Phase 6.6)
@@ -1346,12 +1348,19 @@
          mysql -u root -p celsopos_db < database/migrate_loan_terms.sql
          mysql -u root -p celsopos_db < database/migrate_multitenant.sql
          mysql -u root -p celsopos_db < database/migrate_single_session.sql
+         mysql -u root -p celsopos_db < database/migrate_timezone.sql
+         mysql -u root -p celsopos_db < database/migrate_billing_bridge.sql
+         mysql -u root -p celsopos_db < database/migrate_last_login.sql
+         mysql -u root -p celsopos_db < database/migrate_claim_prev_billing.sql
     migrate_inventory_costs adds the Phase 5 cost columns to
     inventory_adjustments — without it, restock and stock adjustments 500.
     migrate_multitenant adds the stores table + store_id on every owned table
     (Phase 6.5; idempotent via schema_migrations). migrate_single_session adds
     users.session_id. Run BOTH before deploying the Phase 6.5 backend, or
-    authenticated requests will 500 on the missing columns.
+    authenticated requests will 500 on the missing columns. migrate_billing_bridge
+    adds the Phase 6.6 billing columns/tables; migrate_last_login adds
+    users.last_login_at (operator activity stats); migrate_claim_prev_billing adds
+    payment_claims.prev_billing (approval-undo snapshot). Each is idempotent.
 
   FRONTEND CACHE BUSTING (per deploy)
     Static assets are referenced with a ?v=<version> query so browsers
