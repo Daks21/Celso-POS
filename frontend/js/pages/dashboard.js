@@ -333,14 +333,20 @@ function renderDashboardWidgets() {
         // entirely (same numbers, none of the 205 KB / canvas paint cost).
         if (window.LiteMode && LiteMode.isActive() &&
             typeof renderLiteChartTable === 'function') {
+          // `byLen` mirrors the Chart.js path's per-widget has-data test: the
+          // top-products widgets count entries (length>0); the time-series ones
+          // require a non-zero value (some>0). Keeping these in sync ensures a
+          // widget that charts in normal mode also tables in Lite Mode.
           var lite = {
-            'revenue-chart':        { d: _transformRevenue(apiCharts.revenueByDay),    fmt: _formatPeso,                              headers: ['Day', 'Revenue'] },
-            'top-products-revenue': { d: _transformTopRevenue(apiCharts.topByRevenue), fmt: _formatPeso,                              headers: ['Product', 'Revenue'] },
-            'top-products-qty':     { d: _transformTopQty(apiCharts.topByQty),         fmt: function (v) { return v + ' units'; },    headers: ['Product', 'Units'] },
-            'sales-by-day':         { d: _transformDayOfWeek(apiCharts.byDayOfWeek),   fmt: _formatPeso,                              headers: ['Day', 'Revenue'] }
+            'revenue-chart':        { d: _transformRevenue(apiCharts.revenueByDay),    fmt: _formatPeso,                              headers: ['Day', 'Revenue'],     byLen: false },
+            'top-products-revenue': { d: _transformTopRevenue(apiCharts.topByRevenue), fmt: _formatPeso,                              headers: ['Product', 'Revenue'], byLen: true  },
+            'top-products-qty':     { d: _transformTopQty(apiCharts.topByQty),         fmt: function (v) { return v + ' units'; },    headers: ['Product', 'Units'],   byLen: true  },
+            'sales-by-day':         { d: _transformDayOfWeek(apiCharts.byDayOfWeek),   fmt: _formatPeso,                              headers: ['Day', 'Revenue'],     byLen: false }
           }[widgetId];
           if (!lite) { showOrHide(false); return; }
-          var liteHasData = lite.d.data.some(function (v) { return v > 0; }) && lite.d.labels.length > 0;
+          var liteHasData = lite.byLen
+            ? lite.d.data.length > 0
+            : lite.d.data.some(function (v) { return v > 0; });
           if (!liteHasData) { showOrHide(false); return; }
           if (emptyEl) emptyEl.style.display = 'none';
           var liteRows = lite.d.labels.map(function (lab, i) { return { label: lab, value: lite.d.data[i] }; });

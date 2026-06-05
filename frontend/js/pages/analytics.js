@@ -335,6 +335,14 @@ function showChartOrEmpty(canvasId, emptyId, hasData) {
   var empty  = document.getElementById(emptyId);
   if (canvas) canvas.style.display = hasData ? 'block' : 'none';
   if (empty)  empty.style.display  = hasData ? 'none'  : 'flex';
+  // Lite Mode draws a table next to the canvas (liteChartTable). The renderers
+  // early-return on no-data BEFORE reaching it, so clear a stale table here
+  // when the chart goes empty — otherwise prior-range numbers linger beside the
+  // empty state. No-op in normal mode (there is never a table sibling).
+  if (!hasData && canvas) {
+    var sib = canvas.nextElementSibling;
+    if (sib && sib.classList && sib.classList.contains('lite-chart-table')) sib.remove();
+  }
 }
 
 function barColors(count) {

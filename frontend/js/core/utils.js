@@ -146,10 +146,19 @@ function ensureChart() {
     var s = document.createElement('script');
     s.src = '../assets/vendor/chart.umd.min.js' + (ver ? ver[0] : '');
     s.onload = function () {
-      if (typeof Chart !== 'undefined') resolve(Chart);
-      else { _chartLoad = null; reject(new Error('Chart.js loaded but Chart is undefined')); }
+      if (typeof Chart !== 'undefined') { resolve(Chart); return; }
+      // Loaded but the global never appeared (truncated/blocked file). Reset so
+      // a later call can retry — and drop this node so the retry doesn't stack a
+      // second identical <script>.
+      _chartLoad = null;
+      s.remove();
+      reject(new Error('Chart.js loaded but Chart is undefined'));
     };
-    s.onerror = function () { _chartLoad = null; reject(new Error('Chart.js failed to load')); };
+    s.onerror = function () {
+      _chartLoad = null;
+      s.remove();
+      reject(new Error('Chart.js failed to load'));
+    };
     document.head.appendChild(s);
   });
   return _chartLoad;
