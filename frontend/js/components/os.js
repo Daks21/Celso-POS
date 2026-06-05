@@ -39,8 +39,12 @@
   function ensureOsWidget() {
     if (window.OsWidget) return Promise.resolve(window.OsWidget);
     if (_osLoad) return _osLoad;
-    if (!window.loadScript) return Promise.reject(new Error('loadScript unavailable'));
-    var ver  = window.assetVersion ? assetVersion() : '';
+    // Shared helpers live in core/utils.js. Resolve them off window explicitly
+    // (not bare globals) and bail gracefully if utils.js somehow didn't load —
+    // the FAB just won't open rather than throwing a ReferenceError.
+    var loadScript = window.loadScript;
+    if (!loadScript) return Promise.reject(new Error('loadScript unavailable'));
+    var ver  = window.assetVersion ? window.assetVersion() : '';
     // os.widget depends on os.client; load the client first unless it's
     // already present (ai.html keeps os.client.js eager).
     var step = window.OsClient
