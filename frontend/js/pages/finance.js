@@ -1131,7 +1131,9 @@ document.addEventListener('click', function (e) {
   if (e.target.closest && e.target.closest('#profit-info-trigger')) return;
   hideProfitInfo();
 });
-window.addEventListener('scroll', hideProfitInfo, true);
+// capture so it fires for scrolls in any nested scroller; passive so it never
+// blocks the compositor (hideProfitInfo only toggles a class).
+window.addEventListener('scroll', hideProfitInfo, { capture: true, passive: true });
 window.addEventListener('resize', hideProfitInfo);
 
 loadData().then(function () {

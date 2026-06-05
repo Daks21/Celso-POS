@@ -431,6 +431,8 @@ function initScrollHideTopbar() {
   var lastY     = 0;
   var DEAD_ZONE = 80; // px — never hide within this distance from the top
 
+  // passive: this only reads scrollTop + toggles a class (never preventDefault),
+  // so let the compositor scroll without waiting on it — smoother on mobile.
   pageBody.addEventListener('scroll', function() {
     var y = pageBody.scrollTop;
 
