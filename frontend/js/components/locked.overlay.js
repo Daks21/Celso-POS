@@ -76,5 +76,11 @@ window.LockedOverlay = (function () {
     _active = true;
   }
 
-  return { show: show, isActive: isActive, gateSilently: gateSilently };
+  // FEATURE_META / PLAN_LABEL are exposed so other surfaces (e.g. the inline
+  // plan-gated rows on the Account page) read the SAME plan + blurb, instead of
+  // hardcoding "Available on Plus" copy that drifts when pricing changes.
+  return {
+    show: show, isActive: isActive, gateSilently: gateSilently,
+    FEATURE_META: FEATURE_META, PLAN_LABEL: PLAN_LABEL,
+  };
 })();

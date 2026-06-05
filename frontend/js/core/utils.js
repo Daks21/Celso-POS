@@ -128,6 +128,29 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+// Inject a <script> on demand and resolve with the element once it loads.
+// Removes the node and rejects on error so a retry can't stack a duplicate.
+// Shared by ensureChart and the Os widget lazy-loader (components/os.js).
+function loadScript(src) {
+  return new Promise(function (resolve, reject) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = function () { resolve(s); };
+    s.onerror = function () { s.remove(); reject(new Error('failed to load ' + src)); };
+    document.head.appendChild(s);
+  });
+}
+window.loadScript = loadScript;
+
+// The ?v= cache stamp from an already-loaded script, so lazy loads stay in
+// lockstep with scripts/bust-cache.js. '' when none is found.
+function assetVersion() {
+  var ref = document.querySelector('script[src*="/js/"], script[src*="assets/vendor/"]');
+  var m = ref && ref.getAttribute('src').match(/\?v=[^"&]*/);
+  return m ? m[0] : '';
+}
+window.assetVersion = assetVersion;
+
 // Lazily fetch Chart.js (~205 KB) only when a chart is actually about to be
 // drawn (dashboard + analytics). Loading it on demand — instead of a <head>
 // <script> — keeps it off the critical path AND off the DOMContentLoaded
@@ -138,53 +161,42 @@ var _chartLoad = null;
 function ensureChart() {
   if (typeof Chart !== 'undefined') return Promise.resolve(Chart);
   if (_chartLoad) return _chartLoad;
-  _chartLoad = new Promise(function (resolve, reject) {
-    // Reuse the ?v= cache stamp from an already-loaded vendor script (e.g.
-    // icons.js) so this stays in lockstep with scripts/bust-cache.js.
-    var ref = document.querySelector('script[src*="assets/vendor/"]');
-    var ver = ref && ref.getAttribute('src').match(/\?v=[^"&]*/);
-    var s = document.createElement('script');
-    s.src = '../assets/vendor/chart.umd.min.js' + (ver ? ver[0] : '');
-    s.onload = function () {
-      if (typeof Chart !== 'undefined') { resolve(Chart); return; }
-      // Loaded but the global never appeared (truncated/blocked file). Reset so
-      // a later call can retry — and drop this node so the retry doesn't stack a
-      // second identical <script>.
-      _chartLoad = null;
+  _chartLoad = loadScript('../assets/vendor/chart.umd.min.js' + assetVersion())
+    .then(function (s) {
+      if (typeof Chart !== 'undefined') return Chart;
+      // Loaded but the global never appeared (truncated/blocked file). Drop the
+      // node so a retry doesn't stack a second identical <script>.
       s.remove();
-      reject(new Error('Chart.js loaded but Chart is undefined'));
-    };
-    s.onerror = function () {
-      _chartLoad = null;
-      s.remove();
-      reject(new Error('Chart.js failed to load'));
-    };
-    document.head.appendChild(s);
-  });
+      throw new Error('Chart.js loaded but Chart is undefined');
+    })
+    .catch(function (e) { _chartLoad = null; throw e; });
   return _chartLoad;
 }
 window.ensureChart = ensureChart;
 
 // Lite Mode stand-in for a chart: hide the <canvas> and drop a compact
-// 2-column table in its place, built from the SAME data the chart would use.
-// Lets low-end devices skip Chart.js entirely while still showing the numbers.
-// rows: [{ label, value }]; opts: { headers:[colA,colB], format:fn(value) }.
-function renderLiteChartTable(canvas, rows, opts) {
+// 2-column table in its place, built from the SAME { labels, data } the chart
+// would use — so callers pass the chart data directly (no manual zip). Lets
+// low-end devices skip Chart.js entirely while still showing the numbers.
+// opts: { headers:[colA,colB], format:fn(value) }.
+function renderLiteChartTable(canvas, chart, opts) {
   if (!canvas) return;
   opts = opts || {};
   canvas.style.display = 'none';
   // Replace any prior table for this canvas (e.g. on a date-range re-render).
   var sib = canvas.nextElementSibling;
   if (sib && sib.classList && sib.classList.contains('lite-chart-table')) sib.remove();
-  if (!rows || !rows.length) return;
+  var labels = (chart && chart.labels) || [];
+  var values = (chart && chart.data) || [];
+  if (!labels.length) return;
   var fmt = opts.format || function (v) { return v; };
   var head = opts.headers
     ? '<thead><tr><th>' + escapeHtml(opts.headers[0]) + '</th>' +
       '<th>' + escapeHtml(opts.headers[1]) + '</th></tr></thead>'
     : '';
-  var body = rows.map(function (r) {
-    return '<tr><td>' + escapeHtml(String(r.label)) + '</td>' +
-           '<td class="lite-chart-val">' + escapeHtml(String(fmt(r.value))) + '</td></tr>';
+  var body = labels.map(function (label, i) {
+    return '<tr><td>' + escapeHtml(String(label)) + '</td>' +
+           '<td class="lite-chart-val">' + escapeHtml(String(fmt(values[i]))) + '</td></tr>';
   }).join('');
   canvas.insertAdjacentHTML('afterend',
     '<table class="lite-chart-table">' + head + '<tbody>' + body + '</tbody></table>');

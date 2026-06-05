@@ -265,15 +265,11 @@ function destroyChart(id) {
 
 // Lite Mode: render a chart's data as a compact table instead of loading
 // Chart.js. Returns true when it handled the render (caller then skips `new
-// Chart`). d is { labels, data }.
+// Chart`). d is { labels, data } — passed straight to the shared helper.
 function liteChartTable(canvasId, d, fmt, headers) {
   if (!(window.LiteMode && LiteMode.isActive())) return false;
-  var canvas = document.getElementById(canvasId);
-  var rows = (d.labels || []).map(function (lab, i) {
-    return { label: lab, value: d.data[i] };
-  });
   if (typeof renderLiteChartTable === 'function') {
-    renderLiteChartTable(canvas, rows, { headers: headers, format: fmt });
+    renderLiteChartTable(document.getElementById(canvasId), d, { headers: headers, format: fmt });
   }
   return true;
 }

@@ -336,21 +336,22 @@ function renderDashboardWidgets() {
           // `byLen` mirrors the Chart.js path's per-widget has-data test: the
           // top-products widgets count entries (length>0); the time-series ones
           // require a non-zero value (some>0). Keeping these in sync ensures a
-          // widget that charts in normal mode also tables in Lite Mode.
-          var lite = {
-            'revenue-chart':        { d: _transformRevenue(apiCharts.revenueByDay),    fmt: _formatPeso,                              headers: ['Day', 'Revenue'],     byLen: false },
-            'top-products-revenue': { d: _transformTopRevenue(apiCharts.topByRevenue), fmt: _formatPeso,                              headers: ['Product', 'Revenue'], byLen: true  },
-            'top-products-qty':     { d: _transformTopQty(apiCharts.topByQty),         fmt: function (v) { return v + ' units'; },    headers: ['Product', 'Units'],   byLen: true  },
-            'sales-by-day':         { d: _transformDayOfWeek(apiCharts.byDayOfWeek),   fmt: _formatPeso,                              headers: ['Day', 'Revenue'],     byLen: false }
+          // widget that charts in normal mode also tables in Lite Mode. Each
+          // entry is a thunk so only the selected widget's transform runs.
+          var liteFor = {
+            'revenue-chart':        function () { return { d: _transformRevenue(apiCharts.revenueByDay),    fmt: _formatPeso,                           headers: ['Day', 'Revenue'],     byLen: false }; },
+            'top-products-revenue': function () { return { d: _transformTopRevenue(apiCharts.topByRevenue), fmt: _formatPeso,                           headers: ['Product', 'Revenue'], byLen: true  }; },
+            'top-products-qty':     function () { return { d: _transformTopQty(apiCharts.topByQty),         fmt: function (v) { return v + ' units'; }, headers: ['Product', 'Units'],   byLen: true  }; },
+            'sales-by-day':         function () { return { d: _transformDayOfWeek(apiCharts.byDayOfWeek),   fmt: _formatPeso,                           headers: ['Day', 'Revenue'],     byLen: false }; }
           }[widgetId];
-          if (!lite) { showOrHide(false); return; }
+          if (!liteFor) { showOrHide(false); return; }
+          var lite = liteFor();
           var liteHasData = lite.byLen
             ? lite.d.data.length > 0
             : lite.d.data.some(function (v) { return v > 0; });
           if (!liteHasData) { showOrHide(false); return; }
           if (emptyEl) emptyEl.style.display = 'none';
-          var liteRows = lite.d.labels.map(function (lab, i) { return { label: lab, value: lite.d.data[i] }; });
-          renderLiteChartTable(ctx, liteRows, { headers: lite.headers, format: lite.fmt });
+          renderLiteChartTable(ctx, lite.d, { headers: lite.headers, format: lite.fmt });
           return;
         }
 

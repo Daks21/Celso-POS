@@ -518,17 +518,17 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     );
 
+    // Owners get the "Available on <Plan>" copy; cashiers are told to ask the
+    // owner. Computed once for the feature-gate rows below.
+    var isOwner = currentUser.role === 'admin';
+
     // ── Os AI Feature Toggle ──
     var osToggle = document.getElementById('os-enabled-toggle');
     if (osToggle && typeof hasEntitlement === 'function' && !hasEntitlement('ai')) {
-      // The Os AI assistant unlocks on the Plus plan. Show an inline locked
-      // state instead of leaving the card empty.
+      // Not entitled → inline locked state instead of an empty card. Plan + copy
+      // come from LockedOverlay's shared FEATURE_META (keyed by feature name).
       var osRow = osToggle.closest('.account-theme-row');
-      if (osRow) {
-        renderFeatureLocked(osRow, 'plus',
-          'Sales insights, restock advice, and finance answers from Os.',
-          currentUser.role === 'admin');
-      }
+      if (osRow) renderFeatureLocked(osRow, 'ai', isOwner);
       osToggle = null;
     }
     if (osToggle) {
@@ -554,15 +554,9 @@ document.addEventListener('DOMContentLoaded', function() {
     var advToggle = document.getElementById('advanced-analytics-toggle');
 
     if (advToggle && typeof hasEntitlement === 'function' && !hasEntitlement('advanced_analytics')) {
-      // Advanced Analytics unlocks on the Plus plan. Rather than hide the row and
-      // leave an empty card, show an inline locked state (+ an Upgrade CTA for
-      // owners; cashiers just see that the owner can upgrade).
+      // Not entitled → inline locked state instead of an empty card.
       var advRow = advToggle.closest('.account-theme-row');
-      if (advRow) {
-        renderFeatureLocked(advRow, 'plus',
-          'Goal projections and inventory health on the Analytics page.',
-          currentUser.role === 'admin');
-      }
+      if (advRow) renderFeatureLocked(advRow, 'advanced_analytics', isOwner);
       advToggle = null;
     }
     if (advToggle) {
@@ -584,10 +578,14 @@ document.addEventListener('DOMContentLoaded', function() {
 // Replace a settings row whose plan isn't active with an inline locked state:
 // a lock icon, an "Available on <Plan>" line, and a short blurb. No CTA — the
 // Billing page is in the nav for owners; cashiers are told to ask the owner.
-// Mirrors LockedOverlay's copy convention but stays inline (no page blur).
-// plan: 'basic'|'plus'|'pro'.
-function renderFeatureLocked(rowEl, plan, blurb, isOwner) {
-  var planLabel = { basic: 'Basic', plus: 'Plus', pro: 'Pro' }[plan] || plan;
+// `feature` keys into LockedOverlay.FEATURE_META so the plan + blurb stay the
+// single source of truth (no per-call-site copy that drifts when pricing moves).
+function renderFeatureLocked(rowEl, feature, isOwner) {
+  var meta = (window.LockedOverlay && LockedOverlay.FEATURE_META &&
+              LockedOverlay.FEATURE_META[feature]) ||
+             { plan: 'plus', blurb: 'Upgrade to unlock it.' };
+  var planLabel = (window.LockedOverlay && LockedOverlay.PLAN_LABEL &&
+                   LockedOverlay.PLAN_LABEL[meta.plan]) || meta.plan;
   rowEl.classList.add('feature-locked');
   rowEl.innerHTML =
     '<div class="feature-locked-icon"><i data-lucide="lock"></i></div>' +
@@ -595,6 +593,6 @@ function renderFeatureLocked(rowEl, plan, blurb, isOwner) {
   // textContent for the dynamic copy (no interpolation into innerHTML).
   rowEl.querySelector('h3').textContent = 'Available on ' + planLabel;
   rowEl.querySelector('p').textContent =
-    blurb + (isOwner ? '' : ' Ask the store owner to upgrade.');
+    meta.blurb + (isOwner ? '' : ' Ask the store owner to upgrade.');
   if (window.lucide) lucide.createIcons();
 }

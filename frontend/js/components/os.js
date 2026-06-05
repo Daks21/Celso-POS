@@ -32,30 +32,15 @@
   // They're fetched on demand — on first FAB click, or to restore a panel
   // left open across navigation — so they stay off initial load for the
   // majority of users who never open Os. Idempotent (the promise is shared).
-
-  function loadScript(src) {
-    return new Promise(function (resolve, reject) {
-      var s = document.createElement('script');
-      s.src = src;
-      s.onload = function () { resolve(); };
-      s.onerror = function () { reject(new Error('failed to load ' + src)); };
-      document.head.appendChild(s);
-    });
-  }
-
-  // Reuse the ?v= cache stamp from an already-loaded script so lazy loads
-  // stay in lockstep with scripts/bust-cache.js.
-  function assetVersion() {
-    var ref = document.querySelector('script[src*="/js/"], script[src*="assets/vendor/"]');
-    var m = ref && ref.getAttribute('src').match(/\?v=[^"&]*/);
-    return m ? m[0] : '';
-  }
+  // loadScript / assetVersion are the shared helpers from core/utils.js
+  // (loaded before this runs at click / DOMContentLoaded time).
 
   var _osLoad = null;
   function ensureOsWidget() {
     if (window.OsWidget) return Promise.resolve(window.OsWidget);
     if (_osLoad) return _osLoad;
-    var ver  = assetVersion();
+    if (!window.loadScript) return Promise.reject(new Error('loadScript unavailable'));
+    var ver  = window.assetVersion ? assetVersion() : '';
     // os.widget depends on os.client; load the client first unless it's
     // already present (ai.html keeps os.client.js eager).
     var step = window.OsClient
