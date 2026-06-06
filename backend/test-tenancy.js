@@ -72,14 +72,14 @@ async function run() {
   }
 
   const RUN  = Date.now();
-  const PASS = 'owner12345';
+  const PASS = 'MabuhayTindahan99';
   const aEmail = `tenantA_${RUN}@celsopos.com`;
   const bEmail = `tenantB_${RUN}@celsopos.com`;
   let storeA, storeB;
 
   console.log('\n── Setup: two stores via signup ───────────────────────────');
-  const regA = await req('POST', '/api/auth/register', { fullName: 'Owner A', email: aEmail, password: PASS });
-  const regB = await req('POST', '/api/auth/register', { fullName: 'Owner B', email: bEmail, password: PASS });
+  const regA = await req('POST', '/api/auth/register', { fullName: 'Owner A', email: aEmail, password: PASS, mobile: '09171234567', securityAnswer: 'Cebu City' });
+  const regB = await req('POST', '/api/auth/register', { fullName: 'Owner B', email: bEmail, password: PASS, mobile: '09181234567', securityAnswer: 'Davao City' });
   check('Store A signup → 201', regA.status === 201);
   check('Store B signup → 201', regB.status === 201);
 

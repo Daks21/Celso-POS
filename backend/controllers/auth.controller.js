@@ -39,20 +39,20 @@ const register = async (req, res, next) => {
       return res.status(400).json({ success: false, message: pwCheck.message });
     }
 
-    // Phase 6.7 recovery details. OPTIONAL for now so the existing register form keeps
-    // working unchanged; Step 8 adds the form fields and makes these REQUIRED. When
-    // supplied they are validated + stored (mobile canonicalized to 09XXXXXXXXX; the
-    // security answer is bcrypt-hashed, never stored in clear).
-    let mobileNorm = null, answerHash = null;
-    if (mobile !== undefined && String(mobile).trim() !== '') {
-      mobileNorm = normalizePhMobile(mobile);
-      if (!mobileNorm) {
-        return res.status(400).json({ success: false, message: 'Enter a valid mobile number (e.g. 09171234567)' });
-      }
+    // Phase 6.7 recovery details — REQUIRED for owner signups (register is the
+    // owner-only signup path). Mobile is canonicalized to 09XXXXXXXXX; the security
+    // answer (place of birth) is bcrypt-hashed, never stored in clear.
+    if (!mobile || String(mobile).trim() === '') {
+      return res.status(400).json({ success: false, message: 'Mobile number is required' });
     }
-    if (securityAnswer !== undefined && String(securityAnswer).trim() !== '') {
-      answerHash = await hashAnswer(securityAnswer);
+    const mobileNorm = normalizePhMobile(mobile);
+    if (!mobileNorm) {
+      return res.status(400).json({ success: false, message: 'Enter a valid mobile number (e.g. 09171234567)' });
     }
+    if (!securityAnswer || String(securityAnswer).trim() === '') {
+      return res.status(400).json({ success: false, message: 'Place of birth is required' });
+    }
+    const answerHash = await hashAnswer(securityAnswer);
 
     if (await findByEmail(email)) {
       return res.status(409).json({ success: false, message: 'Email is already registered' });

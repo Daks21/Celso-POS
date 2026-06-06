@@ -55,7 +55,8 @@ async function run() {
   // ── STEP 2: Register creates a NEW store + owner-admin (Phase 6.5) ──
   console.log('\nSTEP 2 — Register (creates a new isolated store)');
   const reg = await req('POST', '/api/auth/register', {
-    fullName: 'Test Owner', email: TEST_EMAIL, password: 'owner12345',
+    fullName: 'Test Owner', email: TEST_EMAIL, password: 'MabuhayTindahan99',
+    mobile: '09171234567', securityAnswer: 'Cebu City',
   });
   check('POST /api/auth/register → 201', reg.status === 201);
   check('Response success flag is true', reg.body.success === true);
