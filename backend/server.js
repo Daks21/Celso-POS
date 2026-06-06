@@ -117,6 +117,12 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
 app.use('/api/auth/login',    authLimiter);
 app.use('/api/auth/register', authLimiter);
 
+// --- Rate limiting on the public password-recovery funnel (Phase 6.7) ---
+// Tighter than auth (it's an unauthenticated write); a per-email/day cap is also
+// enforced in the controller. Dedupe of open requests is enforced in the model.
+const resetLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
+app.use('/api/auth/forgot-password', resetLimiter);
+
 // --- Rate limiting on stock adjustment write endpoint only ---
 const adjustLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 60 });
 app.use('/api/inventory/:productId/adjust', adjustLimiter);

@@ -1,6 +1,7 @@
 const express    = require('express');
 const router     = express.Router();
-const { login, register, getPreferencesHandler, savePreferencesHandler, changePassword } = require('../controllers/auth.controller');
+const { login, register, getPreferencesHandler, savePreferencesHandler, changePassword,
+        forgotPassword, updateRecovery } = require('../controllers/auth.controller');
 const { authMiddleware: auth, adminMiddleware: admin } = require('../middleware/auth.middleware');
 const { loadStore } = require('../middleware/tenant.middleware');
 const { entitlements } = require('../config/plans');
@@ -8,6 +9,9 @@ const { findById } = require('../models/user.model');
 
 router.post('/register', register);
 router.post('/login',    login);
+// Phase 6.7 manual password recovery: public request funnel (rate-limited in
+// server.js) + owner self-service recovery-details update.
+router.post('/forgot-password', forgotPassword);
 
 router.get('/me', auth, loadStore, async (req, res, next) => {
   try {
@@ -33,5 +37,7 @@ router.put('/preferences', auth, savePreferencesHandler);
 // Owner self-service only — cashiers don't manage their own password (the owner
 // resets it from the Team page). Admin-gated so a cashier token can't use it.
 router.put('/password',    auth, admin, changePassword);
+// Owner recovery details (mobile + place-of-birth answer); admin-gated like /password.
+router.put('/recovery',    auth, admin, updateRecovery);
 
 module.exports = router;

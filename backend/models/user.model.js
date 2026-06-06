@@ -107,14 +107,16 @@ const setTempPassword = async (userId, passwordHash, expiresAt) => {
 };
 
 // Finalize a password change (normal self-service OR the forced post-reset change):
-// set the new hash, clear the forced-change flag + any reset expiry, and rotate the
-// single-session id so the change is applied uniformly (S5: kill other sessions).
-const setPassword = async (userId, passwordHash, sessionId) => {
+// set the new hash and clear the forced-change flag + any reset expiry. The CURRENT
+// session is left valid on purpose (the caller is authenticated on the device that's
+// changing the password, so no token swap is needed); other sessions were already
+// invalidated when the temp code was issued (setTempPassword NULLs session_id).
+const setPassword = async (userId, passwordHash) => {
   await db.query(
     `UPDATE users
-        SET password = ?, must_change_password = 0, pw_reset_expires_at = NULL, session_id = ?
+        SET password = ?, must_change_password = 0, pw_reset_expires_at = NULL
       WHERE id = ?`,
-    [passwordHash, sessionId, userId]
+    [passwordHash, userId]
   );
 };
 
