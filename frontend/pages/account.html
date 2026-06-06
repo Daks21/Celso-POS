@@ -539,6 +539,81 @@
             </div>
           </section>
 
+          <!-- Security & Recovery Card (owner only) -->
+          <section class="page-section" id="security-recovery-section">
+            <div class="products-header">
+              <div>
+                <h2>Security &amp; Recovery</h2>
+                <p>Used to verify you if you ever forget your password</p>
+              </div>
+            </div>
+
+            <div class="store-info-fields">
+              <div class="store-info-field">
+                <label for="recovery-mobile-input" class="store-info-label">Mobile Number</label>
+                <p class="store-info-hint">If you forget your password, we contact this number — so keep it current.</p>
+                <input
+                  type="tel"
+                  id="recovery-mobile-input"
+                  class="store-info-input"
+                  placeholder="e.g. 09171234567"
+                  inputmode="numeric"
+                  autocomplete="tel"
+                />
+              </div>
+
+              <div class="store-info-field">
+                <label for="recovery-pob-input" class="store-info-label">Place of Birth</label>
+                <p class="store-info-hint">Your verification answer. Type a new value to replace it; leave blank to keep the current one.</p>
+                <input
+                  type="text"
+                  id="recovery-pob-input"
+                  class="store-info-input"
+                  placeholder="Enter to set or replace"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+          </section>
+
+          <!-- Report an Issue Card -->
+          <section class="page-section">
+            <div class="products-header">
+              <div>
+                <h2>Report an Issue</h2>
+                <p>Found a bug or have a question? Send us a message and we'll take a look.</p>
+              </div>
+            </div>
+
+            <div class="store-info-fields">
+              <div class="store-info-field">
+                <label for="ticket-category" class="store-info-label">Topic</label>
+                <select id="ticket-category" class="store-info-input">
+                  <option value="bug">Something's broken</option>
+                  <option value="question">Question</option>
+                  <option value="billing">Billing</option>
+                  <option value="other" selected>Other</option>
+                </select>
+              </div>
+
+              <div class="store-info-field">
+                <label for="ticket-message" class="store-info-label">Message</label>
+                <p class="store-info-hint">Describe what happened. Don't include passwords or sensitive details.</p>
+                <textarea
+                  id="ticket-message"
+                  class="store-info-input"
+                  rows="4"
+                  maxlength="2000"
+                  placeholder="Tell us what's going on..."
+                ></textarea>
+              </div>
+
+              <button type="button" class="stock-color-reset" id="ticket-send-btn" style="width:auto;">
+                Send message
+              </button>
+            </div>
+          </section>
+
         </div>
       </main>
 

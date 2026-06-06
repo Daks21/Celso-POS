@@ -21,7 +21,7 @@ router.get('/me', auth, loadStore, async (req, res, next) => {
     }
     res.json({
       success: true,
-      user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt },
+      user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, mobile: user.mobile || null, createdAt: user.createdAt },
       timezone: req.store.timezone,
       storeName:    req.store.name || '',
       storeAddress: req.store.address || '',

@@ -433,3 +433,13 @@ async function saveAdminQr(payload) {
 async function changePassword(data) {
   return apiCall('/auth/password', { method: 'PUT', body: JSON.stringify(data) });
 }
+
+// --- Recovery details (owner mobile + place-of-birth answer; admin-gated) ---
+async function updateRecovery(data) {
+  return apiCall('/auth/recovery', { method: 'PUT', body: JSON.stringify(data) });
+}
+
+// --- Support ticket submit (any tenant user) ---
+async function submitTicket(data) {
+  return apiCall('/support/tickets', { method: 'POST', body: JSON.stringify(data) });
+}

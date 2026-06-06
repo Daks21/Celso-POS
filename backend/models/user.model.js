@@ -30,7 +30,7 @@ const findById = async (id) => {
   const [rows] = await db.query(
     `SELECT id, full_name AS fullName, email, role, store_id AS storeId,
             is_active AS isActive, must_change_password AS mustChangePassword,
-            created_at AS createdAt
+            mobile, created_at AS createdAt
        FROM users WHERE id = ?`,
     [id]
   );

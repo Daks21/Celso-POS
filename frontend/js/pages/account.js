@@ -299,6 +299,13 @@ document.addEventListener('DOMContentLoaded', function() {
             : freshName.substring(0, 2)).toUpperCase();
         }
 
+        // Refresh the recovery mobile from the authoritative server value (don't
+        // clobber it while the owner is mid-edit).
+        var recMobileEl = document.getElementById('recovery-mobile-input');
+        if (recMobileEl && u.mobile != null && document.activeElement !== recMobileEl) {
+          recMobileEl.value = u.mobile;
+        }
+
         // Refresh store identity from the authoritative store row (covers an
         // edit made on another device since this device last logged in).
         if (res.storeName != null) {
@@ -569,11 +576,99 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
+    // ── Security & Recovery (owner only; auto-saves on change) ──
+    var secSection = document.getElementById('security-recovery-section');
+    if (secSection) {
+      if (currentUser.role !== 'admin') {
+        // Recovery is owner-only (cashiers are reset by the owner on the Team page).
+        secSection.style.display = 'none';
+      } else {
+        var recMobile = document.getElementById('recovery-mobile-input');
+        var recPob    = document.getElementById('recovery-pob-input');
+
+        // Prefill the on-file mobile from the cached profile; the getMe() refresh
+        // below updates it from the server when it returns.
+        if (recMobile && currentUser.mobile) recMobile.value = currentUser.mobile;
+
+        if (recMobile) {
+          recMobile.addEventListener('change', async function () {
+            var val = recMobile.value.trim();
+            if (!val) return;                      // blank = no change
+            if (!isValidPhMobileAcct(val)) {
+              if (typeof showApiError === 'function') showApiError('Enter a valid mobile number (e.g. 09171234567)');
+              return;
+            }
+            try {
+              var res = await updateRecovery({ mobile: val });
+              if (res && res.success) {
+                if (typeof showApiSuccess === 'function') showApiSuccess('Mobile number saved');
+              } else if (typeof showApiError === 'function') {
+                showApiError((res && res.message) || 'Could not save mobile number');
+              }
+            } catch (e) {
+              if (typeof showApiError === 'function') showApiError('Could not save mobile number');
+            }
+          });
+        }
+
+        if (recPob) {
+          recPob.addEventListener('change', async function () {
+            var val = recPob.value.trim();
+            if (!val) return;                      // blank = keep current answer
+            try {
+              var res = await updateRecovery({ securityAnswer: val });
+              if (res && res.success) {
+                recPob.value = '';                 // never echo the secret back
+                if (typeof showApiSuccess === 'function') showApiSuccess('Place of birth saved');
+              } else if (typeof showApiError === 'function') {
+                showApiError((res && res.message) || 'Could not save your answer');
+              }
+            } catch (e) {
+              if (typeof showApiError === 'function') showApiError('Could not save your answer');
+            }
+          });
+        }
+      }
+    }
+
+    // ── Report an Issue (any user; one-way ticket submit) ──
+    var ticketBtn = document.getElementById('ticket-send-btn');
+    var ticketMsg = document.getElementById('ticket-message');
+    var ticketCat = document.getElementById('ticket-category');
+    if (ticketBtn && ticketMsg) {
+      ticketBtn.addEventListener('click', async function () {
+        var msg = ticketMsg.value.trim();
+        if (!msg) {
+          if (typeof showApiError === 'function') showApiError('Please describe the issue first.');
+          return;
+        }
+        ticketBtn.disabled = true;
+        try {
+          var res = await submitTicket({ category: ticketCat ? ticketCat.value : 'other', message: msg });
+          if (res && res.success) {
+            ticketMsg.value = '';
+            if (typeof showApiSuccess === 'function') showApiSuccess(res.message || 'Message sent — thank you!');
+          } else if (typeof showApiError === 'function') {
+            showApiError((res && res.message) || 'Could not send your message.');
+          }
+        } catch (e) {
+          if (typeof showApiError === 'function') showApiError('Could not send your message.');
+        }
+        ticketBtn.disabled = false;
+      });
+    }
+
   } catch (e) {
     console.error('Error parsing user data:', e);
     window.location.href = '../index.html';
   }
 });
+
+// Mirrors backend/utils/securityAnswer.isValidPhMobile (server re-validates).
+function isValidPhMobileAcct(m) {
+  var d = String(m).replace(/[\s()\-]/g, '');
+  return /^09\d{9}$/.test(d) || /^\+639\d{9}$/.test(d);
+}
 
 // Replace a settings row whose plan isn't active with an inline locked state:
 // a lock icon, an "Available on <Plan>" line, and a short blurb. No CTA — the
