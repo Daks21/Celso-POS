@@ -133,7 +133,9 @@ const login = async (req, res, next) => {
     // response flags mustChangePassword so the client routes to the change screen.)
     if (user.mustChangePassword === 1 && user.pwResetExpiresAt &&
         new Date(user.pwResetExpiresAt).getTime() < Date.now()) {
-      return res.status(401).json({
+      // 403 (not 401) on purpose: the client's apiCall auto-redirects on 401, which
+      // would swallow this message on the login page. 403 lets the login form show it.
+      return res.status(403).json({
         success: false, code: 'RESET_EXPIRED',
         message: 'Your reset code has expired. Please submit a new password reset request.',
       });

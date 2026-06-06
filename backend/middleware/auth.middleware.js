@@ -1,6 +1,17 @@
 const jwt = require('jsonwebtoken');
 const { getSessionInfo } = require('../models/user.model');
 
+// Phase 6.7 forced-change gate: while a user is under a pending password reset
+// (must_change_password=1), they may reach ONLY the change-password endpoint and the
+// identity read — everything else is blocked until they set a new password. Keyed on
+// the full original URL so it works regardless of which router invokes authMiddleware.
+function isPwChangeExempt(req) {
+  const url = (req.originalUrl || '').split('?')[0];
+  if (req.method === 'PUT' && url === '/api/auth/password') return true;
+  if (req.method === 'GET' && url === '/api/auth/me')       return true;
+  return false;
+}
+
 const authMiddleware = async (req, res, next) => {
   const header = req.headers['authorization'];
 
@@ -29,6 +40,11 @@ const authMiddleware = async (req, res, next) => {
     }
     if (!payload.sid || payload.sid !== info.sessionId) {
       return res.status(401).json({ success: false, code: 'SESSION_REPLACED', message: 'Signed in on another device.' });
+    }
+    // Forced-change gate (Phase 6.7): a temp reset code is in force — only let the
+    // change-password + identity calls through; the client redirects on the code.
+    if (info.mustChangePassword === 1 && !isPwChangeExempt(req)) {
+      return res.status(403).json({ success: false, code: 'PASSWORD_CHANGE_REQUIRED', message: 'Please set a new password to continue.' });
     }
   } catch (e) {
     return next(e);

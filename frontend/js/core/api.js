@@ -19,6 +19,19 @@ async function apiCall(endpoint, options = {}) {
     window.location.href = getLoginPath();
     return;
   }
+  if (response.status === 403) {
+    // Forced password-change gate (Phase 6.7): a user under a pending reset can only
+    // reach the change-password screen — bounce them there. EVERY other 403 (e.g. an
+    // admin-only route, or a RESET_EXPIRED login) just returns its body to the caller,
+    // exactly as before (we read the body once and hand it back).
+    let body = null;
+    try { body = await response.json(); } catch (_) {}
+    if (body && body.code === 'PASSWORD_CHANGE_REQUIRED') {
+      window.location.href = getChangePasswordPath();
+      return;
+    }
+    return body || { success: false };
+  }
   if (response.status === 204) return { success: true };
   return response.json();
 }
@@ -27,6 +40,15 @@ function getLoginPath() {
   const depth = window.location.pathname.split('/').length - 1;
   const prefix = depth >= 3 ? '../../' : depth === 2 ? '../' : '';
   return prefix + 'index.html';
+}
+
+// Path to the forced password-change screen (pages/auth/change-password.html),
+// resolved relative to wherever we currently are (mirrors getLoginPath's depth math).
+function getChangePasswordPath() {
+  const depth = window.location.pathname.split('/').length - 1;
+  if (depth >= 3) return 'change-password.html';        // already in pages/auth/
+  if (depth === 2) return 'auth/change-password.html';  // in pages/
+  return 'pages/auth/change-password.html';             // at site root
 }
 
 // --- Auth ---
