@@ -4,7 +4,22 @@ const findByEmail = async (email) => {
   const [rows] = await db.query(
     `SELECT id, full_name AS fullName, email, password, role,
             store_id AS storeId, is_active AS isActive,
-            must_change_password AS mustChangePassword, created_at AS createdAt
+            must_change_password AS mustChangePassword,
+            pw_reset_expires_at AS pwResetExpiresAt, created_at AS createdAt
+       FROM users WHERE email = ?`,
+    [email]
+  );
+  return rows[0] || null;
+};
+
+// Recovery lookup (Phase 6.7): like findByEmail but also returns the on-file mobile
+// and the hashed security answer, so the forgot-password handler can compute the
+// match scorecard. Separate from findByEmail to keep the recovery-only secret
+// (security_answer_hash) out of the general-purpose read.
+const findByEmailForRecovery = async (email) => {
+  const [rows] = await db.query(
+    `SELECT id, full_name AS fullName, email, role, store_id AS storeId,
+            is_active AS isActive, mobile, security_answer_hash AS securityAnswerHash
        FROM users WHERE email = ?`,
     [email]
   );
@@ -70,10 +85,49 @@ const setSessionId = async (userId, sessionId) => {
 // the account is still active (so a just-suspended user is kicked immediately).
 const getSessionInfo = async (userId) => {
   const [rows] = await db.query(
-    'SELECT session_id AS sessionId, is_active AS isActive FROM users WHERE id = ?',
+    'SELECT session_id AS sessionId, is_active AS isActive, must_change_password AS mustChangePassword FROM users WHERE id = ?',
     [userId]
   );
   return rows[0] || null;
+};
+
+// ── Password recovery (Phase 6.7) ──
+
+// Issue a temporary password (operator approve/regenerate). Stores ONLY the bcrypt
+// hash, forces a change on next login, stamps the expiry, and NULLs session_id so
+// any live session is invalidated (authMiddleware rejects a token whose sid no
+// longer matches). The plaintext code never touches the DB.
+const setTempPassword = async (userId, passwordHash, expiresAt) => {
+  await db.query(
+    `UPDATE users
+        SET password = ?, must_change_password = 1, pw_reset_expires_at = ?, session_id = NULL
+      WHERE id = ?`,
+    [passwordHash, expiresAt, userId]
+  );
+};
+
+// Finalize a password change (normal self-service OR the forced post-reset change):
+// set the new hash, clear the forced-change flag + any reset expiry, and rotate the
+// single-session id so the change is applied uniformly (S5: kill other sessions).
+const setPassword = async (userId, passwordHash, sessionId) => {
+  await db.query(
+    `UPDATE users
+        SET password = ?, must_change_password = 0, pw_reset_expires_at = NULL, session_id = ?
+      WHERE id = ?`,
+    [passwordHash, sessionId, userId]
+  );
+};
+
+// Update owner recovery details (Account → Security & Recovery). Only the supplied
+// fields change; pass already-hashed answer. Used to backfill grandfathered owners.
+const setRecoveryInfo = async (userId, { mobile, securityAnswerHash }) => {
+  const sets = [];
+  const params = [];
+  if (mobile !== undefined)             { sets.push('mobile = ?');               params.push(mobile); }
+  if (securityAnswerHash !== undefined) { sets.push('security_answer_hash = ?'); params.push(securityAnswerHash); }
+  if (!sets.length) return;
+  params.push(userId);
+  await db.query(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, params);
 };
 
 // ── Cashier seats (Phase 6.5) ──
@@ -128,7 +182,9 @@ const reconcileCashierSeats = async (storeId, maxSeats) => {
 };
 
 module.exports = {
-  findByEmail, findById, createUser, getPreferences, savePreferences,
+  findByEmail, findByEmailForRecovery, findById, createUser,
+  getPreferences, savePreferences,
   setSessionId, getSessionInfo,
+  setTempPassword, setPassword, setRecoveryInfo,
   countActiveCashiers, reconcileCashierSeats,
 };
