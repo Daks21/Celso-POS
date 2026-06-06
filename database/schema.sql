@@ -108,9 +108,14 @@ CREATE TABLE IF NOT EXISTS users (
   password    VARCHAR(255) NOT NULL,
   role        ENUM('admin','cashier','superadmin') DEFAULT 'cashier',  -- superadmin = platform operator (no tenant)
   is_active            TINYINT(1) NOT NULL DEFAULT 1,  -- suspended cashiers can't log in
-  must_change_password TINYINT(1) NOT NULL DEFAULT 0,  -- reserved (unused; passwords are admin-managed)
+  must_change_password TINYINT(1) NOT NULL DEFAULT 0,  -- force a password change on next login (USED by Phase 6.7 recovery)
   session_id           VARCHAR(64) DEFAULT NULL,        -- single active session: id of the most recent login
   last_login_at        DATETIME    DEFAULT NULL,         -- stamped on each successful login (operator activity stats)
+  -- Phase 6.7 manual password recovery (owner self-service). NULL for cashiers
+  -- (the owner resets them on the Team page) and the platform super-admin.
+  mobile               VARCHAR(20)  DEFAULT NULL,        -- PH format; required for NEW owners; verification + on-file call-back channel
+  security_answer_hash VARCHAR(255) DEFAULT NULL,        -- bcrypt(normalized place of birth); never stored in clear
+  pw_reset_expires_at  DATETIME     DEFAULT NULL,        -- expiry of an issued temp reset code (cleared once the owner sets a new password)
   preferences JSON DEFAULT NULL,
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (store_id) REFERENCES stores(id),
@@ -119,6 +124,60 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Migration: run once on existing databases
 -- ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSON DEFAULT NULL;
+
+-- 1.1 Password reset requests (Phase 6.7 — manual recovery bridge)
+-- The recovery ledger + audit trail. A locked-out OWNER submits email + mobile +
+-- place-of-birth + free-text history answers via the public forgot-password form;
+-- the row is `pending` (verify-first) until the platform super-admin reviews it in
+-- admin.html. We store only MATCH BOOLEANS (mobile_match / answer_match), never the
+-- raw secrets. Approve issues a one-time temp code (delivered out-of-band to the
+-- on-file mobile) and the row advances pending -> approved -> completed; reject ->
+-- rejected; an approved code past its expiry shows as 'expired'. Dedupe of OPEN
+-- requests is enforced in code (no UNIQUE on email). No FK on user_id — a request
+-- may be unmatched (unknown email / non-owner), mirroring the no-FK pragmatism used
+-- elsewhere (owner_user_id).
+CREATE TABLE IF NOT EXISTS password_reset_requests (
+  id               INT AUTO_INCREMENT PRIMARY KEY,
+  email            VARCHAR(150) NOT NULL,            -- as submitted (not necessarily a real account)
+  submitted_mobile VARCHAR(20)  NOT NULL,            -- as submitted (display + match only; NEVER the delivery number)
+  mobile_match     TINYINT(1)   NOT NULL DEFAULT 0,  -- submitted == on-file mobile
+  answer_match     TINYINT(1)   NOT NULL DEFAULT 0,  -- hashed place-of-birth compare
+  history_answers  TEXT         DEFAULT NULL,        -- free text the user typed (operator eyeballs vs live data)
+  user_id          INT          DEFAULT NULL,        -- resolved owner match (NULL = no account / not an owner)
+  store_id         INT          DEFAULT NULL,
+  status           ENUM('pending','approved','completed','rejected','expired') NOT NULL DEFAULT 'pending',
+  submitted_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+  reviewed_by      INT          DEFAULT NULL,        -- super-admin user id
+  reviewed_at      DATETIME     DEFAULT NULL,
+  review_note      VARCHAR(255) DEFAULT NULL,
+  code_issued_at   DATETIME     DEFAULT NULL,        -- set on approve/regenerate
+  code_expires_at  DATETIME     DEFAULT NULL,        -- snapshot of the temp code's expiry
+  completed_at     DATETIME     DEFAULT NULL,        -- set when the owner finishes the forced change
+  KEY idx_pwr_status_submitted (status, submitted_at),
+  KEY idx_pwr_email (email),
+  KEY idx_pwr_user (user_id)
+);
+
+-- 1.2 Support tickets (Phase 6.7 — one-way inbox)
+-- An owner submits a free-text issue from Account Settings; it is AUTO-TAGGED with
+-- the submitting user_id + store_id (from the session). The platform super-admin
+-- reads them in admin.html and can mark them closed. One-way for v1 (no reply
+-- thread / chat). store_id is FK'd; user_id is a plain tag (no FK) so deleting a
+-- cashier never blocks on a ticket.
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  store_id   INT NOT NULL,
+  user_id    INT NOT NULL,
+  category   ENUM('bug','question','billing','other') NOT NULL DEFAULT 'other',
+  message    TEXT NOT NULL,
+  status     ENUM('open','closed') NOT NULL DEFAULT 'open',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  closed_by  INT      DEFAULT NULL,
+  closed_at  DATETIME DEFAULT NULL,
+  KEY idx_tickets_status_created (status, created_at),
+  KEY idx_tickets_store (store_id),
+  FOREIGN KEY (store_id) REFERENCES stores(id)
+);
 
 -- 2. Products
 CREATE TABLE IF NOT EXISTS products (

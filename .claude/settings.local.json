@@ -118,7 +118,11 @@
       "Bash(powershell -NoProfile -Command 'Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -Expand OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }')",
       "Bash(powershell -NoProfile -Command 'Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '\\\\''*'\\\\'' } | Select-Object Id | Out-Null')",
       "Bash(sed -n '370,390p' css/layout.css)",
-      "Read(//c/Users/Sonsuman/OneDrive/Desktop/backend/**)"
+      "Read(//c/Users/Sonsuman/OneDrive/Desktop/backend/**)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(powershell -NoProfile -Command \"\\(Get-Service MySQL80\\).Status\")",
+      "PowerShell($r = Invoke-WebRequest -Uri 'http://localhost:3000/index.html' -UseBasicParsing -TimeoutSec 5; \"HTTP $\\($r.StatusCode\\)\"; \"=== global playwright path ===\"; \\(npm root -g\\); $p = Join-Path \\(npm root -g\\) 'playwright'; \"playwright module exists: $\\(Test-Path $p\\)\")",
+      "Bash(findstr /V \"resp\")"
     ]
   }
 }
