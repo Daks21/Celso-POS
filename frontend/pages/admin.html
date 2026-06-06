@@ -48,6 +48,36 @@
     .op-status{font-size:12px;font-weight:700;text-transform:capitalize}
     .op-status--approved{color:var(--color-primary)}
     .op-status--rejected{color:var(--color-error)}
+    .op-status--completed{color:var(--color-primary)}
+    .op-status--expired{color:#b45309}
+    .op-status--pending{color:var(--color-text-muted)}
+
+    /* Phase 6.7 — recovery review + tickets */
+    .op-bell{position:relative}
+    .op-bell-badge{position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:var(--radius-full);
+      background:var(--color-error);color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+    .op-match-yes{color:var(--color-primary);font-weight:700}
+    .op-match-no{color:var(--color-error);font-weight:700}
+    .op-freq-flag{color:var(--color-error);font-weight:700}
+    .op-row-click{cursor:pointer}
+    .op-msg-cell{max-width:320px;white-space:normal;word-break:break-word}
+    .op-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+    .op-modal{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);max-width:560px;width:100%;max-height:90vh;overflow:auto}
+    .op-modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--color-border)}
+    .op-modal-head h3{margin:0;font-size:16px;color:var(--color-text)}
+    .op-modal-close{background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:var(--color-text-muted)}
+    .op-modal-body{padding:20px}
+    .op-scorecard{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+    .op-scorecard .sc-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;align-items:baseline}
+    .op-scorecard .sc-row>span:first-child{color:var(--color-text-muted)}
+    .op-scorecard .sc-row>span:last-child{color:var(--color-text);text-align:right;font-weight:600}
+    .op-callout{margin:12px 0;padding:10px 12px;border-radius:var(--radius-sm);background:rgba(180,83,9,.10);border:1px solid rgba(180,83,9,.3);font-size:12.5px;color:var(--color-text);line-height:1.5}
+    .op-history{margin-top:12px;border-top:1px solid var(--color-border);padding-top:10px}
+    .op-history h4{margin:0 0 6px;font-size:13px;color:var(--color-text)}
+    .op-history-item{font-size:12px;color:var(--color-text-muted);display:flex;justify-content:space-between;gap:8px;padding:2px 0}
+    .op-codebox{margin-top:14px;padding:14px;border:1px dashed var(--color-primary);border-radius:var(--radius-sm);background:rgba(90,158,111,.10)}
+    .op-codebox code{display:block;font-size:24px;font-weight:700;letter-spacing:3px;color:var(--color-text);margin:6px 0;text-align:center}
+    .op-modal-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
 
     .op-qr-grid{display:grid;grid-template-columns:200px 1fr;gap:20px;align-items:start}
     .op-qr-preview img{width:180px;height:180px;object-fit:contain;border:1px solid var(--color-border);border-radius:var(--radius-md);background:#fff}
@@ -82,6 +112,10 @@
   <header class="op-topbar">
     <div class="op-brand"><i data-lucide="shield"></i> Celso POS · Operator</div>
     <div class="op-actions">
+      <button type="button" class="topbar-icon-button op-bell" id="op-bell" title="Pending reviews">
+        <i data-lucide="bell"></i>
+        <span class="op-bell-badge" id="op-bell-badge" style="display:none"></span>
+      </button>
       <button type="button" class="topbar-icon-button" id="theme-toggle" title="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
       <button type="button" class="op-btn-ghost" id="op-logout"><i data-lucide="log-out"></i> Logout</button>
     </div>
@@ -120,7 +154,7 @@
     <section class="op-card">
       <div class="op-section-head">
         <h2>Payment claims <span class="op-badge" id="op-pending-count" style="display:none"></span></h2>
-        <div class="op-tabs">
+        <div class="op-tabs" id="op-claims-tabs">
           <button type="button" class="op-tab is-active" data-status="pending">Pending</button>
           <button type="button" class="op-tab" data-status="approved">Approved</button>
           <button type="button" class="op-tab" data-status="rejected">Rejected</button>
@@ -133,6 +167,48 @@
           </thead>
           <tbody id="op-claims-body">
             <tr><td colspan="7" class="op-muted">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="op-card" id="op-reset-card">
+      <div class="op-section-head">
+        <h2>Password reset requests <span class="op-badge" id="op-reset-pending-count" style="display:none"></span></h2>
+        <div class="op-tabs" id="op-reset-tabs">
+          <button type="button" class="op-tab is-active" data-status="pending">Requests</button>
+          <button type="button" class="op-tab" data-status="approved">Pending Login</button>
+          <button type="button" class="op-tab" data-status="done">Done</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr><th>Owner</th><th>Store</th><th>Email</th><th>Mobile</th><th>PoB</th><th>Freq</th><th>Submitted</th><th>Status</th></tr>
+          </thead>
+          <tbody id="op-reset-body">
+            <tr><td colspan="8" class="op-muted">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="op-muted" style="margin-top:10px">Click a row to review the verification scorecard and act.</p>
+    </section>
+
+    <section class="op-card" id="op-tickets-card">
+      <div class="op-section-head">
+        <h2>Support tickets <span class="op-badge" id="op-tickets-open-count" style="display:none"></span></h2>
+        <div class="op-tabs" id="op-tickets-tabs">
+          <button type="button" class="op-tab is-active" data-status="open">Open</button>
+          <button type="button" class="op-tab" data-status="closed">Closed</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr><th>User</th><th>Store</th><th>Topic</th><th>Message</th><th>Submitted</th><th>Action</th></tr>
+          </thead>
+          <tbody id="op-tickets-body">
+            <tr><td colspan="6" class="op-muted">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -156,6 +232,17 @@
     </section>
 
   </main>
+
+  <!-- Password reset request detail (Phase 6.7) -->
+  <div class="op-modal-overlay" id="op-reset-modal" style="display:none">
+    <div class="op-modal">
+      <div class="op-modal-head">
+        <h3>Password reset request</h3>
+        <button type="button" class="op-modal-close" id="op-reset-modal-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="op-modal-body" id="op-reset-modal-body"></div>
+    </div>
+  </div>
 
   <script defer src="../js/core/theme.js?v=26"></script>
   <script defer src="../js/core/api.js?v=25"></script>

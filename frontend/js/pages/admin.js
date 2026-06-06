@@ -94,14 +94,21 @@ checkAuth();
     }
   });
 
-  Array.prototype.forEach.call(document.querySelectorAll('.op-tab'), function (t) {
-    t.addEventListener('click', function () {
-      Array.prototype.forEach.call(document.querySelectorAll('.op-tab'), function (x) { x.classList.remove('is-active'); });
-      t.classList.add('is-active');
-      currentStatus = t.getAttribute('data-status');
-      loadClaims();
+  // Scoped tab init — each card's tabs toggle only within their own container, so
+  // the claims / reset / tickets tab groups never cross-talk.
+  function initTabs(containerId, onSelect) {
+    var c = document.getElementById(containerId);
+    if (!c) return;
+    var tabs = c.querySelectorAll('.op-tab');
+    Array.prototype.forEach.call(tabs, function (t) {
+      t.addEventListener('click', function () {
+        Array.prototype.forEach.call(tabs, function (x) { x.classList.remove('is-active'); });
+        t.classList.add('is-active');
+        onSelect(t.getAttribute('data-status'));
+      });
     });
-  });
+  }
+  initTabs('op-claims-tabs', function (status) { currentStatus = status; loadClaims(); });
 
   // ── GCash QR settings ──
   async function loadQr() {
@@ -190,7 +197,235 @@ checkAuth();
 
   if (periodSel) periodSel.addEventListener('change', loadStats);
 
+  // ════════════════════════════════════════════════════════════════════════
+  // Phase 6.7 — password reset requests + support tickets + notification bell
+  // ════════════════════════════════════════════════════════════════════════
+
+  function matchMark(ok) {
+    return ok ? '<span class="op-match-yes">&#10003;</span>' : '<span class="op-match-no">&#10007;</span>';
+  }
+
+  // ── Reset requests board ──
+  var resetStatus = 'pending';
+  var resetBody = document.getElementById('op-reset-body');
+
+  async function loadResets() {
+    if (!resetBody) return;
+    resetBody.innerHTML = '<tr><td colspan="8" class="op-muted">Loading…</td></tr>';
+    var res = await safe(getResetRequests(resetStatus));
+    if (!res || !res.success) { resetBody.innerHTML = '<tr><td colspan="8" class="op-muted">Could not load requests.</td></tr>'; return; }
+    var rows = res.data || [];
+    resetBody._rows = {};
+    if (!rows.length) { resetBody.innerHTML = '<tr><td colspan="8" class="op-muted">No requests here.</td></tr>'; return; }
+    resetBody.innerHTML = rows.map(function (r) {
+      resetBody._rows[r.id] = r;
+      var st = r.effective_status || r.status;
+      var freq = Number(r.freq90) || 0;
+      var freqCell = freq >= 3 ? '<span class="op-freq-flag">' + freq + ' &#9888;</span>' : String(freq);
+      return '<tr class="op-row-click" data-id="' + r.id + '">' +
+        '<td>' + esc(r.owner_name || (r.user_id ? ('User #' + r.user_id) : '—')) + '</td>' +
+        '<td>' + esc(r.store_name || (r.store_id ? ('Store #' + r.store_id) : '—')) + '</td>' +
+        '<td>' + esc(r.email) + '</td>' +
+        '<td>' + esc(r.submitted_mobile || '') + ' ' + matchMark(r.mobile_match) + '</td>' +
+        '<td>' + matchMark(r.answer_match) + '</td>' +
+        '<td>' + freqCell + '</td>' +
+        '<td>' + fmtDate(r.submitted_at) + '</td>' +
+        '<td><span class="op-status op-status--' + st + '">' + esc(st) + '</span></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  initTabs('op-reset-tabs', function (status) { resetStatus = status; loadResets(); });
+
+  if (resetBody) resetBody.addEventListener('click', function (e) {
+    var tr = e.target.closest('tr.op-row-click');
+    if (!tr) return;
+    var row = resetBody._rows && resetBody._rows[tr.getAttribute('data-id')];
+    if (row) openResetModal(row);
+  });
+
+  // ── Reset request modal ──
+  var resetModal = document.getElementById('op-reset-modal');
+  var resetModalBody = document.getElementById('op-reset-modal-body');
+
+  function closeResetModal() { if (resetModal) resetModal.style.display = 'none'; }
+  (function () {
+    var closeBtn = document.getElementById('op-reset-modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeResetModal);
+    if (resetModal) resetModal.addEventListener('click', function (e) { if (e.target === resetModal) closeResetModal(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeResetModal(); });
+  })();
+
+  function scLine(label, valueHtml) {
+    return '<div class="sc-row"><span>' + label + '</span><span>' + valueHtml + '</span></div>';
+  }
+
+  function openResetModal(r) {
+    if (!resetModal || !resetModalBody) return;
+    var st = r.effective_status || r.status;
+
+    var sc = '<div class="op-scorecard">' +
+      scLine('Account', esc(r.owner_name || '—') + ' · ' + esc(r.email)) +
+      scLine('Role', esc(r.owner_role || (r.user_id ? 'unknown' : 'no account'))) +
+      scLine('Call this (on-file) number', r.onfile_mobile ? ('<b>' + esc(r.onfile_mobile) + '</b>') : '<span class="op-match-no">none on file</span>') +
+      scLine('Submitted mobile', esc(r.submitted_mobile || '') + ' ' + matchMark(r.mobile_match)) +
+      scLine('Place of birth', matchMark(r.answer_match)) +
+      scLine('Requests (90d)', String(Number(r.freq90) || 0)) +
+      scLine('Submitted', fmtDate(r.submitted_at)) +
+      '</div>';
+
+    var callout = '<div class="op-callout">Verify by calling the <b>on-file</b> number above — confirm they actually requested this and ask the place-of-birth question, then read them the code. Never deliver to a submitted number that differs from the on-file one.</div>';
+
+    var hist = r.history_answers
+      ? '<div class="op-history"><h4>What they told us</h4><div class="op-history-item"><span>' + esc(r.history_answers) + '</span></div></div>'
+      : '';
+
+    var actions;
+    if (st === 'pending') {
+      actions = '<button class="op-btn-sm op-approve" id="op-reset-approve">Approve &amp; issue code</button>' +
+                '<button class="op-btn-sm op-reject" id="op-reset-reject">Reject</button>';
+    } else if (st === 'approved') {
+      actions = '<span class="op-status op-status--approved">code issued — awaiting login</span>' +
+                ' <button class="op-btn-sm op-revert" id="op-reset-regen">Re-issue code</button>';
+    } else if (st === 'expired') {
+      actions = '<span class="op-status op-status--expired">code expired</span>' +
+                ' <button class="op-btn-sm op-revert" id="op-reset-regen">Re-issue code</button>';
+    } else {
+      actions = '<span class="op-status op-status--' + st + '">' + esc(st) + '</span>' +
+                (r.review_note ? (' <span class="op-muted">— ' + esc(r.review_note) + '</span>') : '');
+    }
+
+    resetModalBody.innerHTML = sc + callout + hist +
+      '<div class="op-modal-actions" id="op-reset-modal-actions">' + actions + '</div>' +
+      '<div id="op-reset-code-slot"></div>';
+
+    // Frequency drill-down (append async; only when there's prior history).
+    safe(getResetHistory(r.id)).then(function (h) {
+      if (!h || !h.success || !h.data || h.data.length <= 1) return;
+      var items = h.data.map(function (x) {
+        return '<div class="op-history-item"><span>' + fmtDate(x.submitted_at) + '</span><span>' + esc(x.effective_status || x.status) + '</span></div>';
+      }).join('');
+      var wrap = document.createElement('div');
+      wrap.className = 'op-history';
+      wrap.innerHTML = '<h4>Past requests for this email (' + h.data.length + ')</h4>' + items;
+      resetModalBody.appendChild(wrap);
+    });
+
+    var ap = document.getElementById('op-reset-approve');
+    var rj = document.getElementById('op-reset-reject');
+    var rg = document.getElementById('op-reset-regen');
+    if (ap) ap.addEventListener('click', function () { issueCode(r.id, approveResetRequest, ap, 'Approve &amp; issue code'); });
+    if (rg) rg.addEventListener('click', function () { issueCode(r.id, regenerateResetRequest, rg, 'Re-issue code'); });
+    if (rj) rj.addEventListener('click', async function () {
+      var note = window.prompt('Reason for rejecting (optional):', '');
+      if (note === null) return;
+      rj.disabled = true;
+      var res = await safe(rejectResetRequest(r.id, note));
+      if (res && res.success) {
+        if (typeof showApiSuccess === 'function') showApiSuccess('Request rejected.');
+        closeResetModal(); loadResets(); loadNotifications();
+      } else {
+        if (typeof showApiError === 'function') showApiError((res && res.message) || 'Reject failed.');
+        rj.disabled = false;
+      }
+    });
+
+    resetModal.style.display = 'flex';
+  }
+
+  // Shared by Approve + Re-issue: step-up prompt, call, then reveal the code once.
+  async function issueCode(id, fn, btn, label) {
+    var pw = window.prompt('Re-enter YOUR operator password to issue a code:');
+    if (pw === null) return;
+    if (!pw) { if (typeof showApiError === 'function') showApiError('Operator password required.'); return; }
+    btn.disabled = true; btn.textContent = '…';
+    var res = await safe(fn(id, pw));
+    if (res && res.success && res.data) {
+      var d = res.data;
+      var slot = document.getElementById('op-reset-code-slot');
+      if (slot) {
+        slot.innerHTML = '<div class="op-codebox">' +
+          '<p>Read this code to the owner on <b>' + esc(d.onfileMobile || 'their on-file number') + '</b>:</p>' +
+          '<code>' + esc(d.tempPassword) + '</code>' +
+          '<p class="op-muted">Works once, expires in 12 hours — they set a new password on first login. Confirm they requested this before sharing.</p>' +
+        '</div>';
+      }
+      var box = document.getElementById('op-reset-modal-actions');
+      if (box) box.innerHTML = '<span class="op-status op-status--approved">code issued</span>';
+      loadResets(); loadNotifications();
+    } else {
+      if (typeof showApiError === 'function') showApiError((res && res.message) || 'Could not issue code.');
+      btn.disabled = false; btn.innerHTML = label;
+    }
+  }
+
+  // ── Support tickets ──
+  var ticketStatus = 'open';
+  var ticketsBody = document.getElementById('op-tickets-body');
+  var TOPIC = { bug: 'Something broken', question: 'Question', billing: 'Billing', other: 'Other' };
+
+  async function loadTickets() {
+    if (!ticketsBody) return;
+    ticketsBody.innerHTML = '<tr><td colspan="6" class="op-muted">Loading…</td></tr>';
+    var res = await safe(getAdminTickets(ticketStatus));
+    if (!res || !res.success) { ticketsBody.innerHTML = '<tr><td colspan="6" class="op-muted">Could not load tickets.</td></tr>'; return; }
+    var rows = res.data || [];
+    if (!rows.length) { ticketsBody.innerHTML = '<tr><td colspan="6" class="op-muted">No ' + ticketStatus + ' tickets.</td></tr>'; return; }
+    ticketsBody.innerHTML = rows.map(function (t) {
+      var action = t.status === 'open'
+        ? '<button class="op-btn-sm op-approve op-ticket-close" data-id="' + t.id + '">Close</button>'
+        : '<span class="op-status op-status--completed">closed</span>';
+      return '<tr>' +
+        '<td>' + esc(t.user_name || (t.user_id ? ('User #' + t.user_id) : '—')) + '</td>' +
+        '<td>' + esc(t.store_name || (t.store_id ? ('Store #' + t.store_id) : '—')) + '</td>' +
+        '<td>' + esc(TOPIC[t.category] || t.category) + '</td>' +
+        '<td class="op-msg-cell">' + esc(t.message) + '</td>' +
+        '<td>' + fmtDate(t.created_at) + '</td>' +
+        '<td class="op-actions-cell">' + action + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  initTabs('op-tickets-tabs', function (status) { ticketStatus = status; loadTickets(); });
+
+  if (ticketsBody) ticketsBody.addEventListener('click', async function (e) {
+    var btn = e.target.closest('.op-ticket-close');
+    if (!btn) return;
+    btn.disabled = true; btn.textContent = '…';
+    var res = await safe(closeAdminTicket(btn.getAttribute('data-id')));
+    if (res && res.success) {
+      if (typeof showApiSuccess === 'function') showApiSuccess('Ticket closed.');
+      loadTickets(); loadNotifications();
+    } else {
+      if (typeof showApiError === 'function') showApiError((res && res.message) || 'Could not close ticket.');
+      btn.disabled = false; btn.textContent = 'Close';
+    }
+  });
+
+  // ── Notification bell + per-card badges ──
+  function setCardBadge(id, n) {
+    var b = document.getElementById(id);
+    if (!b) return;
+    if (n > 0) { b.textContent = n; b.style.display = ''; } else { b.style.display = 'none'; }
+  }
+  async function loadNotifications() {
+    var res = await safe(getAdminNotifications());
+    if (!res || !res.success || !res.data) return;
+    var d = res.data;
+    setCardBadge('op-bell-badge', (d.pendingResets || 0) + (d.openTickets || 0));
+    setCardBadge('op-reset-pending-count', d.pendingResets || 0);
+    setCardBadge('op-tickets-open-count', d.openTickets || 0);
+  }
+  var bellBtn = document.getElementById('op-bell');
+  if (bellBtn) bellBtn.addEventListener('click', function () {
+    var card = document.getElementById('op-reset-card');
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
   loadStats();
   loadClaims();
   loadQr();
+  loadResets();
+  loadTickets();
+  loadNotifications();
 })();

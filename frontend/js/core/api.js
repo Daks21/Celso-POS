@@ -429,6 +429,32 @@ async function saveAdminQr(payload) {
   return apiCall('/admin/qr', { method: 'POST', body: JSON.stringify(payload) });
 }
 
+// --- Admin: password recovery review + support tickets (Phase 6.7) ---
+async function getResetRequests(status) {
+  return apiCall('/admin/reset-requests' + (status ? ('?status=' + encodeURIComponent(status)) : ''));
+}
+async function getResetHistory(id) {
+  return apiCall('/admin/reset-requests/' + id + '/history');
+}
+async function approveResetRequest(id, operatorPassword) {
+  return apiCall('/admin/reset-requests/' + id + '/approve', { method: 'POST', body: JSON.stringify({ operatorPassword: operatorPassword }) });
+}
+async function regenerateResetRequest(id, operatorPassword) {
+  return apiCall('/admin/reset-requests/' + id + '/regenerate', { method: 'POST', body: JSON.stringify({ operatorPassword: operatorPassword }) });
+}
+async function rejectResetRequest(id, note) {
+  return apiCall('/admin/reset-requests/' + id + '/reject', { method: 'POST', body: JSON.stringify({ note: note || '' }) });
+}
+async function getAdminTickets(status) {
+  return apiCall('/admin/tickets' + (status ? ('?status=' + encodeURIComponent(status)) : ''));
+}
+async function closeAdminTicket(id) {
+  return apiCall('/admin/tickets/' + id + '/close', { method: 'POST' });
+}
+async function getAdminNotifications() {
+  return apiCall('/admin/notifications');
+}
+
 // --- Password (owner self-service change; admin-gated server-side) ---
 async function changePassword(data) {
   return apiCall('/auth/password', { method: 'PUT', body: JSON.stringify(data) });
