@@ -60,10 +60,21 @@ async function login(email, password) {
   });
 }
 
-async function register(fullName, email, password) {
+async function register(fullName, email, password, mobile, securityAnswer) {
+  // mobile + securityAnswer (place of birth) added in Phase 6.7 for manual recovery.
+  // Older callers passing 3 args still work — JSON.stringify drops the undefined keys.
   return apiCall('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ fullName, email, password }),
+    body: JSON.stringify({ fullName, email, password, mobile, securityAnswer }),
+  });
+}
+
+// Phase 6.7 — public password-recovery request. Always resolves to a generic
+// success message regardless of whether the account exists (anti-enumeration).
+async function forgotPassword(payload) {
+  return apiCall('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   });
 }
 

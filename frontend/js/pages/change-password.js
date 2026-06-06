@@ -32,7 +32,8 @@
       try { localStorage.setItem('mustChangePassword', '0'); } catch (_) {}
       var role = 'cashier';
       try { var ent = getEntitlements(); if (ent && ent.role) role = ent.role; } catch (_) {}
-      window.location.href = role === 'cashier' ? 'order.html' : 'dashboard.html';
+      // This page lives in pages/auth/, so app pages are one level up.
+      window.location.href = role === 'cashier' ? '../order.html' : '../dashboard.html';
     } else {
       err.textContent = res ? res.message : 'Could not update your password.';
       btn.disabled = false;

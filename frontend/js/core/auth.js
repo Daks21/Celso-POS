@@ -5,12 +5,16 @@ const fullNameInput = document.getElementById("fullName");
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 const confirmPasswordInput = document.getElementById("confirmPassword");
+const mobileInput = document.getElementById("mobile");
+const securityAnswerInput = document.getElementById("securityAnswer");
 
 const fullNameError = document.getElementById("fullName-error");
 const emailError = document.getElementById("email-error");
 const passwordError = document.getElementById("password-error");
 const loginError = document.getElementById("login-error");
 const confirmPasswordError = document.getElementById("confirmPassword-error");
+const mobileError = document.getElementById("mobile-error");
+const securityAnswerError = document.getElementById("securityAnswer-error");
 
 if (loginForm) {
   loginForm.addEventListener("submit", async function (event) {
@@ -65,6 +69,13 @@ if (loginForm) {
         }
       } catch (e) { /* non-fatal — localStorage defaults will be used */ }
 
+      // Phase 6.7: a temp reset code is in force — send them to set a new password
+      // before the app (the server also gates every other route until they do).
+      if (result.mustChangePassword) {
+        window.location.href = "pages/auth/change-password.html";
+        return;
+      }
+
       // Route by role: cashiers -> POS, platform super-admin -> operator console,
       // owners -> dashboard.
       window.location.href = result.role === 'cashier'    ? "pages/order.html"
@@ -84,6 +95,8 @@ if (registerForm) {
     const email = emailInput.value.trim();
     const password = passwordInput.value.trim();
     const confirmPassword = confirmPasswordInput.value.trim();
+    const mobile = mobileInput.value.trim();
+    const securityAnswer = securityAnswerInput.value.trim();
 
     clearRegisterErrors();
 
@@ -96,6 +109,16 @@ if (registerForm) {
 
     if (email === "") {
       showFieldError(emailInput, emailError, "Email address is required");
+      hasError = true;
+    }
+
+    if (mobile === "") {
+      showFieldError(mobileInput, mobileError, "Mobile number is required");
+      hasError = true;
+    }
+
+    if (securityAnswer === "") {
+      showFieldError(securityAnswerInput, securityAnswerError, "Place of birth is required");
       hasError = true;
     }
 
@@ -116,6 +139,11 @@ if (registerForm) {
       return;
     }
 
+    if (!isValidPhMobile(mobile)) {
+      showFieldError(mobileInput, mobileError, "Enter a valid mobile number (e.g. 09171234567)");
+      return;
+    }
+
     var pwCheck = (typeof PasswordPolicy !== 'undefined')
       ? PasswordPolicy.validate(password)
       : { ok: password.length >= 12, message: 'Password must be at least 12 characters' };
@@ -131,7 +159,7 @@ if (registerForm) {
 
     let result;
     try {
-      result = await register(fullName, email, password);
+      result = await register(fullName, email, password, mobile, securityAnswer);
     } catch (e) {
       showFieldError(emailInput, emailError, "Couldn't reach the server — check your connection and try again.");
       return;
@@ -152,6 +180,12 @@ if (registerForm) {
 
 function isValidEmail(email) {
   return email.includes("@") && email.includes(".");
+}
+
+// Mirrors backend/utils/securityAnswer.isValidPhMobile (server re-validates).
+function isValidPhMobile(mobile) {
+  var d = String(mobile).replace(/[\s()\-]/g, "");
+  return /^09\d{9}$/.test(d) || /^\+639\d{9}$/.test(d);
 }
 
 function showFieldError(inputElement, errorElement, message) {
@@ -176,11 +210,15 @@ function clearRegisterErrors() {
   emailInput.parentElement.classList.remove("has-error");
   passwordInput.parentElement.classList.remove("has-error");
   confirmPasswordInput.parentElement.classList.remove("has-error");
+  mobileInput.parentElement.classList.remove("has-error");
+  securityAnswerInput.parentElement.classList.remove("has-error");
 
   fullNameError.textContent = "";
   emailError.textContent = "";
   passwordError.textContent = "";
   confirmPasswordError.textContent = "";
+  mobileError.textContent = "";
+  securityAnswerError.textContent = "";
 }
 
 function checkAuth() {
