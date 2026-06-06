@@ -10,11 +10,18 @@
 //   GET  /api/admin/qr                      current GCash QR + name/number
 //   POST /api/admin/qr                      replace QR image / name / number
 
+const bcrypt         = require('bcrypt');
+const crypto         = require('crypto');
 const claimModel     = require('../models/claim.model');
 const userModel      = require('../models/user.model');
+const resetRequest   = require('../models/resetRequest.model');
+const ticketModel    = require('../models/ticket.model');
 const platformConfig = require('../models/platformConfig.model');
 const pool           = require('../config/db.config');
 const { resolveBilling, addOneMonth, cashierSeats, PLANS } = require('../config/plans');
+
+// Phase 6.7 password recovery: temp code lifetime (must match the login expiry check).
+const RESET_CODE_TTL_HOURS = 12;
 
 // The QR is stored as a data-URL in the DB (platform_config.gcash_qr) so it
 // survives redeploys on an ephemeral filesystem, and served as an image by the
@@ -373,4 +380,233 @@ const getStats = async (req, res, next) => {
   }
 };
 
-module.exports = { listClaims, approveClaim, rejectClaim, revertApproval, getQr, uploadQr, getStats };
+// ════════════════════════════════════════════════════════════════════════════
+// Phase 6.7 — MANUAL PASSWORD RECOVERY (operator side) + SUPPORT TICKETS
+// All routes here run auth + requireSuperAdmin (admin.routes), never loadStore.
+// ════════════════════════════════════════════════════════════════════════════
+
+// Step-up auth: re-verify the SUPER-ADMIN's own password before a credential-issuing
+// action (approve / regenerate). Server-side — a client-only prompt is bypassable.
+// Returns true on success; on failure it has already sent the response.
+async function _stepUpOk(req, res) {
+  const pw = req.body && req.body.operatorPassword;
+  if (!pw) {
+    res.status(400).json({ success: false, message: 'Re-enter your operator password to continue.' });
+    return false;
+  }
+  const [rows] = await pool.query('SELECT password FROM users WHERE id = ?', [req.user.id]);
+  const hash = rows[0] && rows[0].password;
+  const ok = hash && await bcrypt.compare(String(pw), hash);
+  if (!ok) {
+    res.status(401).json({ success: false, message: 'Incorrect operator password.' });
+    return false;
+  }
+  return true;
+}
+
+// 12 hex chars = 48 bits — ample for a one-time, expiring, forced-change credential
+// that is delivered out-of-band and used once.
+function _genTempCode() {
+  return crypto.randomBytes(6).toString('hex');
+}
+
+// Issue (or re-issue) a temp code for a request's user, INSIDE a transaction:
+// overwrite the password with the code's bcrypt hash, force a change, stamp the
+// expiry, and NULL session_id (kills any live session). Advance the request to
+// 'approved' with the review stamps. Returns the PLAINTEXT code + expiry for the
+// operator to read ONCE — it is never stored or logged.
+async function _issueTempCode(conn, { userId, requestId, reviewedBy }) {
+  const code = _genTempCode();
+  const hash = await bcrypt.hash(code, 10);
+  const expiresAt = new Date(Date.now() + RESET_CODE_TTL_HOURS * 60 * 60 * 1000);
+  await conn.query(
+    'UPDATE users SET password = ?, must_change_password = 1, pw_reset_expires_at = ?, session_id = NULL WHERE id = ?',
+    [hash, expiresAt, userId]
+  );
+  await conn.query(
+    `UPDATE password_reset_requests
+        SET status = 'approved', reviewed_by = ?, reviewed_at = NOW(),
+            code_issued_at = NOW(), code_expires_at = ?
+      WHERE id = ?`,
+    [reviewedBy, expiresAt, requestId]
+  );
+  return { code, expiresAt };
+}
+
+// ── GET /api/admin/reset-requests?status=pending|approved|done ────────────────
+const listResetRequests = async (req, res, next) => {
+  try {
+    const allowed = ['pending', 'approved', 'done'];
+    const status  = allowed.includes(req.query.status) ? req.query.status : undefined;
+    const rows = await resetRequest.listForAdmin({ status });
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── GET /api/admin/reset-requests/:id/history ─────────────────────────────────
+// The submitter's past requests (frequency / takeover signal) for the modal.
+const resetHistory = async (req, res, next) => {
+  try {
+    const reqRow = await resetRequest.findById(req.params.id);
+    if (!reqRow) return res.status(404).json({ success: false, message: 'Request not found.' });
+    const rows = await resetRequest.historyForEmail(reqRow.email);
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── POST /api/admin/reset-requests/:id/approve  { operatorPassword } ──────────
+// Step-up + transactional + FOR UPDATE on a still-pending request (idempotent).
+// Only an owner-admin account can be reset here. Returns the temp code ONCE.
+const approveReset = async (req, res, next) => {
+  if (!(await _stepUpOk(req, res))) return;
+
+  const conn = await pool.getConnection();
+  let released = false, payload = null;
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      "SELECT * FROM password_reset_requests WHERE id = ? AND status = 'pending' FOR UPDATE",
+      [req.params.id]
+    );
+    const reqRow = rows[0];
+    if (!reqRow) {
+      await conn.rollback(); conn.release(); released = true;
+      return res.status(409).json({ success: false, message: 'Request is not pending (already reviewed?).' });
+    }
+    if (!reqRow.user_id) {
+      await conn.rollback(); conn.release(); released = true;
+      return res.status(422).json({ success: false, message: 'No matching account for this request — reject it instead.' });
+    }
+
+    const [us] = await conn.query('SELECT id, role, mobile FROM users WHERE id = ? FOR UPDATE', [reqRow.user_id]);
+    const target = us[0];
+    if (!target || target.role !== 'admin') {
+      await conn.rollback(); conn.release(); released = true;
+      return res.status(422).json({ success: false, message: 'This is not an owner account — recovery here is owners-only.' });
+    }
+
+    const { code, expiresAt } = await _issueTempCode(conn, {
+      userId: reqRow.user_id, requestId: reqRow.id, reviewedBy: req.user.id,
+    });
+
+    await conn.commit();
+    payload = { tempPassword: code, expiresAt, onfileMobile: target.mobile || null };
+  } catch (err) {
+    try { await conn.rollback(); } catch (_) {}
+    conn.release(); released = true;
+    return next(err);
+  }
+  if (!released) conn.release();
+
+  res.json({ success: true, data: payload });
+};
+
+// ── POST /api/admin/reset-requests/:id/regenerate  { operatorPassword } ───────
+// Re-issue a fresh code for an already-approved request (e.g. the operator lost the
+// code before texting it). Invalidates the previous code (password overwritten).
+const regenerateReset = async (req, res, next) => {
+  if (!(await _stepUpOk(req, res))) return;
+
+  const conn = await pool.getConnection();
+  let released = false, payload = null;
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      "SELECT * FROM password_reset_requests WHERE id = ? AND status = 'approved' FOR UPDATE",
+      [req.params.id]
+    );
+    const reqRow = rows[0];
+    if (!reqRow || !reqRow.user_id) {
+      await conn.rollback(); conn.release(); released = true;
+      return res.status(409).json({ success: false, message: 'Only an approved request can be re-issued.' });
+    }
+
+    const [us] = await conn.query('SELECT id, role, mobile FROM users WHERE id = ? FOR UPDATE', [reqRow.user_id]);
+    const target = us[0];
+    if (!target || target.role !== 'admin') {
+      await conn.rollback(); conn.release(); released = true;
+      return res.status(422).json({ success: false, message: 'This is not an owner account.' });
+    }
+
+    const { code, expiresAt } = await _issueTempCode(conn, {
+      userId: reqRow.user_id, requestId: reqRow.id, reviewedBy: req.user.id,
+    });
+
+    await conn.commit();
+    payload = { tempPassword: code, expiresAt, onfileMobile: target.mobile || null };
+  } catch (err) {
+    try { await conn.rollback(); } catch (_) {}
+    conn.release(); released = true;
+    return next(err);
+  }
+  if (!released) conn.release();
+
+  res.json({ success: true, data: payload });
+};
+
+// ── POST /api/admin/reset-requests/:id/reject  { note } ───────────────────────
+const rejectReset = async (req, res, next) => {
+  try {
+    const note   = (String((req.body && req.body.note) || '').trim().slice(0, 255)) || null;
+    const reqRow = await resetRequest.findById(req.params.id);
+    if (!reqRow) return res.status(404).json({ success: false, message: 'Request not found.' });
+    if (reqRow.status !== 'pending') {
+      return res.status(409).json({ success: false, message: 'Request was already reviewed.' });
+    }
+    await resetRequest.markReviewed(req.params.id, {
+      status: 'rejected', reviewed_by: req.user.id, review_note: note,
+    });
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── GET /api/admin/tickets?status=open|closed ─────────────────────────────────
+const listTickets = async (req, res, next) => {
+  try {
+    const status = ['open', 'closed'].includes(req.query.status) ? req.query.status : undefined;
+    const rows = await ticketModel.listForAdmin({ status });
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── POST /api/admin/tickets/:id/close ─────────────────────────────────────────
+const closeTicket = async (req, res, next) => {
+  try {
+    const ticket = await ticketModel.findById(req.params.id);
+    if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found.' });
+    await ticketModel.close(req.params.id, req.user.id);
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── GET /api/admin/notifications ──────────────────────────────────────────────
+// Counts for the operator topbar bell (pending resets + open tickets).
+const notificationCounts = async (req, res, next) => {
+  try {
+    const [pendingResets, openTickets] = await Promise.all([
+      resetRequest.countPending(),
+      ticketModel.countOpen(),
+    ]);
+    res.json({ success: true, data: { pendingResets, openTickets } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  listClaims, approveClaim, rejectClaim, revertApproval, getQr, uploadQr, getStats,
+  listResetRequests, resetHistory, approveReset, regenerateReset, rejectReset,
+  listTickets, closeTicket, notificationCounts,
+};

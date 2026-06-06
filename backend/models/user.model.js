@@ -92,19 +92,9 @@ const getSessionInfo = async (userId) => {
 };
 
 // ── Password recovery (Phase 6.7) ──
-
-// Issue a temporary password (operator approve/regenerate). Stores ONLY the bcrypt
-// hash, forces a change on next login, stamps the expiry, and NULLs session_id so
-// any live session is invalidated (authMiddleware rejects a token whose sid no
-// longer matches). The plaintext code never touches the DB.
-const setTempPassword = async (userId, passwordHash, expiresAt) => {
-  await db.query(
-    `UPDATE users
-        SET password = ?, must_change_password = 1, pw_reset_expires_at = ?, session_id = NULL
-      WHERE id = ?`,
-    [passwordHash, expiresAt, userId]
-  );
-};
+// NOTE: issuing a temp code (operator approve/regenerate) updates BOTH users and
+// password_reset_requests atomically, so it is done in a transaction inside
+// admin.controller (mirroring approveClaim) rather than via a pool helper here.
 
 // Finalize a password change (normal self-service OR the forced post-reset change):
 // set the new hash and clear the forced-change flag + any reset expiry. The CURRENT
@@ -187,6 +177,6 @@ module.exports = {
   findByEmail, findByEmailForRecovery, findById, createUser,
   getPreferences, savePreferences,
   setSessionId, getSessionInfo,
-  setTempPassword, setPassword, setRecoveryInfo,
+  setPassword, setRecoveryInfo,
   countActiveCashiers, reconcileCashierSeats,
 };

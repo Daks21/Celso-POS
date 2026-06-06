@@ -22,4 +22,14 @@ router.get('/qr', controller.getQr);
 // one that runs here.
 router.post('/qr', express.json({ limit: '1mb' }), controller.uploadQr);
 
+// Phase 6.7 — manual password recovery review + support ticket inbox.
+router.get('/reset-requests',                 controller.listResetRequests);
+router.get('/reset-requests/:id/history',     controller.resetHistory);
+router.post('/reset-requests/:id/approve',    controller.approveReset);
+router.post('/reset-requests/:id/regenerate', controller.regenerateReset);
+router.post('/reset-requests/:id/reject',     controller.rejectReset);
+router.get('/tickets',                        controller.listTickets);
+router.post('/tickets/:id/close',             controller.closeTicket);
+router.get('/notifications',                  controller.notificationCounts);
+
 module.exports = router;

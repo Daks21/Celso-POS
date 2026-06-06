@@ -30,6 +30,7 @@ const billingRouter    = require('./routes/billing.routes');
 const billingController = require('./controllers/billing.controller');
 const adminRouter      = require('./routes/admin.routes');
 const teamRouter       = require('./routes/team.routes');
+const supportRouter    = require('./routes/support.routes');
 const errorMiddleware  = require('./middleware/error.middleware');
 const pool             = require('./config/db.config');
 const settings         = require('./models/settings.model');
@@ -131,6 +132,10 @@ app.use('/api/inventory/:productId/adjust', adjustLimiter);
 const claimLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 app.use('/api/billing/claim', claimLimiter);
 
+// --- Rate limiting on support ticket submission (Phase 6.7) ---
+const ticketLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
+app.use('/api/support/tickets', ticketLimiter);
+
 // --- Health check ---
 app.get('/api/health', async (req, res) => {
   try {
@@ -163,6 +168,7 @@ app.get('/api/billing/qr', billingController.qrImage);
 app.use('/api/billing',   billingRouter);
 app.use('/api/admin',     adminRouter);
 app.use('/api/team',      teamRouter);
+app.use('/api/support',   supportRouter);
 
 // --- Unknown API route → JSON 404 (don't fall through to the static layer) ---
 app.use('/api', (req, res) => {
