@@ -23,6 +23,7 @@ const path = require('path');
 // banner). Keep this list in sync if new icons are introduced.
 const USED_ICONS = [
   'alert-triangle', 'archive', 'badge-dollar-sign', 'banknote', 'bar-chart-2',
+  'bell',
   'calculator', 'calendar', 'chevron-left', 'chevron-right', 'clock',
   'credit-card', 'info', 'key-round', 'landmark', 'layers', 'layout-dashboard',
   'leaf', 'lock', 'log-out', 'moon', 'more-vertical', 'package', 'pencil',
