@@ -735,21 +735,28 @@
        number; Phase 6.7.)
 
     PUT    /password       Auth + Admin required
-      Body: { newPassword, currentPassword? }
+      Body: { newPassword, currentPassword }
       Owner self-service password change AND the forced post-reset change. Admin-only
       — cashiers don't manage their own credentials (the owner resets them on the Team
-      page). Clears must_change_password + pw_reset_expires_at and marks any linked
+      page). currentPassword is REQUIRED + verified for a NORMAL change (re-auth so an
+      unattended/stolen session can't change it); the forced post-reset change
+      (must_change_password=1) is EXEMPT — the temp code the owner logged in with is
+      the auth. Clears must_change_password + pw_reset_expires_at and marks any linked
       reset request 'completed' (Phase 6.7). While must_change_password=1, this and
       GET /me are the ONLY routes a session may reach (auth.middleware gate); every
       other authenticated route returns 403 { code: 'PASSWORD_CHANGE_REQUIRED' }.
-      → 200 { success } | 400 weak password | 403 not admin
+      → 200 { success } | 400 weak password / current password missing
+      → 401 current password incorrect | 403 not admin
 
     PUT    /recovery       Auth + Admin required           (Phase 6.7)
-      Body: { mobile?, securityAnswer? }   (only the supplied fields change)
+      Body: { mobile?, securityAnswer?, currentPassword }   (only supplied fields change)
       Owner self-service update of recovery details — backfill for grandfathered
       owners + edits on the Account page. mobile validated (PH) + stored canonical;
-      securityAnswer bcrypt-hashed.
-      → 200 { success } | 400 invalid mobile / empty answer / nothing to update
+      securityAnswer bcrypt-hashed. currentPassword is REQUIRED + verified (step-up):
+      recovery details control account recovery, so an unattended/stolen session must
+      not be able to repoint them.
+      → 200 { success } | 400 invalid mobile / empty answer / nothing to update /
+        current password missing | 401 current password incorrect
 
     GET    /preferences    Auth required
       → 200 { success, data: {...} }

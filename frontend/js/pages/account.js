@@ -598,8 +598,10 @@ document.addEventListener('DOMContentLoaded', function() {
               if (typeof showApiError === 'function') showApiError('Enter a valid mobile number (e.g. 09171234567)');
               return;
             }
+            var cpMobile = window.prompt('For your security, enter your current password to update your recovery mobile:');
+            if (!cpMobile) return;   // cancelled — nothing saved
             try {
-              var res = await updateRecovery({ mobile: val });
+              var res = await updateRecovery({ mobile: val, currentPassword: cpMobile });
               if (res && res.success) {
                 if (typeof showApiSuccess === 'function') showApiSuccess('Mobile number saved');
               } else if (typeof showApiError === 'function') {
@@ -615,8 +617,10 @@ document.addEventListener('DOMContentLoaded', function() {
           recPob.addEventListener('change', async function () {
             var val = recPob.value.trim();
             if (!val) return;                      // blank = keep current answer
+            var cpPob = window.prompt('For your security, enter your current password to update your place of birth:');
+            if (!cpPob) return;   // cancelled — nothing saved
             try {
-              var res = await updateRecovery({ securityAnswer: val });
+              var res = await updateRecovery({ securityAnswer: val, currentPassword: cpPob });
               if (res && res.success) {
                 recPob.value = '';                 // never echo the secret back
                 if (typeof showApiSuccess === 'function') showApiSuccess('Place of birth saved');

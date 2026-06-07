@@ -217,7 +217,14 @@ const changePassword = async (req, res, next) => {
     const user = await findByEmail(req.user.email);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    if (currentPassword) {
+    // Re-auth for a NORMAL self-service change. The forced post-reset change
+    // (must_change_password=1) is EXEMPT — the temp code the owner just logged in
+    // with is the authentication, and they don't know a prior password. This blocks
+    // an unattended/stolen owner session from silently changing the password.
+    if (user.mustChangePassword !== 1) {
+      if (!currentPassword) {
+        return res.status(400).json({ success: false, message: 'Your current password is required.' });
+      }
       const ok = await bcrypt.compare(currentPassword, user.password);
       if (!ok) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
     }
@@ -276,7 +283,12 @@ const forgotPassword = async (req, res, next) => {
       const onfile    = normalizePhMobile(lookup.mobile);
       const submitted = normalizePhMobile(mobile);
       mobileMatch = !!(onfile && submitted && onfile === submitted);
-      answerMatch = await compareAnswer(securityAnswer, lookup.securityAnswerHash);
+      // Always spend one bcrypt: a grandfathered owner with a NULL answer hash would
+      // otherwise skip it and be distinguishable by response time. Compare against the
+      // dummy hash in that case (it never matches) so timing is uniform.
+      answerMatch = lookup.securityAnswerHash
+        ? await compareAnswer(securityAnswer, lookup.securityAnswerHash)
+        : (await compareAnswer(securityAnswer, DUMMY_ANSWER_HASH), false);
     } else {
       await compareAnswer(securityAnswer, DUMMY_ANSWER_HASH); // uniform timing on a miss
     }
@@ -302,7 +314,7 @@ const forgotPassword = async (req, res, next) => {
 // page). Only the supplied fields change; the answer is hashed, never stored clear.
 const updateRecovery = async (req, res, next) => {
   try {
-    const { mobile, securityAnswer } = req.body;
+    const { mobile, securityAnswer, currentPassword } = req.body;
     const fields = {};
 
     if (mobile !== undefined) {
@@ -321,6 +333,17 @@ const updateRecovery = async (req, res, next) => {
     if (!Object.keys(fields).length) {
       return res.status(400).json({ success: false, message: 'Nothing to update.' });
     }
+
+    // Step-up: recovery details CONTROL how the account is recovered, so re-verify the
+    // owner's current password before changing them — otherwise an unattended/stolen
+    // owner session could repoint the recovery mobile and take over the account later.
+    if (!currentPassword) {
+      return res.status(400).json({ success: false, message: 'Your current password is required.' });
+    }
+    const user = await findByEmail(req.user.email);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const ok = await bcrypt.compare(currentPassword, user.password);
+    if (!ok) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
 
     await setRecoveryInfo(req.user.id, fields);
     res.json({ success: true, message: 'Recovery details updated' });

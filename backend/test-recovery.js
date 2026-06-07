@@ -149,9 +149,15 @@ async function run() {
   r = await req('GET', '/api/products', null, ownerToken2);
   check('app call works after change (200)', r.status === 200);
 
-  console.log('\n14 — Owner updates recovery details (PUT /auth/recovery)');
+  console.log('\n14 — Step-up re-auth on sensitive changes (H1)');
+  // Normal password change (must_change=0) now requires the current password.
+  r = await req('PUT', '/api/auth/password', { newPassword: 'AnotherValidPass123' }, ownerToken2);
+  check('normal password change without current password → 400', r.status === 400, `(got ${r.status})`);
+  // Recovery update requires the current password (step-up).
   r = await req('PUT', '/api/auth/recovery', { mobile: '09991234567' }, ownerToken2);
-  check('update recovery mobile → 200', r.status === 200, r.body && r.body.message);
+  check('recovery update without current password → 400', r.status === 400, `(got ${r.status})`);
+  r = await req('PUT', '/api/auth/recovery', { mobile: '09991234567', currentPassword: NEW_PW }, ownerToken2);
+  check('recovery update with step-up → 200', r.status === 200, r.body && r.body.message);
   const [recRow] = await db.query('SELECT mobile FROM users WHERE id=?', [ownerId]);
   check('mobile updated on file', recRow[0].mobile === '09991234567', recRow[0].mobile);
 
