@@ -122,7 +122,9 @@
   │
   ├── pages/                   ← One file per screen/feature
   │   ├── auth/
-  │   │   └── register.html    ← New user registration
+  │   │   ├── register.html    ← New user registration
+  │   │   ├── forgot-password.html ← Request a manual password reset (6.7)
+  │   │   └── change-password.html ← Forced post-reset password change (6.7)
   │   ├── dashboard.html       ← Overview: stats, charts, heatmap
   │   ├── products.html        ← Add/edit/delete products (CRUD)
   │   ├── inventory.html       ← Stock levels, restock modal
@@ -203,7 +205,10 @@
   │       │                       (Money In / Out / Net / Utang)
   │       ├── ai.js            ← Chat interface, question submission
   │       ├── sales.js         ← Sales reports page (auth guard only)
-  │       └── account.js       ← Account dropdown, settings, custom tax rate input
+  │       ├── account.js       ← Account dropdown, settings, custom tax rate input,
+  │       │                       Security & Recovery + Report-an-Issue (6.7)
+  │       ├── forgot-password.js ← Public recovery request form (6.7)
+  │       └── change-password.js ← Forced post-reset change screen (6.7)
   │
   └── assets/
       ├── images/              ← Logos, product placeholder images
@@ -295,8 +300,8 @@
   │   └── db.config.js         ← MySQL connection pool (mysql2/promise)
   │
   ├── routes/                  ← URL endpoints (API paths)
-  │   ├── auth.routes.js       ← /api/auth/login, /api/auth/register,
-  │   │                           /api/auth/me
+  │   ├── auth.routes.js       ← /api/auth: login, register, me, password,
+  │   │                           forgot-password, recovery (6.7)
   │   ├── products.routes.js   ← /api/products (CRUD)
   │   ├── sales.routes.js      ← /api/sales (create, history, summary,
   │   │                           by ID)
@@ -321,7 +326,9 @@
   │   ├── settings.controller.js  ← store timezone + store name/address
   │   ├── team.controller.js   ← cashier sub-accounts + daily-sales audit (6.5)
   │   ├── billing.controller.js   ← billing state + GCash claim, verify-first (6.6)
-  │   └── admin.controller.js     ← super-admin: claim approve/reject + QR upload (6.6)
+  │   ├── admin.controller.js     ← super-admin: claims + QR (6.6); password-reset
+  │   │                              review + tickets + notifications (6.7)
+  │   └── support.controller.js   ← one-way support ticket submit (6.7)
   │
   ├── models/                  ← MySQL query functions (no in-memory state)
   │   ├── user.model.js        ← Users table: findByEmail, findById,
@@ -337,6 +344,8 @@
   │   │                           (plan/paid_until), name/address/timezone (6.5)
   │   ├── claim.model.js       ← payment_claims ledger: create/list/find (6.6)
   │   ├── platformConfig.model.js ← global GCash QR + receiving name/number (6.6)
+  │   ├── resetRequest.model.js ← password_reset_requests ledger (6.7)
+  │   ├── ticket.model.js       ← support_tickets inbox (6.7)
   │   └── settings.model.js    ← legacy app_settings timezone fallback (boot only)
   │
   ├── middleware/
@@ -361,9 +370,21 @@
   │  nav (sidebar.js), and the dashboard reminder/upgrade cards. See
   │  celsopos_P6-6.txt + Section 10, Phase 6.6.
   │
-  └── tests/
+  │  Phase 6.7 manual password recovery + support tickets adds: resetRequest.model +
+  │  ticket.model, support.controller/routes, utils/securityAnswer.js, the recovery
+  │  endpoints on auth.controller (forgot-password, recovery) + admin.controller
+  │  (reset-requests review, tickets, notifications), the forced-change gate in
+  │  auth.middleware, migrate_password_recovery.sql (users.mobile/security_answer_hash/
+  │  pw_reset_expires_at, password_reset_requests, support_tickets). Frontend adds
+  │  pages/auth/forgot-password.html + change-password.html (+ their js), register +
+  │  account Security/Support fields, and the operator reset board + ticket inbox +
+  │  bell on pages/admin.html. See celsopos_P6-7.txt.
+  │
+  └── tests/   (run from backend/ with the API server up; see Section 9)
       ├── test-checkpoint37.js ← Security + integration tests (37 checks)
-      └── test-integration.js  ← Full end-to-end flow tests (56+ checks)
+      ├── test-integration.js  ← Full end-to-end flow tests (56+ checks)
+      ├── test-tenancy.js      ← Multi-tenant isolation + billing bridge
+      └── test-recovery.js     ← Phase 6.7 recovery + tickets end-to-end (TEST_PORT)
 
   ─────────────────────────────────────────────────────────────
 
@@ -478,13 +499,51 @@
     role        VARCHAR       'admin' (store owner, created at signup) | 'cashier'
                               (sub-account created on the Team page)
     is_active   TINYINT(1)    0 = suspended (can't log in); 1 = active
-    must_change_password TINYINT(1)  reserved (unused — passwords are admin-managed)
+    must_change_password TINYINT(1)  1 = force a password change on next login. Set
+                              by an operator-approved password reset (Phase 6.7) and
+                              cleared when the owner sets a new password. (Was reserved/
+                              unused before 6.7.)
     session_id  VARCHAR(64)   id of the most recent login (single active session)
     last_login_at DATETIME    stamped NOW() on each successful login; powers the
                               operator active-users-in-7d/30d stats (NULL until
                               the user's next login after this shipped)
+    mobile      VARCHAR(20)   PH mobile (09XXXXXXXXX, stored canonical). Required for
+                              owner signups; NULL for cashiers/superadmin. Recovery
+                              verification + the on-file call-back number (Phase 6.7)
+    security_answer_hash VARCHAR(255)  bcrypt(normalized place of birth) — the recovery
+                              security answer, NEVER stored in clear (Phase 6.7)
+    pw_reset_expires_at DATETIME  expiry of an issued temp reset code; login refuses an
+                              expired code (Phase 6.7)
     created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
     updated_at  TIMESTAMP     AUTO UPDATE
+
+  TABLE: password_reset_requests  (manual recovery ledger — Phase 6.7)
+  ─────────────────────────────────────────────────────────────
+    id                INT     PK, AUTO_INCREMENT
+    email             VARCHAR as submitted (not necessarily a real account)
+    submitted_mobile  VARCHAR as submitted — display + match ONLY, never the delivery
+                              number (delivery is always the on-file mobile)
+    mobile_match      TINYINT 1 = submitted mobile equals the on-file mobile
+    answer_match      TINYINT 1 = place-of-birth hash matched
+    history_answers   TEXT    free-text the user typed (operator eyeballs vs live data)
+    user_id, store_id INT     resolved owner match (NULL = unknown / not an owner)
+    status            ENUM    'pending'|'approved'|'completed'|'rejected'|'expired'
+    submitted_at, reviewed_by/at, review_note,
+    code_issued_at, code_expires_at, completed_at
+    Verify-first: created `pending`; only the super-admin advances it. We store MATCH
+    BOOLEANS, never the raw secrets. Dedupe of OPEN requests is enforced in code (one
+    pending per email). 'expired' is DERIVED for display (an approved code past its
+    expiry); login enforces expiry via users.pw_reset_expires_at.
+
+  TABLE: support_tickets  (one-way support inbox — Phase 6.7)
+  ─────────────────────────────────────────────────────────────
+    id          INT     PK, AUTO_INCREMENT
+    store_id    INT     FK → stores.id (the submitting store)
+    user_id     INT     who submitted (auto-tagged from the session)
+    category    ENUM    'bug'|'question'|'billing'|'other'
+    message     TEXT    the issue text (≤2000 chars; no reply thread in v1)
+    status      ENUM    'open'|'closed'
+    created_at, closed_by, closed_at
 
   TABLE: products
   ─────────────────────────────────────────────────────────────
@@ -643,26 +702,54 @@
   ──────────────────────────────────────────────────────────────
 
     POST   /register       Public (rate-limited)
-      Body: { fullName, email, password }   (password policy — see below)
+      Body: { fullName, email, password, mobile, securityAnswer }
+        password — password policy (see below); mobile — PH 09XXXXXXXXX (stored
+        canonical); securityAnswer — place of birth (bcrypt-hashed). ALL required
+        (Phase 6.7: mobile + securityAnswer power manual password recovery).
       → 201 { success, message }
       → 400 validation error | 409 email already exists
 
     POST   /login          Public (rate-limited)
       Body: { email, password }
-      → 200 { success, token, user: { id, fullName, email, role } }
+      → 200 { success, token, user: { id, fullName, email, role }, mustChangePassword,
+              ...entitlements (plan, features, …) }
+        mustChangePassword: true when an operator-issued temp reset code is in force —
+        the client routes to the change-password screen before the app (Phase 6.7).
       → 401 invalid credentials
+      → 403 { code: 'RESET_EXPIRED' } the temp reset code has expired — request a new
+        one (Phase 6.7; 403 not 401 so the login form can show the message)
+
+    POST   /forgot-password   Public (rate-limited 5/15min; per-email/day cap)
+      Body: { email, mobile, securityAnswer, historyAnswers? }   (Phase 6.7)
+      Records a manual-recovery request for operator review. Computes a verification
+      scorecard (mobile/answer MATCH BOOLEANS — never the raw secrets), dedupes open
+      requests, and ALWAYS returns the same generic message (anti-enumeration).
+      → 200 { success, message: "If that account exists, …" }   (hit AND miss)
 
     GET    /me             Auth required
-      → 200 { success, user: { id, fullName, email, role }, timezone,
+      → 200 { success, user: { id, fullName, email, role, mobile }, timezone,
               storeName, storeAddress,
               plan, features, role, cashierSeats, state, paidUntil,
               graceEndsAt, trialEndsAt }
+      (user.mobile lets the Account → Security & Recovery section prefill the on-file
+       number; Phase 6.7.)
 
     PUT    /password       Auth + Admin required
       Body: { newPassword, currentPassword? }
-      Owner self-service password change. Admin-only — cashiers don't manage
-      their own credentials (the owner resets them on the Team page).
+      Owner self-service password change AND the forced post-reset change. Admin-only
+      — cashiers don't manage their own credentials (the owner resets them on the Team
+      page). Clears must_change_password + pw_reset_expires_at and marks any linked
+      reset request 'completed' (Phase 6.7). While must_change_password=1, this and
+      GET /me are the ONLY routes a session may reach (auth.middleware gate); every
+      other authenticated route returns 403 { code: 'PASSWORD_CHANGE_REQUIRED' }.
       → 200 { success } | 400 weak password | 403 not admin
+
+    PUT    /recovery       Auth + Admin required           (Phase 6.7)
+      Body: { mobile?, securityAnswer? }   (only the supplied fields change)
+      Owner self-service update of recovery details — backfill for grandfathered
+      owners + edits on the Account page. mobile validated (PH) + stored canonical;
+      securityAnswer bcrypt-hashed.
+      → 200 { success } | 400 invalid mobile / empty answer / nothing to update
 
     GET    /preferences    Auth required
       → 200 { success, data: {...} }
@@ -1156,9 +1243,44 @@
       filesystem — survives redeploys).
       → 200 { success, data: { qrUrl, name, number } }   (qrUrl = /api/billing/qr?v=…)
 
+    ── Password recovery review (Phase 6.7) ──
+    GET    /reset-requests?status=pending|approved|done
+      → 200 { success, data: [ request + owner_name/email/role, store_name,
+              onfile_mobile, effective_status, freq90 (90-day count) ] }   (pending first)
+      'approved' = code issued & still valid (the "Pending Login" column); 'done' =
+      completed | rejected | (approved-but-expired).
+    GET    /reset-requests/:id/history   the submitter's past requests (frequency view)
+    POST   /reset-requests/:id/approve      Body: { operatorPassword }
+      STEP-UP (re-verifies the operator's OWN password) + transactional + FOR UPDATE on
+      a pending request (owners only). Issues a one-time 12-hex temp code (stored
+      bcrypt-hashed), forces a change, sets a 12h expiry, NULLs the user's session.
+      → 200 { success, data: { tempPassword, expiresAt, onfileMobile } }  (code shown
+        ONCE — read it to the on-file number) | 401 bad step-up | 409 not pending |
+        422 no account / not an owner
+    POST   /reset-requests/:id/regenerate   Body: { operatorPassword }
+      Re-issue a fresh code for an approved request (the old one is invalidated).
+    POST   /reset-requests/:id/reject       Body: { note? }   → 200 | 404 | 409
+
+    ── Support tickets + notifications (Phase 6.7) ──
+    GET    /tickets?status=open|closed   → 200 { success, data: [ ticket + user/store ] }
+    POST   /tickets/:id/close            → 200 { success } | 404
+    GET    /notifications   operator bell counts
+      → 200 { success, data: { pendingResets, openTickets } }
+
   Plus a PUBLIC image route (no auth — the receiving QR is shown to anyone paying):
     GET  /api/billing/qr   Serves the stored QR as an image (decoded data-URL).
       → 200 image/png|jpeg | 404 if no QR set.  Mounted before the billing router.
+
+  ──────────────────────────────────────────────────────────────
+  SUPPORT  /api/support    (Phase 6.7 — one-way tickets)
+  ──────────────────────────────────────────────────────────────
+
+    POST   /tickets        Auth + loadStore (any tenant user; rate-limited 10/15min)
+      Body: { category?, message }   category ∈ bug | question | billing | other
+      Submits a one-way support ticket, AUTO-TAGGED with the session's user_id +
+      store_id (never the body). Capped at 5 OPEN tickets per store. The super-admin
+      reads/closes them via /api/admin/tickets.
+      → 201 { success } | 400 empty / too long (>2000) | 429 too many open
 
   ──────────────────────────────────────────────────────────────
   HEALTH CHECK  /api/health
@@ -1194,7 +1316,10 @@
                                  (protects against oversized payload DoS)
 
     5. authLimiter               Rate limit on /api/auth/login and
-                                 /api/auth/register: 20 req / 15 min
+                                 /api/auth/register: 20 req / 15 min.
+                                 Phase 6.7 adds resetLimiter (5/15min) on
+                                 /api/auth/forgot-password and ticketLimiter
+                                 (10/15min) on /api/support/tickets.
 
     6. adjustLimiter             Rate limit on /api/inventory:
                                  60 req / 15 min
@@ -1203,6 +1328,10 @@
                                  active session (token session_id == DB) and
                                  is_active; attaches req.user (id, role,
                                  storeId, sid). One PK lookup per request.
+                                 Phase 6.7: also the forced-change gate — when
+                                 must_change_password=1, only PUT /api/auth/password
+                                 and GET /api/auth/me pass; every other authenticated
+                                 route returns 403 PASSWORD_CHANGE_REQUIRED.
 
     8. loadStore + requireFeature  (Phase 6.5, per protected router)
                                  loadStore attaches req.store/req.plan from the
