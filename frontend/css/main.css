@@ -247,6 +247,35 @@ body {
   display: block;
 }
 
+/* Show / hide password toggle — auth pages (login, register, change-password) */
+.pw-field {
+  position: relative;
+}
+.pw-field input {
+  padding-right: 44px;
+}
+.pw-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+.pw-toggle:hover {
+  color: var(--color-text);
+}
+.pw-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
 #login-error:not(:empty) {
   display: block;
 }

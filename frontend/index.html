@@ -52,13 +52,16 @@
 
           <div class="form-group">
             <label for="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              placeholder="Enter your password"
-              required
-            />
+            <div class="pw-field">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Enter your password"
+                required
+              />
+              <button type="button" class="pw-toggle" aria-label="Show password" tabindex="-1"><i data-lucide="eye"></i></button>
+            </div>
             <p id="password-error" class="form-error"></p>
           </div>
 

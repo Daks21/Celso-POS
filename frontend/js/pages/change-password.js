@@ -12,19 +12,27 @@
   var err  = document.getElementById('cp-error');
   var btn  = document.getElementById('cp-btn');
 
+  // #cp-error is a .form-error, which CSS keeps display:none unless shown. It isn't
+  // inside a .form-group.has-error, so toggle it inline — otherwise validation
+  // messages set here stay invisible and the button looks like it does nothing.
+  function showError(msg) {
+    err.textContent = msg || '';
+    err.style.display = msg ? 'block' : 'none';
+  }
+
   if (typeof PasswordPolicy !== 'undefined') {
     PasswordPolicy.attachMeter(pw, document.getElementById('pw-meter'));
   }
 
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
-    err.textContent = '';
+    showError('');
     var a = pw.value, b = cpw.value;
     var chk = (typeof PasswordPolicy !== 'undefined')
       ? PasswordPolicy.validate(a)
       : { ok: a.length >= 12, message: 'Password must be at least 12 characters.' };
-    if (!chk.ok)  { err.textContent = chk.message; return; }
-    if (a !== b)  { err.textContent = 'Passwords do not match.'; return; }
+    if (!chk.ok)  { showError(chk.message); return; }
+    if (a !== b)  { showError('Passwords do not match.'); return; }
 
     btn.disabled = true;
     var res = await changePassword({ newPassword: a });
@@ -35,7 +43,7 @@
       // This page lives in pages/auth/, so app pages are one level up.
       window.location.href = role === 'cashier' ? '../order.html' : '../dashboard.html';
     } else {
-      err.textContent = res ? res.message : 'Could not update your password.';
+      showError(res ? res.message : 'Could not update your password.');
       btn.disabled = false;
     }
   });

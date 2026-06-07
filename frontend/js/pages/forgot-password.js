@@ -21,11 +21,20 @@
   var mobileErr = document.getElementById('fp-mobile-error');
   var pobErr    = document.getElementById('fp-pob-error');
 
+  // .form-error is display:none unless shown — toggle visibility (and the form-group's
+  // has-error red border) so these messages actually appear.
+  function setErr(el, msg) {
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+    var g = el.parentElement;
+    if (g && g.classList.contains('form-group')) g.classList.toggle('has-error', !!msg);
+  }
+
   function clearErrors() {
-    err.textContent = '';
-    emailErr.textContent = '';
-    mobileErr.textContent = '';
-    pobErr.textContent = '';
+    setErr(err, '');
+    setErr(emailErr, '');
+    setErr(mobileErr, '');
+    setErr(pobErr, '');
   }
 
   function isValidPhMobile(m) {
@@ -43,10 +52,10 @@
     var hist      = history.value.trim();
 
     var bad = false;
-    if (!emailVal || emailVal.indexOf('@') === -1) { emailErr.textContent = 'Enter a valid email address.'; bad = true; }
-    if (!mobileVal) { mobileErr.textContent = 'Mobile number is required.'; bad = true; }
-    else if (!isValidPhMobile(mobileVal)) { mobileErr.textContent = 'Enter a valid mobile number (e.g. 09171234567).'; bad = true; }
-    if (!pobVal) { pobErr.textContent = 'Place of birth is required.'; bad = true; }
+    if (!emailVal || emailVal.indexOf('@') === -1) { setErr(emailErr, 'Enter a valid email address.'); bad = true; }
+    if (!mobileVal) { setErr(mobileErr, 'Mobile number is required.'); bad = true; }
+    else if (!isValidPhMobile(mobileVal)) { setErr(mobileErr, 'Enter a valid mobile number (e.g. 09171234567).'); bad = true; }
+    if (!pobVal) { setErr(pobErr, 'Place of birth is required.'); bad = true; }
     if (bad) return;
 
     btn.disabled = true;
@@ -54,7 +63,7 @@
     try {
       res = await forgotPassword({ email: emailVal, mobile: mobileVal, securityAnswer: pobVal, historyAnswers: hist });
     } catch (_) {
-      err.textContent = "Couldn't reach the server — check your connection and try again.";
+      setErr(err, "Couldn't reach the server — check your connection and try again.");
       btn.disabled = false;
       return;
     }
@@ -65,7 +74,7 @@
       form.style.display = 'none';
       done.style.display = 'block';
     } else {
-      err.textContent = (res && res.message) || 'Something went wrong. Please try again.';
+      setErr(err, (res && res.message) || 'Something went wrong. Please try again.');
       btn.disabled = false;
     }
   });

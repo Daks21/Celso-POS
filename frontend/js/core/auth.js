@@ -322,10 +322,31 @@ function showUpgradeToastIfRedirected() {
   } catch (_) {}
 }
 
+// Wire any show/hide password toggle buttons on the page (login, register,
+// change-password). Idempotent — skips buttons already wired. Toggles the sibling
+// input's type and swaps the eye icon. No-op on pages without a .pw-toggle.
+function initPasswordToggles() {
+  var toggles = document.querySelectorAll('.pw-toggle');
+  Array.prototype.forEach.call(toggles, function (btn) {
+    if (btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', function () {
+      var input = btn.parentElement && btn.parentElement.querySelector('input');
+      if (!input) return;
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      btn.innerHTML = '<i data-lucide="' + (show ? 'eye-off' : 'eye') + '"></i>';
+      if (window.lucide) lucide.createIcons();
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   guardCurrentPage();
   showUpgradeToastIfRedirected();
   syncEntitlementsOnLoad();
+  initPasswordToggles();
 });
 
 // Entitlements are cached at login for synchronous gating, but a plan can change
