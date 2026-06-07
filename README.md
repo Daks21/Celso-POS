@@ -161,7 +161,7 @@
   ├── js/
   │   │
   │   ├── core/                ← App-wide infrastructure
-  │   │   ├── auth.js          ← Login, register, checkAuth guard
+  │   │   ├── auth.js          ← Login, register, checkAuth guard, show-password toggles
   │   │   ├── theme.js         ← Dark/light mode toggle
   │   │   ├── data.js          ← Shared utilities (formatPeso),
   │   │   │                       stock colors, localStorage seeding
