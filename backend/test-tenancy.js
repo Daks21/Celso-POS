@@ -149,6 +149,15 @@ async function run() {
   console.log('\n── Cashier role gating (cashier inserted into Store A) ────');
   const cashierEmail = `tenantAcashier_${RUN}@celsopos.com`;
   const hash = await bcrypt.hash(PASS, 10);
+  // Store A is on the Basic trial, which allows 0 cashier seats — so loadStore's lazy
+  // lapse enforcement would auto-suspend an active cashier (is_active=0), and its next
+  // request would 401. A cashier is only a valid ACTIVE seat on a seat-bearing plan, so
+  // put A on Plus (1 seat) for this gating check, then restore the trial state below
+  // (the billing section asserts A is still 'trialing').
+  await db.query(
+    "UPDATE stores SET plan='plus', subscription_status='active', paid_until = DATE_ADD(NOW(), INTERVAL 30 DAY) WHERE id = ?",
+    [storeA]
+  );
   await db.query(
     'INSERT INTO users (full_name, email, password, role, store_id, is_active) VALUES (?,?,?,?,?,1)',
     ['Cashier A', cashierEmail, hash, 'cashier', storeA]
@@ -156,11 +165,25 @@ async function run() {
   const loginC = await req('POST', '/api/auth/login', { email: cashierEmail, password: PASS });
   const tokenC = loginC.body.token;
   check('Cashier login → 200 + token', loginC.status === 200 && !!tokenC);
-  check('Cashier GET /api/finance → 402 (plan/role gate)', (await req('GET', '/api/finance', null, tokenC)).status === 402);
-  check('Cashier GET /api/analytics/kpis → 402', (await req('GET', '/api/analytics/kpis', null, tokenC)).status === 402);
-  check('Cashier POST /api/ai/chat → 402', (await req('POST', '/api/ai/chat', { message: 'hi' }, tokenC)).status === 402);
-  check('Cashier GET /api/products → 200 (POS needs it)', (await req('GET', '/api/products', null, tokenC)).status === 200);
-  check('Cashier GET /api/sales → 200 (History needs it)', (await req('GET', '/api/sales', null, tokenC)).status === 200);
+  const cFin = await req('GET', '/api/finance', null, tokenC);
+  check('Cashier GET /api/finance → 402 (plan/role gate)', cFin.status === 402, `(got ${cFin.status})`);
+  const cKpi = await req('GET', '/api/analytics/kpis', null, tokenC);
+  check('Cashier GET /api/analytics/kpis → 402', cKpi.status === 402, `(got ${cKpi.status})`);
+  const cAi = await req('POST', '/api/ai/chat', { message: 'hi' }, tokenC);
+  check('Cashier POST /api/ai/chat → 402', cAi.status === 402, `(got ${cAi.status}: ${JSON.stringify(cAi.body && (cAi.body.code || cAi.body.message))})`);
+  const cProd = await req('GET', '/api/products', null, tokenC);
+  check('Cashier GET /api/products → 200 (POS needs it)', cProd.status === 200, `(got ${cProd.status}: ${JSON.stringify(cProd.body && (cProd.body.code || cProd.body.message))})`);
+  const cSales = await req('GET', '/api/sales', null, tokenC);
+  check('Cashier GET /api/sales → 200 (History needs it)', cSales.status === 200, `(got ${cSales.status}: ${JSON.stringify(cSales.body && (cSales.body.code || cSales.body.message))})`);
+
+  // Restore A to its post-signup trial state — the billing section below asserts A is
+  // still 'trialing' when its claim is submitted. (The cashier may now be suspended on
+  // A's next loadStore, but it's never used again; the billing section uses the owner
+  // token, and reconcileCashierSeats only ever touches role='cashier'.)
+  await db.query(
+    "UPDATE stores SET plan='free', subscription_status='trialing', trial_ends_at = DATE_ADD(NOW(), INTERVAL 14 DAY), paid_until = NULL WHERE id = ?",
+    [storeA]
+  );
 
   console.log('\n── Entitlements math (unit) ───────────────────────────────');
   const now = Date.now();
