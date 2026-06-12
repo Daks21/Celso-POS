@@ -16,6 +16,17 @@
 
   function esc(s) { return (typeof escapeHtml === 'function') ? escapeHtml(s) : String(s == null ? '' : s); }
 
+  // Show/hide an inline field error. main.css keeps .form-error at display:none
+  // until its parent .form-group has .has-error, so setting textContent ALONE is
+  // invisible — we must toggle the class too (matches auth.js / products.js).
+  // Pass an empty/falsy msg to clear.
+  function setFieldError(errEl, msg) {
+    if (!errEl) return;
+    errEl.textContent = msg || '';
+    var group = errEl.closest ? errEl.closest('.form-group') : errEl.parentElement;
+    if (group) group.classList.toggle('has-error', !!msg);
+  }
+
   // ── Render ──
   function renderSeats(used, total) {
     seatsEl.textContent = used + ' of ' + total + ' seat' + (total === 1 ? '' : 's');
@@ -124,11 +135,12 @@
   var nameEl  = document.getElementById('cashier-name');
   var emailEl = document.getElementById('cashier-email');
   var passEl  = document.getElementById('cashier-password');
+  var cashierSubmitBtn = cashierForm.querySelector('button[type="submit"]');
   var nameErr  = document.getElementById('cashier-name-error');
   var emailErr = document.getElementById('cashier-email-error');
   var passErr  = document.getElementById('cashier-password-error');
 
-  function clearCashierErrors() { nameErr.textContent = ''; emailErr.textContent = ''; passErr.textContent = ''; }
+  function clearCashierErrors() { setFieldError(nameErr, ''); setFieldError(emailErr, ''); setFieldError(passErr, ''); }
   function openCashierModal() { cashierForm.reset(); clearCashierErrors(); cashierModal.style.display = 'flex'; nameEl.focus(); }
   function closeCashierModal() { cashierModal.style.display = 'none'; cashierForm.reset(); }
 
@@ -172,38 +184,54 @@
     clearCashierErrors();
     var fullName = nameEl.value.trim(), username = emailEl.value.trim().toLowerCase(), password = passEl.value;
     var ok = true;
-    if (!fullName) { nameErr.textContent = 'Name is required.'; ok = false; }
-    if (!username) { emailErr.textContent = 'Username is required.'; ok = false; }
+    if (!fullName) { setFieldError(nameErr, 'Name is required.'); ok = false; }
+    if (!username) { setFieldError(emailErr, 'Username is required.'); ok = false; }
     else if (username.indexOf('@') !== -1) {
       // Most common mistake: typing a full email. Be explicit, don't show the
       // generic charset message.
-      emailErr.textContent = "Enter just a username (no '@' or email) — we add the rest, e.g. maria.";
+      setFieldError(emailErr, "Enter just a username (no '@' or email) — we add the rest, e.g. maria.");
       ok = false;
     }
     else if (!/^[a-z0-9](?:[a-z0-9._-]{0,28}[a-z0-9])?$/.test(username)) {
-      emailErr.textContent = 'Use letters, numbers, dot, underscore, or hyphen (start and end with a letter or number).';
+      setFieldError(emailErr, 'Use letters, numbers, dot, underscore, or hyphen (start and end with a letter or number).');
       ok = false;
     }
     var pwChk = (typeof PasswordPolicy !== 'undefined')
       ? PasswordPolicy.validate(password)
       : { ok: password.length >= 12, message: 'Password must be at least 12 characters.' };
-    if (!pwChk.ok) { passErr.textContent = pwChk.message; ok = false; }
+    if (!pwChk.ok) { setFieldError(passErr, pwChk.message); ok = false; }
     if (!ok) return;
 
-    var res = await createCashier({ fullName: fullName, username: username, password: password });
-    if (res && res.success) {
-      // Show the generated login handle so the owner can copy it to the staffer.
-      var handle = (res.data && (res.data.loginHandle || res.data.email)) || '';
-      if (typeof showApiSuccess === 'function') {
-        showApiSuccess(handle ? ('Cashier added. Their login: ' + handle) : 'Cashier added.');
+    // Loading + double-submit guard. Target users are on slow networks — without
+    // this the button looks dead during the request and gets tapped repeatedly.
+    var origLabel = cashierSubmitBtn ? cashierSubmitBtn.textContent : '';
+    if (cashierSubmitBtn) { cashierSubmitBtn.disabled = true; cashierSubmitBtn.textContent = 'Adding…'; }
+
+    try {
+      var res = await createCashier({ fullName: fullName, username: username, password: password });
+      if (res && res.success) {
+        // Show the generated login handle so the owner can copy it to the staffer.
+        var handle = (res.data && (res.data.loginHandle || res.data.email)) || '';
+        if (typeof showApiSuccess === 'function') {
+          showApiSuccess(handle ? ('Cashier added. Their login: ' + handle) : 'Cashier added.');
+        }
+        closeCashierModal();
+        load();
+      } else {
+        // Route the error to the right place: seat limit → toast; field-specific
+        // → that field; anything else → a general toast (never silently, and never
+        // dumped onto the password field where it reads as a password problem).
+        var msg = res ? res.message : 'Could not add the cashier.';
+        if (res && res.code === 'SEAT_LIMIT') { if (typeof showApiError === 'function') showApiError(msg); }
+        else if (/username/i.test(msg)) { setFieldError(emailErr, msg); }
+        else if (/password/i.test(msg)) { setFieldError(passErr, msg); }
+        else if (typeof showApiError === 'function') { showApiError(msg); }
+        else { setFieldError(passErr, msg); }
       }
-      closeCashierModal();
-      load();
-    } else {
-      var msg = res ? res.message : 'Could not add the cashier.';
-      if (res && res.code === 'SEAT_LIMIT') { if (typeof showApiError === 'function') showApiError(msg); }
-      else if (/username/i.test(msg)) { emailErr.textContent = msg; }
-      else { passErr.textContent = msg; }
+    } catch (err) {
+      if (typeof showApiError === 'function') showApiError('Network error — check your connection and try again.');
+    } finally {
+      if (cashierSubmitBtn) { cashierSubmitBtn.disabled = false; cashierSubmitBtn.textContent = origLabel || 'Add Cashier'; }
     }
   });
 
@@ -218,7 +246,7 @@
   function openResetModal(id, name) {
     rpTarget = id;
     rpFor.textContent = 'Set a new password for ' + name + '.';
-    rpInput.value = ''; rpError.textContent = '';
+    rpInput.value = ''; setFieldError(rpError, '');
     rpModal.style.display = 'flex';
     rpInput.focus();
   }
@@ -229,18 +257,28 @@
 
   rpForm.addEventListener('submit', async function (e) {
     e.preventDefault();
-    rpError.textContent = '';
+    setFieldError(rpError, '');
     var pw = rpInput.value;
     var rpChk = (typeof PasswordPolicy !== 'undefined')
       ? PasswordPolicy.validate(pw)
       : { ok: (pw || '').length >= 12, message: 'Password must be at least 12 characters.' };
-    if (!rpChk.ok) { rpError.textContent = rpChk.message; return; }
-    var res = await resetCashierPassword(rpTarget, pw);
-    if (res && res.success) {
-      if (typeof showApiSuccess === 'function') showApiSuccess('Password updated.');
-      closeResetModal();
-    } else {
-      rpError.textContent = res ? res.message : 'Could not update the password.';
+    if (!rpChk.ok) { setFieldError(rpError, rpChk.message); return; }
+
+    var rpBtn = rpForm.querySelector('button[type="submit"]');
+    var rpLabel = rpBtn ? rpBtn.textContent : '';
+    if (rpBtn) { rpBtn.disabled = true; rpBtn.textContent = 'Saving…'; }
+    try {
+      var res = await resetCashierPassword(rpTarget, pw);
+      if (res && res.success) {
+        if (typeof showApiSuccess === 'function') showApiSuccess('Password updated.');
+        closeResetModal();
+      } else {
+        setFieldError(rpError, res ? res.message : 'Could not update the password.');
+      }
+    } catch (err) {
+      setFieldError(rpError, 'Network error — check your connection and try again.');
+    } finally {
+      if (rpBtn) { rpBtn.disabled = false; rpBtn.textContent = rpLabel || 'Save password'; }
     }
   });
 
