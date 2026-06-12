@@ -10,6 +10,9 @@
   var emptyEl = document.getElementById('team-empty');
   var seatsEl = document.getElementById('team-seats');
   var addBtn  = document.getElementById('add-cashier-button');
+  // Latest seat usage, so the Add button can EXPLAIN (not silently no-op) when
+  // there's no free seat. Set on every load().
+  var seatState = { used: 0, total: 0 };
 
   function esc(s) { return (typeof escapeHtml === 'function') ? escapeHtml(s) : String(s == null ? '' : s); }
 
@@ -46,17 +49,17 @@
     var res = await getTeam();
     if (!res || !res.success) { listEl.innerHTML = '<tr><td colspan="3">Could not load your team.</td></tr>'; return; }
     renderSeats(res.seatsUsed, res.seatsTotal);
+    seatState.used = res.seatsUsed; seatState.total = res.seatsTotal;
 
-    // Free plan has no cashier seats — disable add and show an upsell.
+    // Free plan has no cashier seats — show an upsell. The Add button stays
+    // CLICKABLE on purpose: a tap explains why + routes to plans, instead of a
+    // disabled button that does nothing and confuses the owner.
     if (res.seatsTotal === 0) {
-      addBtn.disabled = true;
       listEl.innerHTML = '';
       emptyEl.style.display = 'block';
       emptyEl.innerHTML = 'Cashier accounts are available on <strong>Plus</strong> and <strong>Pro</strong>. <a href="billing.html">See plans</a>.';
       return;
     }
-
-    addBtn.disabled = res.seatsUsed >= res.seatsTotal;
 
     var rows = res.data || [];
     if (rows.length === 0) {
@@ -129,7 +132,22 @@
   function openCashierModal() { cashierForm.reset(); clearCashierErrors(); cashierModal.style.display = 'flex'; nameEl.focus(); }
   function closeCashierModal() { cashierModal.style.display = 'none'; cashierForm.reset(); }
 
-  addBtn.addEventListener('click', openCashierModal);
+  addBtn.addEventListener('click', function () {
+    // Explain instead of doing nothing when there's no seat to fill.
+    if (seatState.total === 0) {
+      if (typeof showApiError === 'function') showApiError('Cashier accounts are on Plus and Pro — taking you to plans…');
+      window.location.href = 'billing.html';
+      return;
+    }
+    if (seatState.used >= seatState.total) {
+      if (typeof showApiError === 'function') {
+        showApiError('You\'re using all ' + seatState.total + ' cashier seat' +
+          (seatState.total === 1 ? '' : 's') + '. Deactivate a cashier or upgrade your plan to add another.');
+      }
+      return;
+    }
+    openCashierModal();
+  });
   document.getElementById('cashier-close-button').addEventListener('click', closeCashierModal);
   cashierModal.addEventListener('click', function (e) { if (e.target === cashierModal) closeCashierModal(); });
 
