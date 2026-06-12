@@ -118,9 +118,12 @@ const restore = async (storeId, id, data = null) => {
 };
 
 const getLowStock = async (storeId, threshold = 50) => {
+  // Inclusive threshold (stock <= ?): a product sitting exactly at the threshold
+  // counts as low, matching getInventoryCounts/analytics summary and getStockLevels
+  // so the count, the alerts list, and the table dots never disagree at the boundary.
   const [rows] = await db.query(
     'SELECT * FROM products'
-    + ' WHERE store_id = ? AND is_active = 1 AND stock > 0 AND stock < ?'
+    + ' WHERE store_id = ? AND is_active = 1 AND stock > 0 AND stock <= ?'
     + ' ORDER BY stock ASC',
     [storeId, threshold]
   );
@@ -143,8 +146,10 @@ const getStockLevels = async (storeId, threshold = 50) => {
   );
   return rows.map(p => ({
     ...p,
+    // Inclusive (stock <= threshold) so the table dots agree with the summary
+    // count and the low-stock alerts list at the exact threshold boundary.
     status: p.stock === 0 ? 'out-of-stock'
-           : p.stock < threshold ? 'low'
+           : p.stock <= threshold ? 'low'
            : 'in-stock',
   }));
 };
