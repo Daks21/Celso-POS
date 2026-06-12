@@ -133,6 +133,22 @@
   document.getElementById('cashier-close-button').addEventListener('click', closeCashierModal);
   cashierModal.addEventListener('click', function (e) { if (e.target === cashierModal) closeCashierModal(); });
 
+  // Live-sanitize the username field as the owner types: force lowercase and drop
+  // anything not [a-z0-9._-], so the field physically can't hold an '@' or a full
+  // email. Mirrors backend sanitizeUsername (the server still re-validates). Caret
+  // is kept in place when characters are removed so typing isn't disrupted.
+  if (emailEl) {
+    emailEl.addEventListener('input', function () {
+      var cleaned = emailEl.value.toLowerCase().replace(/[^a-z0-9._-]/g, '');
+      if (cleaned !== emailEl.value) {
+        var pos = emailEl.selectionStart || 0;
+        var removed = emailEl.value.length - cleaned.length;
+        emailEl.value = cleaned;
+        try { emailEl.setSelectionRange(pos - removed, pos - removed); } catch (e) { /* unsupported */ }
+      }
+    });
+  }
+
   cashierForm.addEventListener('submit', async function (e) {
     e.preventDefault();
     clearCashierErrors();
