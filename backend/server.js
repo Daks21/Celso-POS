@@ -149,7 +149,10 @@ app.get('/api/health', async (req, res) => {
       db: 'Connected',
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    // Don't leak raw driver/SQL text to an unauthenticated caller — log the detail
+    // server-side and return a generic message (mirrors the error middleware's 5xx mask).
+    console.error('[Health] DB probe failed:', err);
+    res.status(500).json({ success: false, message: 'Database unavailable' });
   }
 });
 

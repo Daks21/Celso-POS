@@ -1388,6 +1388,12 @@
     PORT               3000     HTTP server port
     DB_PORT            3306     MySQL port
     DB_POOL_SIZE       5        Connection pool size
+    DB_SSL             false    TLS to MySQL. Leave 'false' when the backend and
+                                DB share a private network (e.g. Railway internal
+                                host — traffic never leaves it). Set 'true' only to
+                                reach a managed MySQL over its PUBLIC host (e.g.
+                                testing from a laptop); then the connection does not
+                                pin a CA (rejectUnauthorized:false).
     FRONTEND_URL       http://localhost:5173   CORS origin
     JWT_EXPIRES_IN     1d       Token lifetime (e.g. 1d, 12h, 30m; any
                                 jsonwebtoken-accepted span). Devices are commonly
@@ -2650,8 +2656,10 @@
   DEPLOYMENT TOPOLOGY (important — drives every module below):
     The frontend is served BY the backend as a single origin, NOT split
     across two hosts. frontend/js/core/api.js derives its API base from
-    `window.location.origin + '/api'`, so the page and the API must share
-    one origin. The app therefore deploys as ONE Node service that serves
+    `window.location.origin + '/api'` (with one dev special-case: a hostname of
+    localhost/127.0.0.1 is pinned to http://localhost:3000/api so a frontend
+    opened from a different local port still reaches the API), so in production
+    the page and the API must share one origin. The app therefore deploys as ONE Node service that serves
     both the static frontend and the /api routes. Benefits: api.js needs no
     change, CORS is a non-issue (same origin), one URL, one TLS cert. A
     CDN can be layered in front later if static-asset load ever matters.
@@ -2834,11 +2842,23 @@
   Phase 6.6 Manual GCash billing bridge (PHP tiers, verify-first claims,
     super-admin approval; PayMongo later) — COMPLETE (6.6a–h). Pending only live
     GCash payment validation (set QR in the operator console).
-  Phase 7 Pricing re-tier — 3 tiers (Free ₱0 / Plus ₱449 / Pro ₱849), Basic
+  NOTE ON NUMBERING: the build-spec text files at the repo root (celsopos_P6-5/6/7,
+    P7, P8) are SEQUENTIAL BUILD SPECS and number themselves independently of the
+    §10 product roadmap above. In particular the roadmap's "Phase 7: Web App
+    Deployment" is future work, whereas celsopos_P7.txt is the (shipped) cashier
+    login-handles build. The shipped items below are the source of truth for what
+    is actually in the code.
+  Pricing re-tier — 3 tiers (Free ₱0 / Plus ₱449 / Pro ₱849), Basic
     merged into Free (Finance + Analytics now free), trial removed. DEPLOY NOTE:
     after any plan-enum schema change, RESTART the API server — pooled DB
     connections cache the old plan enum and 500 on inserts until reconnected.
   Post-ship:
+    • Cashier login handles — cashiers sign in with a store-scoped handle
+                   (username@s<storeId>.celso), never a real email, so a cashier
+                   can't squat a real person's address and block them from
+                   registering their own store. Owner picks a short username; the
+                   server builds + returns the handle (backend/utils/staffHandle.js).
+                   Owner registration rejects the reserved suffix. (celsopos_P7.txt.)
     • Sales — Admin sale-edit (PUT /api/sales/:id): edit a past sale from
                    History with full server-side reconciliation (stock
                    delta + inventory_adjustments + recomputed header +
