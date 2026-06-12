@@ -22,19 +22,24 @@ router.post('/login',    login);
 // server.js) + owner self-service recovery-details update.
 router.post('/forgot-password', forgotPassword);
 
-router.get('/me', auth, loadStore, async (req, res, next) => {
+router.get('/me', auth, loadStoreUnlessSuperAdmin, async (req, res, next) => {
   try {
     const user = await findById(req.user.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+    // Super-admin path: no store. Return a store-less identity (global timezone
+    // fallback, no store name/address) with store-less entitlements so the call
+    // succeeds instead of 401-ing the operator out. entitlements(null, role)
+    // resolves to the free feature set, which the operator console ignores.
+    const store = req.store || null;
     res.json({
       success: true,
       user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, mobile: user.mobile || null, createdAt: user.createdAt },
-      timezone: req.store.timezone,
-      storeName:    req.store.name || '',
-      storeAddress: req.store.address || '',
-      ...entitlements(req.store, req.user.role)
+      timezone: store ? store.timezone : settings.getTimezone(),
+      storeName:    store ? (store.name || '') : '',
+      storeAddress: store ? (store.address || '') : '',
+      ...entitlements(store, req.user.role)
     });
   } catch (err) {
     next(err);
