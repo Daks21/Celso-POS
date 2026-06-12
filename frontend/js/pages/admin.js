@@ -6,7 +6,7 @@
 checkAuth();
 
 (function () {
-  var PLAN_LABEL = { basic: 'Basic', plus: 'Plus', pro: 'Pro' };
+  var PLAN_LABEL = { plus: 'Plus', pro: 'Pro' };
   var currentStatus = 'pending';
   var tbody = document.getElementById('op-claims-body');
 
@@ -175,7 +175,6 @@ checkAuth();
     setText('st-stores', s.total != null ? s.total : '—');
     setText('st-paying', s.paying || 0);
     setText('st-mrr', peso(d.mrrPhp) + '/mo');
-    setText('st-trial', s.trial || 0);
     setText('st-free', s.free || 0);
     setText('st-active', u.active30d || 0);
     setText('st-active7', (u.active7d || 0) + ' in last 7d');
@@ -189,8 +188,7 @@ checkAuth();
     setText('st-rev', peso(d.periodRevenuePhp));
     setText('st-rev-period', d.periodLabel || '');
 
-    var maxPlan = Math.max(1, p.basic || 0, p.plus || 0, p.pro || 0);
-    setText('st-basic', p.basic || 0); setBar('bar-basic', p.basic || 0, maxPlan);
+    var maxPlan = Math.max(1, p.plus || 0, p.pro || 0);
     setText('st-plus',  p.plus  || 0); setBar('bar-plus',  p.plus  || 0, maxPlan);
     setText('st-pro',   p.pro   || 0); setBar('bar-pro',   p.pro   || 0, maxPlan);
   }

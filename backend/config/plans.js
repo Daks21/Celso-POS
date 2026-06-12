@@ -10,29 +10,28 @@
 
 const GRACE_DAYS = 3;            // days of access after the due date before lapse
 
-// Four tiers (PHP, monthly). Features are tiered AND seats grow with price:
-//   free  ₱0     0 seats  core POS only
-//   basic ₱299   0 seats  + Finance + Analytics + dashboard charts (solo owner)
-//   plus  ₱799   1 seat   + Advanced Analytics + AI (Os)
-//   pro   ₱1299  2 seats  same features as Plus, second cashier seat
+// Three tiers (PHP, monthly). PH-first pricing: Free is genuinely useful
+// (Finance + Analytics + charts included) to win small owners; the paid tiers
+// monetize cashier SEATS ("buying time freedom") plus AI. There is NO trial — a
+// new store starts on Free and stays there until it pays (see auth.controller
+// register + resolveBilling). Features are tiered AND seats grow with price:
+//   free  ₱0     0 seats  core POS + Finance + Analytics + dashboard charts
+//   plus  ₱449   1 seat   + Advanced Analytics + AI (Os)
+//   pro   ₱849   2 seats  same features as Plus, second cashier seat
 const PLANS = {
   free: {
     label: 'Free', pricePhp: 0, cashierSeats: 0,
-    features: ['dashboard_basic', 'order', 'inventory', 'products', 'history'],
-  },
-  basic: {
-    label: 'Basic', pricePhp: 299, cashierSeats: 0,
     features: ['dashboard_basic', 'dashboard_charts', 'order', 'inventory',
                'products', 'history', 'finance', 'analytics'],
   },
   plus: {
-    label: 'Plus', pricePhp: 799, cashierSeats: 1,
+    label: 'Plus', pricePhp: 449, cashierSeats: 1,
     features: ['dashboard_basic', 'dashboard_charts', 'order', 'inventory',
                'products', 'history', 'finance', 'analytics',
                'advanced_analytics', 'ai'],
   },
   pro: {
-    label: 'Pro', pricePhp: 1299, cashierSeats: 2,
+    label: 'Pro', pricePhp: 849, cashierSeats: 2,
     features: ['dashboard_basic', 'dashboard_charts', 'order', 'inventory',
                'products', 'history', 'finance', 'analytics',
                'advanced_analytics', 'ai'],
@@ -45,21 +44,11 @@ const CASHIER_FEATURES = ['order', 'history'];
 
 // Resolve a store's billing situation right now. Returns the effective plan plus
 // a `state` the UI uses for the reminder cards:
-//   trial  — within the 14-day no-card trial (effective Basic).
 //   active — paid and inside the paid_until window (or legacy/grandfathered).
 //   grace  — past the due date but within GRACE_DAYS (still entitled).
-//   free   — everything else (trial expired, lapsed past grace, or never paid).
+//   free   — everything else (lapsed past grace, or never paid). No trial.
 // Lapse is never written back to the row; date math decides each request.
 function resolveBilling(store, now = new Date()) {
-  const trialEndsAt = (store && store.trial_ends_at) || null;
-
-  // No-card 14-day trial (status set at signup) grants BASIC — Finance + Analytics,
-  // the features a small store cares about, without giving away AI / extra seats.
-  if (store && store.subscription_status === 'trialing' && trialEndsAt &&
-      new Date(trialEndsAt) > now) {
-    return { plan: 'basic', state: 'trial', paidUntil: null, graceEndsAt: null, trialEndsAt };
-  }
-
   const paid = store && store.plan && store.plan !== 'free' && !!PLANS[store.plan];
   // Operator revocation ('canceled') is absolute and wins over any paid_until.
   if (paid && store.subscription_status !== 'canceled') {
@@ -78,7 +67,7 @@ function resolveBilling(store, now = new Date()) {
     }
   }
 
-  return { plan: 'free', state: 'free', paidUntil: null, graceEndsAt: null, trialEndsAt };
+  return { plan: 'free', state: 'free', paidUntil: null, graceEndsAt: null, trialEndsAt: null };
 }
 
 // Effective plan string only — kept for backwards compatibility with

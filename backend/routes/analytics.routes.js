@@ -6,7 +6,7 @@ const { loadStore, requireFeature } = require('../middleware/tenant.middleware')
 
 // Every route is auth + loadStore. Then a tiered plan gate:
 //   summary            -> no gate (dashboard_basic; Free dashboard uses it)
-//   kpis/charts/heatmap/profit -> 'analytics'          (Plus)
+//   kpis/charts/heatmap/profit -> 'analytics'          (Free tier+)
 //   inventory-health/projection -> 'advanced_analytics' (Plus)
 // Specific named routes must come before any wildcard (:param) routes.
 router.use(auth, loadStore);

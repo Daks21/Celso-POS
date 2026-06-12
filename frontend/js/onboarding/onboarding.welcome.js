@@ -1,11 +1,9 @@
 const OnboardingWelcome = (() => {
 
-  // Set in render(): the owner of a freshly-created (trialing) store gets a
-  // celebratory "14-day Basic trial" gift + confetti on panel 2. Non-trial
-  // stores don't (the trial is store-level and granted at signup). The welcome
-  // modal only ever runs for store owners — it inits on the dashboard, the one
-  // page cashiers and super-admins never reach — so all copy here is owner-only.
-  let _giftEligible = false;
+  // The welcome modal only ever runs for store owners — it inits on the
+  // dashboard, the one page cashiers and super-admins never reach — so all copy
+  // here is owner-only. Panel 2 fires a celebratory confetti burst for every new
+  // store (there is no trial; Free already includes Finance + Analytics).
 
   const STORE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"
     fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -31,24 +29,14 @@ const OnboardingWelcome = (() => {
   function render() {
     const desc = PANEL_2_DESC;
 
-    // Trial gift (owner of a trialing store): a 14-day Basic trial reveal on
-    // panel 2 with confetti. Reads the cached entitlements snapshot.
-    let _ent = (typeof getEntitlements === 'function') ? getEntitlements() : null;
-    let onTrial = !!(_ent && (_ent.state === 'trial' ||
-      (_ent.trialEndsAt && new Date(_ent.trialEndsAt) > new Date())));
-    _giftEligible = onTrial;
-    let trialDays = 14;
-    if (_ent && _ent.trialEndsAt) {
-      const dl = Math.ceil((new Date(_ent.trialEndsAt).getTime() - Date.now()) / 86400000);
-      if (dl > 0) trialDays = dl;
-    }
-    const giftHtml = _giftEligible
-      ? '<div class="onb-gift" style="margin:4px 0 2px;padding:12px 14px;border-radius:12px;' +
-          'background:rgba(90,158,111,.1);border:1px solid rgba(90,158,111,.35);' +
-          'color:var(--color-text);font-size:14px;line-height:1.45;text-align:center">' +
-          '🎁 <b>' + trialDays + ' days of Basic, free</b><br>' +
-          'Finance &amp; Analytics are on us — explore them during your trial.</div>'
-      : '';
+    // Free plan already includes Finance + Analytics, so welcome the owner with a
+    // short reassurance instead of a trial countdown.
+    const giftHtml =
+      '<div class="onb-gift" style="margin:4px 0 2px;padding:12px 14px;border-radius:12px;' +
+        'background:rgba(90,158,111,.1);border:1px solid rgba(90,158,111,.35);' +
+        'color:var(--color-text);font-size:14px;line-height:1.45;text-align:center">' +
+        '🎁 <b>Finance &amp; Analytics are free</b><br>' +
+        'Track your cashflow and see your best sellers from day one.</div>';
 
     // Build the setup step pills for panel 1.
     const stepsHtml = WELCOME_STEPS.map(function (label, i) {
@@ -194,7 +182,7 @@ const OnboardingWelcome = (() => {
       dot2.classList.add('onb-dot--active');
       var done = document.getElementById('onb-welcome-done');
       if (done) done.focus();
-      if (_giftEligible) _confetti();   // celebrate the trial reveal
+      _confetti();   // celebrate the new store
     } else {
       panel2.classList.add('onb-hidden');
       panel1.classList.remove('onb-hidden');

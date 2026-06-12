@@ -42,7 +42,7 @@ const listClaims = async (req, res, next) => {
 
 // ── POST /api/admin/claims/:id/approve ─────────────────────────────────────
 // Transactional + idempotent (FOR UPDATE on a still-pending claim) + anchored
-// (renewal extends from the due date; pay-during-trial preserves trial days).
+// (renewal extends from the due date; a fresh upgrade starts now).
 const approveClaim = async (req, res, next) => {
   const conn = await pool.getConnection();
   let released = false;
@@ -72,7 +72,6 @@ const approveClaim = async (req, res, next) => {
     const b   = resolveBilling(store, now);
     let base;
     if (b.state === 'active' || b.state === 'grace') base = new Date(store.paid_until);   // anchor to due date
-    else if (b.state === 'trial')                    base = new Date(store.trial_ends_at); // keep remaining trial days
     else                                             base = now;                           // free/lapsed: fresh start
     const periodEnd = addOneMonth(base);
 
@@ -287,10 +286,9 @@ const uploadQr = async (req, res, next) => {
 // ── GET /api/admin/stats ───────────────────────────────────────────────────
 // Platform-wide operator analytics. Plan/state counts are derived from the LIVE
 // effective plan (resolveBilling per store — lazy date math), NOT the raw
-// stores.plan column, so a store whose paid_until has lapsed counts as free, and
-// a trial counts as a trial — the same truth the rest of the app enforces. MRR
-// sums the price of currently-entitled paid plans (active + grace; trials are
-// free until they convert). Activity is from users.last_login_at.
+// stores.plan column, so a store whose paid_until has lapsed counts as free —
+// the same truth the rest of the app enforces. MRR sums the price of currently-
+// entitled paid plans (active + grace). Activity is from users.last_login_at.
 // Period windows for the period-driven figures (new signups + approved revenue).
 // Calendar-aligned in UTC (created_at / reviewed_at are stored UTC). The current-
 // state figures — stores/plans/MRR/active users — are always "now"; only signups
@@ -320,9 +318,9 @@ const getStats = async (req, res, next) => {
     const stats = {
       period: periodKey,
       periodLabel: label,
-      stores:  { total: 0, paying: 0, trial: 0, free: 0 },   // "paying" EXCLUDES trials
-      plans:   { basic: 0, plus: 0, pro: 0 },                // effective PAID tiers only
-      mrrPhp:  0,                                            // paid plans only (trials = 0)
+      stores:  { total: 0, paying: 0, free: 0 },
+      plans:   { plus: 0, pro: 0 },                          // effective PAID tiers only
+      mrrPhp:  0,                                            // paid plans only
       users:   { total: 0, owners: 0, cashiers: 0, suspended: 0, active7d: 0, active30d: 0 },
       periodSignups: 0,        // new stores created in the selected window
       periodRevenuePhp: 0,     // approved GCash claims in the selected window
@@ -335,11 +333,7 @@ const getStats = async (req, res, next) => {
     stats.stores.total = stores.length;
     for (const s of stores) {
       const b = resolveBilling(s, now);
-      // A store on its free 14-day trial resolves to state 'trial' (effective
-      // Basic) and is counted ONLY here — never in paying / plans / MRR / revenue.
-      if (b.state === 'trial') {
-        stats.stores.trial++;
-      } else if (b.state === 'active' || b.state === 'grace') {
+      if (b.state === 'active' || b.state === 'grace') {
         stats.stores.paying++;
         if (stats.plans[b.plan] !== undefined) stats.plans[b.plan]++;
         stats.mrrPhp += (PLANS[b.plan] && PLANS[b.plan].pricePhp) || 0;

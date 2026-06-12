@@ -14,7 +14,7 @@
 // rendered with textContent / <img src> (never interpolated into HTML).
 
 window.BillingModal = (function () {
-  var LABELS = { free: 'Free', basic: 'Basic', plus: 'Plus', pro: 'Pro' };
+  var LABELS = { free: 'Free', plus: 'Plus', pro: 'Pro' };
 
   var _built = false;
   var _state = null;

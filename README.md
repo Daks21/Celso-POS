@@ -34,7 +34,7 @@
       need most POS apps ignore
     - Scales from basic to AI-powered over time
     - Multi-tenant SaaS (Phase 6.5): each signup gets its own ISOLATED
-      store on a free/basic/plus/pro plan; paid plans run on a manual
+      store on a free/plus/pro plan; paid plans run on a manual
       GCash bridge (Phase 6.6; PayMongo once registered + at scale)
     - Open and learnable — built step by step
 
@@ -449,9 +449,10 @@
     name, address       VARCHAR per-store identity (printed on receipts)
     timezone            VARCHAR IANA store timezone (per-store now)
     currency            VARCHAR default 'PHP'
-    plan                ENUM    'free' | 'basic' | 'plus' | 'pro'
+    plan                ENUM    'free' | 'plus' | 'pro'
     subscription_status ENUM    'none'|'trialing'|'active'|'past_due'|'canceled'
-    trial_ends_at       DATETIME no-card Basic trial expiry (14 days on signup)
+                                 ('trialing' RETAINED but unused — no trial)
+    trial_ends_at       DATETIME RETAINED but unused (no trial; kept nullable)
     paid_until          DATETIME end of the current paid period (6.6); entitled
                                  while now <= paid_until + 3-day grace
     ls_customer_id      VARCHAR legacy (Lemon Squeezy, retired) — unused
@@ -463,7 +464,7 @@
   TABLE: payment_claims  (manual GCash billing ledger — Phase 6.6)
   ─────────────────────────────────────────────────────────────
     id, store_id (FK)   the claiming store
-    plan                ENUM    'basic' | 'plus' | 'pro'
+    plan                ENUM    'plus' | 'pro'
     amount_php          INT     price snapshot at submit time
     gcash_ref           VARCHAR UNIQUE — a reference can be claimed once, ever
     status              ENUM    'pending' | 'approved' | 'rejected'
@@ -685,9 +686,10 @@
   auth → loadStore (attaches req.store/req.plan), and feature routes add
   requireFeature(...). Plan gate failures return 402 { code:
   'UPGRADE_REQUIRED' }; role failures (non-admin) return 403. Feature map:
-    finance/* → 'finance' (Basic) · ai/* → 'ai' (Plus)
-    analytics {kpis,charts,heatmap,profit} → 'analytics' (Basic)
+    ai/* → 'ai' (Plus)
     analytics {projection,inventory-health} → 'advanced_analytics' (Plus)
+    finance/*, analytics {kpis,charts,heatmap,profit} → 'finance'/'analytics'
+      (FREE tier — no plan gate in practice; every plan includes them)
     analytics/summary, products/*, inventory/*, sales/* → no plan gate
       (reachable by cashiers; the POS + History need the reads)
   login + GET /me also return { plan, features, role, cashierSeats, state,
@@ -785,8 +787,8 @@
         validation + a strength meter on the register and set-password forms,
         but the server re-validates and is authoritative.
 
-    Note: register now creates a NEW isolated store + its owner-admin (14-day
-    Basic trial), replacing the single-tenant first-account-admin rule.
+    Note: register now creates a NEW isolated store + its owner-admin (on the
+    free plan; no trial), replacing the single-tenant first-account-admin rule.
 
   ──────────────────────────────────────────────────────────────
   PRODUCTS  /api/products
@@ -1156,7 +1158,7 @@
 
     POST   /               Create a cashier (owner sets the password)
       Body: { fullName, email, password }
-      Enforces the plan seat limit (Free 0 / Basic 0 / Plus 1 / Pro 2) and
+      Enforces the plan seat limit (Free 0 / Plus 1 / Pro 2) and
       global email uniqueness.
       → 201 { success, data } | 402 SEAT_LIMIT | 409 email exists
 
@@ -1186,11 +1188,11 @@
                            and the global GCash QR (no external call).
       → 200 { success, data: { plan, state, paidUntil, graceEndsAt,
               trialEndsAt, seatsUsed, seatsTotal,
-              prices: { basic, plus, pro },
+              prices: { plus, pro },
               pendingClaim: {...} | null,
               gcash: { qrUrl, name, number } } }
 
-    POST   /claim          Body: { plan: 'basic'|'plus'|'pro', gcashRef }
+    POST   /claim          Body: { plan: 'plus'|'pro', gcashRef }
       Verify-first: records a `pending` claim; does NOT change the plan.
       → 201 { success, data: { status: 'pending' } }
       → 400 bad plan / ref | 409 a claim is already pending, or the ref was
@@ -1207,16 +1209,15 @@
     GET    /stats?period=this_month|last_month|last_3_months|all   (default this_month)
       Platform analytics for the operator overview. Current-state counts derive
       from the LIVE effective plan (resolveBilling per store — lazy date math),
-      not the raw stores.plan column. A store on its free 14-day trial is counted
-      ONLY under stores.trial — never in paying / plans / mrrPhp / revenue. MRR
-      sums currently-entitled PAID plans (active + grace). The `period` filter
-      drives ONLY the event-based figures (periodSignups by created_at,
-      periodRevenuePhp by approved claims' reviewed_at); plan/MRR/active-users are
-      always "now". Activity is from users.last_login_at.
+      not the raw stores.plan column. MRR sums currently-entitled PAID plans
+      (active + grace). The `period` filter drives ONLY the event-based figures
+      (periodSignups by created_at, periodRevenuePhp by approved claims'
+      reviewed_at); plan/MRR/active-users are always "now". Activity is from
+      users.last_login_at.
       → 200 { success, data: {
               period, periodLabel,
-              stores:  { total, paying, trial, free },     // paying EXCLUDES trials
-              plans:   { basic, plus, pro },               // effective PAID tiers
+              stores:  { total, paying, free },
+              plans:   { plus, pro },                      // effective PAID tiers
               mrrPhp,
               users:   { total, owners, cashiers, suspended, active7d, active30d },
               periodSignups, periodRevenuePhp,             // move with `period`
@@ -1228,8 +1229,8 @@
     POST   /claims/:id/approve
       Transactional + idempotent (FOR UPDATE on a still-pending claim). Snapshots
       the store's prior billing into claim.prev_billing (for revert), sets the
-      store's plan + paid_until (anchored to the due date on renewal; preserves
-      remaining trial days), then reconciles cashier seats.
+      store's plan + paid_until (anchored to the due date on renewal; a fresh
+      upgrade starts now), then reconciles cashier seats.
       → 200 { success, data: { storeId, plan, paidUntil } } | 409 not pending
 
     POST   /claims/:id/reject   Body: { note? }
@@ -2364,7 +2365,7 @@
       - Two panels: value proposition + critical path preview
       - Owner-only: inits on the dashboard, the one page
         cashiers/super-admins never reach, so its copy is
-        store-owner-specific (4-step setup path + trial gift)
+        store-owner-specific (4-step setup path + welcome confetti)
       - No skip button — short enough to click through
       - On close: marks welcome as seen, fires checklist +
         sidebar pill init; scroll locked on .page-body during
@@ -2521,13 +2522,14 @@
   * Tenancy / RBAC / Team are complete. The billing approach was replaced in
     Phase 6.6 (manual GCash bridge) — see that section below.
 
-  PLANS (monthly, PHP) — set in Phase 6.6; features are tiered AND seats grow:
-    Free  ₱0     Dashboard(basic), New Order, Inventory, Products, History;
-                 0 cashiers.
-    Basic ₱299   + Finance + Analytics + dashboard charts;   0 cashiers.
-    Plus  ₱799   + Advanced Analytics + AI Assistant (Os);   1 cashier.
-    Pro   ₱1299  same features as Plus;                      2 cashiers.
-    - 14-day Basic trial (no card, auto on signup) → Free on expiry.
+  PLANS (monthly, PHP) — set in Phase 6.6, re-tiered in Phase 7 (PH-first: Free is
+  genuinely useful; paid tiers monetize cashier SEATS + AI). Features are tiered
+  AND seats grow:
+    Free  ₱0     Dashboard, New Order, Inventory, Products, History,
+                 Finance + Analytics + dashboard charts;     0 cashiers.
+    Plus  ₱449   + Advanced Analytics + AI Assistant (Os);   1 cashier.
+    Pro   ₱849   same features as Plus;                      2 cashiers.
+    - NO trial: a new store starts on Free and stays there until it pays.
     - Cashiers are sub-accounts the owner creates on a Team page. Passwords
       are ADMIN-MANAGED: the owner sets a cashier's password and can reset it
       anytime; cashiers can't change their own and have no Account Settings.
@@ -2584,10 +2586,10 @@
   recurring) is the documented successor once registered + at scale (P6-6 §13).
 
   HOW IT WORKS:
-    - Tiers are PHP (free/basic/plus/pro = ₱0/₱299/₱799/₱1299; seats 0/0/1/2);
-      14-day trial grants Basic. Entitlement resolves per request via
-      config/plans.resolveBilling — paid while now <= paid_until + 3-day grace,
-      lazily (no cron), grandfathering active rows with no paid_until.
+    - Tiers are PHP (free/plus/pro = ₱0/₱449/₱849; seats 0/1/2); there is NO
+      trial. Entitlement resolves per request via config/plans.resolveBilling —
+      paid while now <= paid_until + 3-day grace, lazily (no cron), grandfathering
+      active rows with no paid_until.
     - Owner compares + picks a plan on the Billing page (billing.html); that opens
       the payment-only GCash modal (billing.modal.js) for the chosen plan, where
       they pay the global QR and submit the reference number → a `pending`
@@ -2598,16 +2600,16 @@
       paid_until to the due date, and reconciles cashier seats. A mistaken approval
       can be Undone (rolls the store back via the prev_billing snapshot, returns the
       claim to Pending to reject normally). The console also
-      shows a PLATFORM OVERVIEW (GET /api/admin/stats): stores, paying vs trial vs
-      free (trials excluded from paying/MRR), the Basic/Plus/Pro split, MRR, active
-      users (7d/30d, from last_login_at), plus new signups + approved revenue with
-      a period filter (this month / last month / last 3 months / all-time).
+      shows a PLATFORM OVERVIEW (GET /api/admin/stats): stores, paying vs free,
+      the Plus/Pro split, MRR, active users (7d/30d, from last_login_at), plus new
+      signups + approved revenue with a period filter (this month / last month /
+      last 3 months / all-time).
     - Nav is SHOW-LOCKED for owners (greyed paid links open an in-page locked
       overlay whose CTA routes to the Billing page; on a page that has its own
       onboarding tour the overlay holds back until that tour has been seen) and
       HIDDEN for cashiers. The
-      dashboard shows one reminder/upsell card (grace > trial > free promo) that
-      also routes to Billing. First-login welcome reveals the trial gift
+      dashboard shows one reminder/upsell card (grace renewal > free upsell promo)
+      that also routes to Billing. First-login welcome celebrates the new store
       (owner-only confetti).
 
   MODULES (build order — see celsopos_P6-6.txt §11):
@@ -2621,7 +2623,7 @@
     6.6h README sync + test-tenancy claims/super-admin additions           [DONE]
 
   PRICING NOTE: prices live in code (config/plans.js pricePhp), not the DB —
-  only the plan enum (free|basic|plus|pro) is persisted.
+  only the plan enum (free|plus|pro) is persisted.
 
   ──────────────────────────────────────────────────────────────
   PHASE 7: WEB APP DEPLOYMENT
@@ -2679,7 +2681,7 @@
     Module 7.5 — First-run setup
       - Owner registers via the register page. Under Phase 6.5 EVERY signup
         creates its own ISOLATED store and the signer is that store's
-        owner-admin (a 14-day no-card Basic trial starts automatically). There is
+        owner-admin (on the free plan; no trial). There is
         no "first account is admin, rest are cashiers" rule anymore — cashiers
         are sub-accounts the owner adds later on the Team page. Admins can
         restock, use Finance, delete products, and change settings; cashiers are
@@ -2806,12 +2808,13 @@
   END OF DOCUMENT — Version 8.1
   Phase 4 AI · Phase 5 Finance · Phase 6 Onboarding — COMPLETE
   Phase 6.5 Multi-Tenant SaaS (tenancy + RBAC + Team) — COMPLETE
-  Phase 6.6 Manual GCash billing bridge (4 PHP tiers, verify-first claims,
-    super-admin approval; PayMongo later) — COMPLETE (6.6a–h); test-tenancy 57/57
-    green. Pending only live GCash payment validation (set QR in the operator
-    console). DEPLOY NOTE: after running migrate_billing_bridge.sql, RESTART the
-    API server — pooled DB connections cache the old plan enum and 500 on 'basic'
-    inserts until reconnected.
+  Phase 6.6 Manual GCash billing bridge (PHP tiers, verify-first claims,
+    super-admin approval; PayMongo later) — COMPLETE (6.6a–h). Pending only live
+    GCash payment validation (set QR in the operator console).
+  Phase 7 Pricing re-tier — 3 tiers (Free ₱0 / Plus ₱449 / Pro ₱849), Basic
+    merged into Free (Finance + Analytics now free), trial removed. DEPLOY NOTE:
+    after any plan-enum schema change, RESTART the API server — pooled DB
+    connections cache the old plan enum and 500 on inserts until reconnected.
   Post-ship:
     • Sales — Admin sale-edit (PUT /api/sales/:id): edit a past sale from
                    History with full server-side reconciliation (stock

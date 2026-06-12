@@ -96,7 +96,7 @@ function cacheEntitlements(result) {
       features:     Array.isArray(result.features) ? result.features : [],
       role:         result.role,
       cashierSeats: result.cashierSeats,
-      state:        result.state || null,         // active|grace|trial|free (6.6 cards)
+      state:        result.state || null,         // active|grace|free (6.6 cards)
       paidUntil:    result.paidUntil || null,
       graceEndsAt:  result.graceEndsAt || null,
       trialEndsAt:  result.trialEndsAt || null,
@@ -403,7 +403,7 @@ async function getPersonReceipts(userId, date) {
 
 // --- Billing (Phase 6.6 — manual GCash bridge) ---
 async function getBillingState() { return apiCall('/billing/state'); }
-// Submit a paid GCash payment for review (verify-first). plan: basic|plus|pro.
+// Submit a paid GCash payment for review (verify-first). plan: plus|pro.
 async function submitClaim(plan, gcashRef) {
   return apiCall('/billing/claim', { method: 'POST', body: JSON.stringify({ plan, gcashRef }) });
 }

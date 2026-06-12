@@ -1,14 +1,14 @@
 // frontend/js/pages/billing.js — Billing page (admin). Shows the current plan,
-// billing state (active / trial / grace) + seat usage from /api/billing/state,
-// and four plan cards. Upgrade/Renew opens the shared GCash Upgrade modal
+// billing state (active / grace / free) + seat usage from /api/billing/state,
+// and three plan cards. Upgrade/Renew opens the shared GCash Upgrade modal
 // (billing.modal.js); there is no hosted checkout/portal (manual GCash bridge).
 
 (function () {
   if (typeof checkAuth === 'function') checkAuth();
 
-  var RANK   = { free: 0, basic: 1, plus: 2, pro: 3 };
-  var ORDER  = ['free', 'basic', 'plus', 'pro'];
-  var LABELS = { free: 'Free', basic: 'Basic', plus: 'Plus', pro: 'Pro' };
+  var RANK   = { free: 0, plus: 1, pro: 2 };
+  var ORDER  = ['free', 'plus', 'pro'];
+  var LABELS = { free: 'Free', plus: 'Plus', pro: 'Pro' };
 
   var planNowEl = document.getElementById('bill-plan-now');
   var chipsEl   = document.getElementById('bill-chips');
@@ -30,10 +30,9 @@
     var html = '';
     if (d.state === 'active')      html += chip('Active', 'ok');
     else if (d.state === 'grace')  html += chip('Payment due', 'bad');
-    else if (d.state === 'trial')  html += chip('Free trial', 'ok');
     else                           html += chip('Free plan', '');
 
-    // Active = a calm renewal date (no countdown). Trial/grace day-counts live in
+    // Active = a calm renewal date (no countdown). The grace day-count lives in
     // the countdown bar instead (see renderCountdown).
     if (d.state === 'active' && d.paidUntil) html += chip('Renews ' + shortDate(d.paidUntil), '');
 
@@ -42,10 +41,9 @@
     chipsEl.innerHTML = html;
   }
 
-  // State-aware countdown: a prominent bar for the ACTIONABLE states only —
-  // trial (days left of 14) and grace (days before features pause, of 3). Active
-  // paid shows no countdown (just the calm "Renews" chip); free shows nothing.
-  var TRIAL_TOTAL_DAYS = 14;
+  // State-aware countdown: a prominent bar for the one ACTIONABLE state — grace
+  // (days before features pause, of 3). Active paid shows no countdown (just the
+  // calm "Renews" chip); free shows nothing.
   var GRACE_TOTAL_DAYS = 3;
   function renderCountdown(d) {
     var el = document.getElementById('bill-countdown');
@@ -59,14 +57,7 @@
       return Math.max(4, Math.min(100, Math.round((remaining / total) * 100)));
     }
 
-    if (d.state === 'trial' && d.trialEndsAt) {
-      var n = daysLeft(d.trialEndsAt);
-      textEl.textContent = 'Free trial ends';
-      daysEl.textContent = n + ' day' + (n === 1 ? '' : 's') + ' left';
-      fillEl.style.width = fillPct(n, TRIAL_TOTAL_DAYS) + '%';
-      if (n <= 3) el.classList.add('is-warn');
-      el.style.display = '';
-    } else if (d.state === 'grace' && d.graceEndsAt) {
+    if (d.state === 'grace' && d.graceEndsAt) {
       var g = daysLeft(d.graceEndsAt);
       textEl.textContent = 'Features pause in';
       daysEl.textContent = g + ' day' + (g === 1 ? '' : 's');

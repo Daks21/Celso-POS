@@ -601,21 +601,21 @@ if (currentUser && userName) {
 }
 
 // ── Billing reminder / upgrade promo card (Phase 6.6; owner only) ──
-// At most one card, priority: grace renewal > trial ending (<=3d) > free upsell.
-// Grace/trial use a daily snooze (localStorage day-key — fine that it resets on
-// the shared-device logout wipe, since those are urgent). The promo uses a 7-day
+// At most one card, priority: grace renewal > free upsell.
+// Grace uses a daily snooze (localStorage day-key — fine that it resets on
+// the shared-device logout wipe, since it's urgent). The promo uses a 7-day
 // SERVER-side cooldown (user preferences) so it survives that wipe. The server
 // enforces plans; this is purely a nudge.
 
 var PROMO_BENEFITS = [
-  'Track cashflow and profit with Finance.',
-  'See your best sellers and trends in Analytics.',
   'Ask Os, your AI assistant, about your store.',
   'Add a cashier so your staff can ring up sales.',
+  'Unlock Advanced Analytics — goal projections and inventory health.',
+  'Free up your time — let staff run the POS while you focus on growth.',
 ];
 
 function _baTodayKey() { return new Date().toISOString().slice(0, 10); }
-function _baPlanLabel(p) { return ({ free: 'Free', basic: 'Basic', plus: 'Plus', pro: 'Pro' })[p] || p; }
+function _baPlanLabel(p) { return ({ free: 'Free', plus: 'Plus', pro: 'Pro' })[p] || p; }
 function _baDaysLeft(iso) {
   var e = new Date(iso).getTime();
   return isNaN(e) ? 0 : Math.max(0, Math.ceil((e - Date.now()) / 86400000));
@@ -683,26 +683,14 @@ async function renderBillingCards() {
     return;
   }
 
-  // 2) Trial ending soon (<=3 days; daily snooze, shared key).
-  if (d.state === 'trial' && d.trialEndsAt) {
-    var td = _baDaysLeft(d.trialEndsAt);
-    if (td > 3) return;
-    if (localStorage.getItem('celso_bill_snooze') === _baTodayKey()) return;
-    _baShow(slot, 'warn', 'clock',
-      '<b>Your free trial ends in ' + td + ' day' + (td === 1 ? '' : 's') + '.</b> ' +
-      'Subscribe to keep Finance and Analytics.',
-      'basic', 'See plans', function () { localStorage.setItem('celso_bill_snooze', _baTodayKey()); });
-    return;
-  }
-
-  // 3) Free upsell promo (free plan only; 7-day server-side cooldown).
+  // 2) Free upsell promo (free plan only; 7-day server-side cooldown).
   if (d.plan === 'free' && d.state === 'free') {
     var until = _baUserPrefs().promoDismissedUntil;
     if (until && new Date(until).getTime() > Date.now()) return;
     var benefit = PROMO_BENEFITS[Math.floor(Date.now() / (7 * 86400000)) % PROMO_BENEFITS.length];
     _baShow(slot, 'promo', 'sparkles',
       '<b>Do more with a paid plan.</b> ' + benefit,
-      'basic', 'See plans', function () {
+      'plus', 'See plans', function () {
         _baSaveUserPref('promoDismissedUntil', new Date(Date.now() + 7 * 86400000).toISOString());
       });
     return;

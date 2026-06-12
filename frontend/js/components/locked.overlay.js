@@ -1,6 +1,6 @@
 // frontend/js/components/locked.overlay.js — Phase 6.6 feature-gate overlay.
 //
-// When an OWNER lands on a page their plan doesn't include (e.g. Free → Finance),
+// When an OWNER lands on a page their plan doesn't include (e.g. Free → Os AI),
 // instead of a redirect + a cascade of red 402 toasts we blur the page's own
 // layout as a teaser and float a centered lock card with an Upgrade CTA. The
 // page's data calls may still 402, but showApiError is suppressed while a lock is
@@ -12,13 +12,13 @@
 // Styling lives in css/layout.css (.lock-overlay / .lock-card / .page-body.is-locked).
 
 window.LockedOverlay = (function () {
+  // Finance + Analytics are FREE features now, so they never lock — only the
+  // Plus-tier features appear here.
   var FEATURE_META = {
-    finance:            { label: 'Finance',            plan: 'basic', blurb: 'Track your capital, cashflow, and profit.' },
-    analytics:          { label: 'Analytics',          plan: 'basic', blurb: 'See best-sellers, trends, and daily KPIs.' },
     advanced_analytics: { label: 'Advanced Analytics', plan: 'plus',  blurb: 'Goal projections and inventory health.' },
     ai:                 { label: 'Os AI Assistant',    plan: 'plus',  blurb: 'Ask Os about your store in plain language.' },
   };
-  var PLAN_LABEL = { basic: 'Basic', plus: 'Plus', pro: 'Pro' };
+  var PLAN_LABEL = { plus: 'Plus', pro: 'Pro' };
   var _active = false;
 
   function isActive() { return _active; }
@@ -29,7 +29,7 @@ window.LockedOverlay = (function () {
     if (_active) return;
     _active = true;
 
-    var meta = FEATURE_META[feature] || { label: 'This feature', plan: 'basic', blurb: 'Upgrade to unlock it.' };
+    var meta = FEATURE_META[feature] || { label: 'This feature', plan: 'plus', blurb: 'Upgrade to unlock it.' };
     var planLabel = PLAN_LABEL[meta.plan] || meta.plan;
 
     // Blur + take the teaser content out of the tab order / AT tree.

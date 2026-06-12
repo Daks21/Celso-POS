@@ -95,9 +95,8 @@ async function run() {
   storeB = bRows[0] && bRows[0].store_id;
   check('Each signup created a distinct store', !!storeA && !!storeB && storeA !== storeB, `(A=${storeA}, B=${storeB})`);
 
-  const [stA] = await db.query('SELECT subscription_status, trial_ends_at, owner_user_id FROM stores WHERE id = ?', [storeA]);
-  check('New store starts trialing', stA[0] && stA[0].subscription_status === 'trialing');
-  check('Trial ends ~14 days out', stA[0] && new Date(stA[0].trial_ends_at) > new Date(Date.now() + 13 * 86400000));
+  const [stA] = await db.query('SELECT subscription_status, plan, owner_user_id FROM stores WHERE id = ?', [storeA]);
+  check('New store starts on free plan (no trial)', stA[0] && stA[0].plan === 'free' && stA[0].subscription_status === 'none');
   check('Store owner_user_id is set', !!(stA[0] && stA[0].owner_user_id));
 
   console.log('\n── Setup: seed data in each store ─────────────────────────');
@@ -149,11 +148,11 @@ async function run() {
   console.log('\n── Cashier role gating (cashier inserted into Store A) ────');
   const cashierEmail = `tenantAcashier_${RUN}@celsopos.com`;
   const hash = await bcrypt.hash(PASS, 10);
-  // Store A is on the Basic trial, which allows 0 cashier seats — so loadStore's lazy
+  // Store A is on the free plan, which allows 0 cashier seats — so loadStore's lazy
   // lapse enforcement would auto-suspend an active cashier (is_active=0), and its next
   // request would 401. A cashier is only a valid ACTIVE seat on a seat-bearing plan, so
-  // put A on Plus (1 seat) for this gating check, then restore the trial state below
-  // (the billing section asserts A is still 'trialing').
+  // put A on Plus (1 seat) for this gating check, then restore it to free below
+  // (the billing section asserts A is still on the free plan).
   await db.query(
     "UPDATE stores SET plan='plus', subscription_status='active', paid_until = DATE_ADD(NOW(), INTERVAL 30 DAY) WHERE id = ?",
     [storeA]
@@ -176,22 +175,21 @@ async function run() {
   const cSales = await req('GET', '/api/sales', null, tokenC);
   check('Cashier GET /api/sales → 200 (History needs it)', cSales.status === 200, `(got ${cSales.status}: ${JSON.stringify(cSales.body && (cSales.body.code || cSales.body.message))})`);
 
-  // Restore A to its post-signup trial state — the billing section below asserts A is
-  // still 'trialing' when its claim is submitted. (The cashier may now be suspended on
-  // A's next loadStore, but it's never used again; the billing section uses the owner
-  // token, and reconcileCashierSeats only ever touches role='cashier'.)
+  // Restore A to its post-signup free state — the billing section below asserts A is
+  // still on the free plan when its claim is submitted. (The cashier may now be
+  // suspended on A's next loadStore, but it's never used again; the billing section
+  // uses the owner token, and reconcileCashierSeats only ever touches role='cashier'.)
   await db.query(
-    "UPDATE stores SET plan='free', subscription_status='trialing', trial_ends_at = DATE_ADD(NOW(), INTERVAL 14 DAY), paid_until = NULL WHERE id = ?",
+    "UPDATE stores SET plan='free', subscription_status='none', trial_ends_at = NULL, paid_until = NULL WHERE id = ?",
     [storeA]
   );
 
   console.log('\n── Entitlements math (unit) ───────────────────────────────');
   const now = Date.now();
   check('effectivePlan active → plan',            effectivePlan({ subscription_status: 'active', plan: 'plus' }) === 'plus');
-  check('effectivePlan trialing(future) → basic', effectivePlan({ subscription_status: 'trialing', trial_ends_at: new Date(now + 86400000) }) === 'basic');
-  check('effectivePlan trialing(past) → free',    effectivePlan({ subscription_status: 'trialing', trial_ends_at: new Date(now - 86400000) }) === 'free');
   check('effectivePlan none → free',              effectivePlan({ subscription_status: 'none' }) === 'free');
-  check('cashierSeats free/basic/plus/pro = 0/0/1/2', cashierSeats('free') === 0 && cashierSeats('basic') === 0 && cashierSeats('plus') === 1 && cashierSeats('pro') === 2);
+  check('trialing status is ignored (no trial) → free', effectivePlan({ subscription_status: 'trialing', trial_ends_at: new Date(now + 86400000), plan: 'free' }) === 'free');
+  check('cashierSeats free/plus/pro = 0/1/2', cashierSeats('free') === 0 && cashierSeats('plus') === 1 && cashierSeats('pro') === 2);
   check('hasFeature(pro,cashier,finance) false', hasFeature('pro', 'cashier', 'finance') === false);
   check('hasFeature(pro,admin,ai) true',         hasFeature('pro', 'admin', 'ai') === true);
   check('resolveBilling grace (paid_until 1d ago) → grace',
@@ -225,12 +223,12 @@ async function run() {
   const claimA = await req('POST', '/api/billing/claim', { plan: 'plus', gcashRef: refA }, tokenA);
   check('A POST /claim → 201 pending', claimA.status === 201 && claimA.body.data && claimA.body.data.status === 'pending');
   const [stAclaim] = await db.query('SELECT subscription_status FROM stores WHERE id = ?', [storeA]);
-  check('Verify-first: claim did NOT change A subscription', stAclaim[0] && stAclaim[0].subscription_status === 'trialing');
+  check('Verify-first: claim did NOT change A subscription', stAclaim[0] && stAclaim[0].subscription_status === 'none');
 
   // Guards.
   check('A second /claim while one pending → 409',
-    (await req('POST', '/api/billing/claim', { plan: 'basic', gcashRef: '92' + String(RUN).slice(-9) }, tokenA)).status === 409);
-  const claimB = await req('POST', '/api/billing/claim', { plan: 'basic', gcashRef: refB }, tokenB);
+    (await req('POST', '/api/billing/claim', { plan: 'pro', gcashRef: '92' + String(RUN).slice(-9) }, tokenA)).status === 409);
+  const claimB = await req('POST', '/api/billing/claim', { plan: 'pro', gcashRef: refB }, tokenB);
   check('B POST /claim → 201 pending', claimB.status === 201);
 
   // A can't see B's claim — /state only exposes the caller's own pending claim.
@@ -267,12 +265,12 @@ async function run() {
   const rej = bClaim ? await req('POST', `/api/admin/claims/${bClaim.id}/reject`, { note: 'test reject' }, tokenSA) : { status: 0 };
   check('Super-admin reject B → 200', rej.status === 200);
   const bState = await req('GET', '/api/billing/state', null, tokenB);
-  check('B unchanged after reject (still trial, no pending)',
-    bState.body.data.state === 'trial' && !bState.body.data.pendingClaim);
+  check('B unchanged after reject (still free, no pending)',
+    bState.body.data.state === 'free' && !bState.body.data.pendingClaim);
 
   // gcash_ref is globally unique — A (now no pending) reusing B's ref is rejected.
   check('Duplicate gcash_ref → 409',
-    (await req('POST', '/api/billing/claim', { plan: 'basic', gcashRef: refB }, tokenA)).status === 409);
+    (await req('POST', '/api/billing/claim', { plan: 'pro', gcashRef: refB }, tokenA)).status === 409);
 
   // ── Cleanup (best-effort) ────────────────────────────────────
   console.log('\n── Cleanup ────────────────────────────────────────────────');

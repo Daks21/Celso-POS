@@ -62,16 +62,16 @@ const register = async (req, res, next) => {
 
     // Phase 6.5: every signup creates its OWN isolated store, and the signer is
     // that store's owner-admin (this replaces the single-tenant "first account
-    // is admin" rule). The store starts on a 14-day, no-card BASIC trial; on
-    // expiry effectivePlan() drops it to Free with zero billing involvement.
-    // Store row, owner user, and the owner back-link are written in one
-    // transaction so a half-created store can never exist.
+    // is admin" rule). The store starts on the free plan (no trial) and stays
+    // there until the owner pays via the GCash bridge — Free already includes
+    // Finance + Analytics, so it's usable from day one. Store row, owner user,
+    // and the owner back-link are written in one transaction so a half-created
+    // store can never exist.
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
       const [store] = await conn.query(
-        `INSERT INTO stores (subscription_status, trial_ends_at)
-         VALUES ('trialing', DATE_ADD(NOW(), INTERVAL 14 DAY))`
+        `INSERT INTO stores (subscription_status) VALUES ('none')`
       );
       const storeId = store.insertId;
       const [user] = await conn.query(

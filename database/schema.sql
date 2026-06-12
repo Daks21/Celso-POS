@@ -31,10 +31,12 @@ INSERT IGNORE INTO app_settings (id, timezone) VALUES (1, 'Asia/Manila');
 -- 0.5 Stores (Phase 6.5 — multi-tenant SaaS)
 -- One row per tenant store. Every owned table carries a store_id FK back here,
 -- and every query is scoped to the logged-in user's store. Billing state
--- (plan/subscription_status/trial_ends_at/paid_until) is the source of truth and
--- the effective plan is resolved from these columns PER REQUEST, never from the
--- JWT. Phase 6.6: a manual GCash bridge sets plan + paid_until on operator
--- approval; entitlement runs while now <= paid_until + grace (config/plans.js).
+-- (plan/subscription_status/paid_until) is the source of truth and the effective
+-- plan is resolved from these columns PER REQUEST, never from the JWT. Phase 6.6:
+-- a manual GCash bridge sets plan + paid_until on operator approval; entitlement
+-- runs while now <= paid_until + grace (config/plans.js). There is NO trial: new
+-- stores start on Free. trial_ends_at + the 'trialing' status are RETAINED but
+-- unused (like the ls_* columns), kept nullable for a clean future migration.
 -- ls_customer_id/ls_subscription_id are LEGACY (Lemon Squeezy, retired) — kept
 -- nullable/unused for a clean future migration to a real provider (PayMongo).
 -- name/address/timezone live here now (per-store), superseding app_settings.
@@ -47,7 +49,7 @@ CREATE TABLE IF NOT EXISTS stores (
   address             VARCHAR(120) NOT NULL DEFAULT '',
   timezone            VARCHAR(64)  NOT NULL DEFAULT 'Asia/Manila',
   currency            VARCHAR(8)   NOT NULL DEFAULT 'PHP',
-  plan                ENUM('free','basic','plus','pro') NOT NULL DEFAULT 'free',
+  plan                ENUM('free','plus','pro') NOT NULL DEFAULT 'free',
   subscription_status ENUM('none','trialing','active','past_due','canceled')
                         NOT NULL DEFAULT 'none',
   trial_ends_at       DATETIME    DEFAULT NULL,
@@ -69,7 +71,7 @@ CREATE TABLE IF NOT EXISTS stores (
 CREATE TABLE IF NOT EXISTS payment_claims (
   id           INT AUTO_INCREMENT PRIMARY KEY,
   store_id     INT NOT NULL,
-  plan         ENUM('basic','plus','pro') NOT NULL,
+  plan         ENUM('plus','pro') NOT NULL,
   amount_php   INT NOT NULL,                       -- price snapshot at submit time
   gcash_ref    VARCHAR(32) NOT NULL,
   status       ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
