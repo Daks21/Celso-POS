@@ -6,6 +6,15 @@ const { authMiddleware: auth, adminMiddleware: admin } = require('../middleware/
 const { loadStore } = require('../middleware/tenant.middleware');
 const { entitlements } = require('../config/plans');
 const { findById } = require('../models/user.model');
+const settings = require('../models/settings.model');
+
+// The platform super-admin has NO tenant store (store_id IS NULL), so loadStore
+// would 401 it ("Store not found"). Skip loadStore for that single role and let
+// the /me handler return a store-less identity. Tenant users still go through
+// loadStore unchanged. Without this, any future getMe() call from the operator
+// console (admin.html) would sign the super-admin straight out.
+const loadStoreUnlessSuperAdmin = (req, res, next) =>
+  (req.user && req.user.role === 'superadmin') ? next() : loadStore(req, res, next);
 
 router.post('/register', register);
 router.post('/login',    login);

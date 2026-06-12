@@ -394,6 +394,10 @@
   │                               and foreign keys (cash_movements
   │                               added in Phase 5)
   ├── seed.sql                 ← Sample products, users, and sales data
+  │                               (⚠ DEV ONLY — ships demo accounts with a
+  │                               public password; NEVER run in production)
+  ├── cleanup_pre_deploy.sql   ← FK-safe hardening: suspends + rotates the
+  │                               known demo/test accounts (UPDATE, not DELETE)
   └── migrate_*.sql            ← One-off migrations for existing databases
                                   (run as a privileged user; see Section 9)
 
@@ -2656,7 +2660,12 @@
         or AWS RDS MySQL.
       - Load database/schema.sql ONCE (fresh install). It is self-sufficient
         — it creates app_settings and its singleton row via INSERT IGNORE.
-      - Do NOT load seed.sql in production (it is demo data).
+      - Do NOT load seed.sql in production (it is demo data — it creates
+        admin@celsopos.com / cashier@celsopos.com with the publicly-known
+        password 'admin123'). If any prod/staging DB was ever seeded or used
+        for hand testing, run database/cleanup_pre_deploy.sql once (privileged
+        user) to suspend + rotate those known accounts — it is FK-safe
+        (UPDATE, not DELETE, so sales.cashier_id RESTRICT can't block it).
       - Create the least-privilege app user (SELECT/INSERT/UPDATE on the
         app DB only; no DDL — schema/migrations are run by a privileged user).
       - The migrate_*.sql files are only for UPGRADING an existing database,

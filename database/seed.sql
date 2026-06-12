@@ -1,5 +1,12 @@
 -- ============================================================
--- Celso POS Seed Data
+-- Celso POS Seed Data   ⚠️  DEVELOPMENT ONLY — NEVER RUN IN PRODUCTION  ⚠️
+-- ============================================================
+-- This file creates DEMO accounts with the PUBLICLY-KNOWN password 'admin123'
+-- (admin@celsopos.com / cashier@celsopos.com). Running it against a production
+-- database hands anyone those credentials. Production is built from schema.sql
+-- ONLY. If a prod/staging DB was ever seeded, run database/cleanup_pre_deploy.sql
+-- to suspend + rotate these accounts (FK-safe).
+-- ------------------------------------------------------------
 -- Run AFTER schema.sql. Provides test data for development.
 -- Safe to re-run: INSERT IGNORE skips existing rows.
 -- NOTE: created_at columns use CURRENT_TIMESTAMP, which is UTC
