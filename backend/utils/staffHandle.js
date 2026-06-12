@@ -25,6 +25,19 @@ function normalizeUsername(input) {
   return String(input == null ? '' : input).trim().toLowerCase();
 }
 
+// Last-line sanitizer: force any input down to the allowed charset and shape,
+// dropping '@', spaces, and anything else. validateUsername is the user-facing
+// gate (it rejects bad input with a message); this guarantees buildStaffHandle
+// can NEVER emit a malformed or namespace-escaping handle even if a future caller
+// forgets to validate first. Returns '' if nothing usable remains.
+function sanitizeUsername(input) {
+  return normalizeUsername(input)
+    .replace(/[^a-z0-9._-]/g, '')   // strip '@', spaces, unicode, symbols
+    .replace(/^[._-]+/, '')          // no leading punctuation
+    .replace(/[._-]+$/, '')          // no trailing punctuation
+    .slice(0, 30);
+}
+
 function validateUsername(input) {
   const u = normalizeUsername(input);
   if (!u)              return { ok: false, message: 'Username is required.' };
@@ -37,9 +50,18 @@ function validateUsername(input) {
   return { ok: true, username: u };
 }
 
-// Build the store-scoped login handle stored in users.email.
+// Build the store-scoped login handle stored in users.email. Input is sanitized
+// (not just normalized) so the result is always a clean handle in the reserved
+// namespace; a store id that isn't a positive integer is refused outright rather
+// than producing a "@sNaN.celso" garbage handle.
 function buildStaffHandle(username, storeId) {
-  return `${normalizeUsername(username)}@s${parseInt(storeId, 10)}${RESERVED_SUFFIX}`;
+  const sid = parseInt(storeId, 10);
+  if (!Number.isInteger(sid) || sid <= 0) {
+    throw new Error('buildStaffHandle: invalid storeId');
+  }
+  const u = sanitizeUsername(username);
+  if (!u) throw new Error('buildStaffHandle: empty username after sanitize');
+  return `${u}@s${sid}${RESERVED_SUFFIX}`;
 }
 
 // True if an address is a reserved staff handle (its host ends with the reserved
@@ -52,5 +74,5 @@ function isStaffHandle(email) {
 }
 
 module.exports = {
-  RESERVED_SUFFIX, normalizeUsername, validateUsername, buildStaffHandle, isStaffHandle,
+  RESERVED_SUFFIX, normalizeUsername, sanitizeUsername, validateUsername, buildStaffHandle, isStaffHandle,
 };

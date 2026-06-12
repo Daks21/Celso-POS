@@ -19,20 +19,18 @@
 
 require('dotenv').config();
 const pool = require('../config/db.config');
-const { isStaffHandle, buildStaffHandle, normalizeUsername } = require('../utils/staffHandle');
+const { isStaffHandle, buildStaffHandle, sanitizeUsername } = require('../utils/staffHandle');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
-// Turn an arbitrary email local-part (or full name) into a valid username:
-// lowercase, keep a-z0-9._-, collapse the rest, trim punctuation off the ends.
+// Turn an arbitrary email local-part (or full name) into a valid username, using
+// the same sanitizer the live create path uses. Falls back to the full name, then
+// to 'cashier', so there is always a usable >=2-char base.
 function deriveUsername(localPart, fullName) {
-  let u = normalizeUsername(localPart).replace(/[^a-z0-9._-]/g, '');
-  u = u.replace(/^[._-]+/, '').replace(/[._-]+$/, '');
-  if (u.length < 2) {
-    u = normalizeUsername(fullName).replace(/[^a-z0-9._-]/g, '').replace(/^[._-]+/, '').replace(/[._-]+$/, '');
-  }
+  let u = sanitizeUsername(localPart);
+  if (u.length < 2) u = sanitizeUsername(fullName);
   if (u.length < 2) u = 'cashier';
-  return u.slice(0, 30).replace(/[._-]+$/, '') || 'cashier';
+  return u;
 }
 
 (async () => {

@@ -140,6 +140,12 @@
     var ok = true;
     if (!fullName) { nameErr.textContent = 'Name is required.'; ok = false; }
     if (!username) { emailErr.textContent = 'Username is required.'; ok = false; }
+    else if (username.indexOf('@') !== -1) {
+      // Most common mistake: typing a full email. Be explicit, don't show the
+      // generic charset message.
+      emailErr.textContent = "Enter just a username (no '@' or email) — we add the rest, e.g. maria.";
+      ok = false;
+    }
     else if (!/^[a-z0-9](?:[a-z0-9._-]{0,28}[a-z0-9])?$/.test(username)) {
       emailErr.textContent = 'Use letters, numbers, dot, underscore, or hyphen (start and end with a letter or number).';
       ok = false;
