@@ -12,9 +12,9 @@ const { findByEmail, createUser, countActiveCashiers } = require('../models/user
 const saleModel = require('../models/sale.model');
 const { cashierSeats } = require('../config/plans');
 const { validatePassword } = require('../utils/passwordPolicy');
+const { validateUsername, buildStaffHandle } = require('../utils/staffHandle');
 const { dateInTz } = require('../utils/tz');
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const dateRegex  = /^\d{4}-\d{2}-\d{2}$/;
 // Accept a caller-supplied day only if it's a well-formed YYYY-MM-DD; otherwise
 // fall back to today in the store timezone. (The query is parameterized, so this
@@ -46,15 +46,24 @@ const list = async (req, res, next) => {
 
 // POST /api/team — create a cashier. The owner sets the temp password and shares
 // it with the staffer; there is no forced first-login change (admin-managed).
+// Cashiers log in with a STORE-SCOPED HANDLE (username@s<storeId>.celso), not a
+// real email — so a cashier can never squat on a real person's address and block
+// them from registering their own store. The owner picks a short username; the
+// system builds the handle and shows it back to share with the staffer.
 const create = async (req, res, next) => {
   try {
-    const { fullName, email, password } = req.body;
+    const { fullName, password } = req.body;
+    // Accept `username`; tolerate an old client that still sends `email` by
+    // taking its local-part as the username.
+    const rawUsername = req.body.username ||
+      (req.body.email ? String(req.body.email).split('@')[0] : '');
 
-    if (!fullName || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Name, email, and a temporary password are required' });
+    if (!fullName || !rawUsername || !password) {
+      return res.status(400).json({ success: false, message: 'Name, username, and a temporary password are required' });
     }
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ success: false, message: 'Enter a valid email address' });
+    const uCheck = validateUsername(rawUsername);
+    if (!uCheck.ok) {
+      return res.status(400).json({ success: false, message: uCheck.message });
     }
     const pwCheck = validatePassword(String(password));
     if (!pwCheck.ok) {
@@ -73,14 +82,16 @@ const create = async (req, res, next) => {
       });
     }
 
-    // Email is globally unique (login is global).
-    if (await findByEmail(email)) {
-      return res.status(409).json({ success: false, message: 'Email is already registered' });
+    // The handle goes in users.email; it's globally unique by construction, but a
+    // duplicate username WITHIN this store would collide — surface that clearly.
+    const handle = buildStaffHandle(uCheck.username, req.user.storeId);
+    if (await findByEmail(handle)) {
+      return res.status(409).json({ success: false, message: 'That username is already taken in your store.' });
     }
 
     const hashed = await bcrypt.hash(password, 10);
     const user = await createUser({
-      fullName, email, password: hashed, role: 'cashier',
+      fullName, email: handle, password: hashed, role: 'cashier',
       storeId: req.user.storeId,
     });
 
@@ -88,6 +99,7 @@ const create = async (req, res, next) => {
       success: true,
       data: {
         id: user.id, fullName: user.fullName, email: user.email,
+        loginHandle: user.email,    // what the staffer signs in with
         isActive: 1, createdAt: user.createdAt,
       },
     });

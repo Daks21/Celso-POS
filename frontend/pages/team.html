@@ -154,8 +154,10 @@
           <p class="form-error" id="cashier-name-error"></p>
         </div>
         <div class="form-group">
-          <label for="cashier-email">Email</label>
-          <input type="email" id="cashier-email" maxlength="150" placeholder="maria@store.com" required autocomplete="off">
+          <label for="cashier-email">Login username</label>
+          <input type="text" id="cashier-email" maxlength="30" placeholder="e.g. maria" required autocomplete="off"
+                 inputmode="text" autocapitalize="none" spellcheck="false">
+          <p class="cashier-hint">We turn this into their sign-in, e.g. <strong>maria@s12.celso</strong>. No email needed — just pick a short name.</p>
           <p class="form-error" id="cashier-email-error"></p>
         </div>
         <div class="form-group">
@@ -163,7 +165,7 @@
           <input type="text" id="cashier-password" maxlength="100" placeholder="At least 12 characters" required autocomplete="off">
           <p class="form-error" id="cashier-password-error"></p>
         </div>
-        <p class="cashier-hint">You set the cashier's password — they sign in with what you give them, and you can reset it anytime.</p>
+        <p class="cashier-hint">You set the cashier's password — they sign in with the username + password you give them, and you can reset it anytime.</p>
         <div class="modal-actions">
           <button type="submit" class="submit-button">Add Cashier</button>
         </div>

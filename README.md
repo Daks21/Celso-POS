@@ -499,7 +499,13 @@
     id          INT           PK, AUTO_INCREMENT
     store_id    INT           FK → stores.id, NOT NULL (which store they belong to)
     full_name   VARCHAR       NOT NULL
-    email       VARCHAR       GLOBALLY UNIQUE, NOT NULL (login is global)
+    email       VARCHAR       GLOBALLY UNIQUE, NOT NULL (login is global).
+                              For OWNERS this is a real email. For CASHIERS it is a
+                              store-scoped login HANDLE (username@s<storeId>.celso,
+                              Phase 7) — admin-managed, never a deliverable address,
+                              and in a reserved namespace owner registration rejects,
+                              so a cashier login can never collide with a real email.
+                              See backend/utils/staffHandle.js.
     password    VARCHAR       bcrypt hash, NOT NULL
     role        VARCHAR       'admin' (store owner, created at signup) | 'cashier'
                               (sub-account created on the Team page)
@@ -1161,10 +1167,18 @@
               timestamp }] }
 
     POST   /               Create a cashier (owner sets the password)
-      Body: { fullName, email, password }
-      Enforces the plan seat limit (Free 0 / Plus 1 / Pro 2) and
-      global email uniqueness.
-      → 201 { success, data } | 402 SEAT_LIMIT | 409 email exists
+      Body: { fullName, username, password }
+      Cashiers log in with a STORE-SCOPED HANDLE, not a real email: the owner
+      picks a short `username` and the server stores it as
+      `username@s<storeId>.celso` (a reserved namespace a real email can never
+      occupy — see backend/utils/staffHandle.js). The handle is returned as
+      data.loginHandle for the owner to share. This is why a cashier can never
+      squat on a real person's address and block them from registering their own
+      store. Enforces the plan seat limit (Free 0 / Plus 1 / Pro 2) and per-store
+      username uniqueness. (An old client that still sends `email` is tolerated —
+      its local-part is used as the username.)
+      → 201 { success, data: { ..., loginHandle } } | 402 SEAT_LIMIT
+      | 409 username taken in this store
 
     PATCH  /:id/active     Activate / deactivate (suspend)
       Body: { active }   Reactivation respects the seat limit.

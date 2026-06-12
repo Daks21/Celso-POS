@@ -9,6 +9,7 @@ const storeModel = require('../models/store.model');
 const { entitlements } = require('../config/plans');
 const { validatePassword } = require('../utils/passwordPolicy');
 const { hashAnswer, compareAnswer, normalizePhMobile } = require('../utils/securityAnswer');
+const { isStaffHandle } = require('../utils/staffHandle');
 const pool       = require('../config/db.config');
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -32,6 +33,12 @@ const register = async (req, res, next) => {
 
     if (!emailRegex.test(email)) {
       return res.status(400).json({ success: false, message: 'Enter a valid email address' });
+    }
+    // The '...@s<id>.celso' namespace is reserved for store-scoped cashier login
+    // handles (see utils/staffHandle). A real owner email can never be in it, so
+    // this both prevents confusion and keeps the two namespaces from ever colliding.
+    if (isStaffHandle(email)) {
+      return res.status(400).json({ success: false, message: 'That email address is not allowed. Please use your own email address.' });
     }
 
     const pwCheck = validatePassword(password);

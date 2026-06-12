@@ -136,25 +136,33 @@
   cashierForm.addEventListener('submit', async function (e) {
     e.preventDefault();
     clearCashierErrors();
-    var fullName = nameEl.value.trim(), email = emailEl.value.trim(), password = passEl.value;
+    var fullName = nameEl.value.trim(), username = emailEl.value.trim().toLowerCase(), password = passEl.value;
     var ok = true;
     if (!fullName) { nameErr.textContent = 'Name is required.'; ok = false; }
-    if (!email)    { emailErr.textContent = 'Email is required.'; ok = false; }
+    if (!username) { emailErr.textContent = 'Username is required.'; ok = false; }
+    else if (!/^[a-z0-9](?:[a-z0-9._-]{0,28}[a-z0-9])?$/.test(username)) {
+      emailErr.textContent = 'Use letters, numbers, dot, underscore, or hyphen (start and end with a letter or number).';
+      ok = false;
+    }
     var pwChk = (typeof PasswordPolicy !== 'undefined')
       ? PasswordPolicy.validate(password)
       : { ok: password.length >= 12, message: 'Password must be at least 12 characters.' };
     if (!pwChk.ok) { passErr.textContent = pwChk.message; ok = false; }
     if (!ok) return;
 
-    var res = await createCashier({ fullName: fullName, email: email, password: password });
+    var res = await createCashier({ fullName: fullName, username: username, password: password });
     if (res && res.success) {
-      if (typeof showApiSuccess === 'function') showApiSuccess('Cashier added.');
+      // Show the generated login handle so the owner can copy it to the staffer.
+      var handle = (res.data && (res.data.loginHandle || res.data.email)) || '';
+      if (typeof showApiSuccess === 'function') {
+        showApiSuccess(handle ? ('Cashier added. Their login: ' + handle) : 'Cashier added.');
+      }
       closeCashierModal();
       load();
     } else {
       var msg = res ? res.message : 'Could not add the cashier.';
       if (res && res.code === 'SEAT_LIMIT') { if (typeof showApiError === 'function') showApiError(msg); }
-      else if (/email/i.test(msg)) { emailErr.textContent = msg; }
+      else if (/username/i.test(msg)) { emailErr.textContent = msg; }
       else { passErr.textContent = msg; }
     }
   });
