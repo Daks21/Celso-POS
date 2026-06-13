@@ -594,33 +594,33 @@ function renderGetStartedHtml() {
   // First-run guidance for owners with zero entries yet. The CTA only
   // renders for admins since cashiers cannot create cashflow entries.
   var adminCta = isAdmin()
-    ? '<button type="button" class="submit-button" id="finance-getstarted-add" style="margin-top:18px;width:auto;">+ Add Your First Entry</button>'
+    ? '<button type="button" class="submit-button" id="finance-getstarted-add">+ Add Your First Entry</button>'
     : '';
   return (
     '<div class="finance-getstarted-panel">' +
       '<div class="finance-getstarted-icon"><i data-lucide="wallet"></i></div>' +
       '<h3 class="finance-getstarted-title">Welcome to Finance</h3>' +
-      '<p class="finance-getstarted-subtitle">Track your store\'s money in three steps:</p>' +
+      '<p class="finance-getstarted-subtitle">Track your store\'s money in three simple steps:</p>' +
       '<ol class="finance-getstarted-steps">' +
         '<li>' +
           '<span class="finance-getstarted-step-num">1</span>' +
           '<div>' +
-            '<strong>Log your starting capital</strong>' +
-            '<p>Tap + Add Entry to record your puhunan — own or borrowed.</p>' +
+            '<strong>Add your starting capital</strong>' +
+            '<p>The money you put in — your own cash or a loan.</p>' +
           '</div>' +
         '</li>' +
         '<li>' +
           '<span class="finance-getstarted-step-num">2</span>' +
           '<div>' +
-            '<strong>Record stock purchases via Inventory</strong>' +
-            '<p>Go to Inventory → Restock. Purchases auto-record here as Operating Expense.</p>' +
+            '<strong>Record money going out</strong>' +
+            '<p>Expenses like stock purchases, rent, and utilities.</p>' +
           '</div>' +
         '</li>' +
         '<li>' +
           '<span class="finance-getstarted-step-num">3</span>' +
           '<div>' +
-            '<strong>Make sales on New Order</strong>' +
-            '<p>Daily sales totals will appear here automatically.</p>' +
+            '<strong>Ring up your sales</strong>' +
+            '<p>Daily sales totals appear here automatically.</p>' +
           '</div>' +
         '</li>' +
       '</ol>' +

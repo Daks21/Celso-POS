@@ -371,6 +371,14 @@ html[data-theme="dark"] #finance-date {
   gap: 12px;
 }
 
+/* The text column must be allowed to shrink below its content width, or a long
+   line keeps the flex item at its intrinsic size and the text spills past the
+   card's padding. min-width:0 + flex:1 makes it wrap inside the card instead. */
+.finance-getstarted-steps li > div {
+  flex: 1;
+  min-width: 0;
+}
+
 .finance-getstarted-step-num {
   flex-shrink: 0;
   display: flex;
@@ -390,6 +398,7 @@ html[data-theme="dark"] #finance-date {
   font-size: 0.95rem;
   color: var(--color-text);
   margin-bottom: 2px;
+  overflow-wrap: break-word;
 }
 
 .finance-getstarted-steps p {
@@ -397,11 +406,16 @@ html[data-theme="dark"] #finance-date {
   font-size: 0.85rem;
   color: var(--color-text-muted);
   line-height: 1.45;
+  overflow-wrap: break-word;
 }
 
+/* Content-width, centered CTA. width:fit-content + auto margins centers it without
+   the button stretching edge-to-edge; max-width keeps a long label inside the card. */
 #finance-getstarted-add {
   display: block;
-  margin: 18px auto 0 !important;
+  width: fit-content;
+  max-width: 100%;
+  margin: 20px auto 0 !important;
 }
 
 /* ── Kebab menu ── */
