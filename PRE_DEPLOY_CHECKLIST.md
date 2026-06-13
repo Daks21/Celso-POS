@@ -42,6 +42,8 @@ Status at last check: `test-recovery` 41/41 · `test-tenancy` 57/57 · `test-int
 - [ ] Owner login → ring up a **sale** (POS) → receipt prints/shows.
 - [ ] **History** shows the sale; **Dashboard** + **Finance** load with correct numbers.
 - [ ] Create a **cashier** (Team page, paid plan) → cashier logs in → can reach POS + History, blocked from Finance/Analytics.
+- [ ] **Cashier cannot mutate the catalog** via the API: with a cashier token, `POST`/`PUT /api/products` and `POST /api/products/:id/restore` all return **403** (writes are admin-only; the UI hides them, the API is the boundary).
+- [ ] **Billing claim self-service:** submit a GCash claim → on the pending screen, **Edit reference** corrects a typo'd ref and **Cancel request** withdraws it; after an operator **rejects** a claim, the Billing page shows the rejection banner + Submit-again CTA.
 - [ ] Log out → confirm the session is fully cleared (shared-device wipe).
 
 **A5. Cache-bust before pushing:**
