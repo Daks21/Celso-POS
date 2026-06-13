@@ -29,15 +29,6 @@ const OnboardingWelcome = (() => {
   function render() {
     const desc = PANEL_2_DESC;
 
-    // Free plan already includes Finance + Analytics, so welcome the owner with a
-    // short reassurance instead of a trial countdown.
-    const giftHtml =
-      '<div class="onb-gift" style="margin:4px 0 2px;padding:12px 14px;border-radius:12px;' +
-        'background:rgba(90,158,111,.1);border:1px solid rgba(90,158,111,.35);' +
-        'color:var(--color-text);font-size:14px;line-height:1.45;text-align:center">' +
-        '🎁 <b>Finance &amp; Analytics are free</b><br>' +
-        'Track your cashflow and see your best sellers from day one.</div>';
-
     // Build the setup step pills for panel 1.
     const stepsHtml = WELCOME_STEPS.map(function (label, i) {
       return '<div class="onb-step">' +
@@ -98,7 +89,6 @@ const OnboardingWelcome = (() => {
       </div>
       <h2>You're all set.</h2>
       <p id="onb-panel-2-desc">${desc}</p>
-      ${giftHtml}
       ${tzFieldHtml}
       <button type="button" class="onb-btn-primary" id="onb-welcome-done">Let's Go</button>
     </div>

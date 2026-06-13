@@ -93,10 +93,18 @@
   box-shadow: var(--shadow-lg);
   animation: onbFadeUp 0.3s var(--transition-bounce) forwards;
   /* On short viewports (small laptops, landscape phones) the admin panel —
-     icon + heading + 4 step pills + timezone select + CTA — can exceed the
-     screen height; cap it and scroll inside rather than clipping the CTA. */
+     icon + heading + step pills + timezone select + CTA — can exceed the
+     screen height; cap it and scroll inside rather than clipping the CTA.
+     The scrollbar chrome is hidden (it looked out of place on the modal); the
+     content still scrolls via wheel/touch on the rare short viewport. */
   max-height: calc(100vh - 32px);
   overflow-y: auto;
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* old Edge / IE */
+}
+
+.onb-welcome-modal::-webkit-scrollbar {
+  display: none;                /* Chrome / Safari / new Edge */
 }
 
 /* Drag-handle bar — hidden on desktop, shown when modal becomes a bottom sheet */
