@@ -60,4 +60,27 @@ const countOpenByStore = async (storeId) => {
   return rows[0].n;
 };
 
-module.exports = { findById, create, listForAdmin, close, countOpen, countOpenByStore };
+// Tickets a store created since a cutoff — backs the per-store/day total cap, which
+// (unlike the open cap) also bounds churn from repeatedly close→reopen flooding.
+const countByStoreSince = async (storeId, since) => {
+  const [rows] = await db.query(
+    'SELECT COUNT(*) AS n FROM support_tickets WHERE store_id = ? AND created_at >= ?',
+    [storeId, since]
+  );
+  return rows[0].n;
+};
+
+// Whether the store already submitted an IDENTICAL message recently — guards
+// against accidental double-taps and rapid duplicate spam.
+const existsRecentDuplicate = async (storeId, message, since) => {
+  const [rows] = await db.query(
+    'SELECT id FROM support_tickets WHERE store_id = ? AND message = ? AND created_at >= ? LIMIT 1',
+    [storeId, message, since]
+  );
+  return rows.length > 0;
+};
+
+module.exports = {
+  findById, create, listForAdmin, close, countOpen, countOpenByStore,
+  countByStoreSince, existsRecentDuplicate,
+};

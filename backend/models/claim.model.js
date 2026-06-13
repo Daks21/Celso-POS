@@ -35,6 +35,40 @@ const findByRef = async (gcashRef) => {
   return rows[0] || null;
 };
 
+// The store's most recent claim, ANY status — powers the owner-facing outcome
+// banner (e.g. "your last payment was rejected: <note>"), which findPendingByStore
+// can't show because a reviewed claim is no longer pending.
+const findLatestByStore = async (storeId) => {
+  const [rows] = await db.query(
+    'SELECT * FROM payment_claims WHERE store_id = ? ORDER BY id DESC LIMIT 1',
+    [storeId]
+  );
+  return rows[0] || null;
+};
+
+// Update the store's single PENDING claim in place — lets the owner fix a typo'd
+// reference (or switch plan) before the operator reviews it, without burning the
+// one-pending-claim slot. Scoped to status='pending' so a claim the operator just
+// approved can't be edited out from under them (affectedRows 0 = lost that race).
+const updatePending = async (storeId, { plan, amount_php, gcash_ref }) => {
+  const [r] = await db.query(
+    "UPDATE payment_claims SET plan = ?, amount_php = ?, gcash_ref = ? WHERE store_id = ? AND status = 'pending'",
+    [plan, amount_php, gcash_ref, storeId]
+  );
+  return r.affectedRows;
+};
+
+// Withdraw the store's pending claim. Hard delete (not a status flip) so the
+// gcash_ref is freed for reuse — the status enum has no 'canceled', and a
+// withdrawn-before-review claim has no audit value. Scoped to status='pending'.
+const deletePending = async (storeId) => {
+  const [r] = await db.query(
+    "DELETE FROM payment_claims WHERE store_id = ? AND status = 'pending'",
+    [storeId]
+  );
+  return r.affectedRows;
+};
+
 // Operator list: claims joined to their store + submitting owner for display.
 // Optional status filter; pending first, then newest first.
 const listForAdmin = async ({ status } = {}) => {
@@ -53,4 +87,7 @@ const listForAdmin = async ({ status } = {}) => {
   return rows;
 };
 
-module.exports = { findById, create, findPendingByStore, findByRef, listForAdmin };
+module.exports = {
+  findById, create, findPendingByStore, findByRef, findLatestByStore,
+  updatePending, deletePending, listForAdmin,
+};

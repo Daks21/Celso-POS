@@ -87,6 +87,12 @@ async function run() {
   r = await req('POST', '/api/auth/forgot-password', { email: OWNER_EMAIL, mobile: MOBILE_ALT, securityAnswer: POB, historyAnswers: 'signed up today' });
   check('forgot → generic 200', r.status === 200 && r.body && r.body.success === true);
 
+  console.log('\n4b — Forgot-password for an UNKNOWN email → generic 200 but NO row stored');
+  r = await req('POST', '/api/auth/forgot-password', { email: UNKNOWN, mobile: MOBILE, securityAnswer: POB });
+  check('unknown forgot → same generic 200 (anti-enumeration)', r.status === 200 && r.body && r.body.success === true);
+  const [unkCnt] = await db.query('SELECT COUNT(*) AS n FROM password_reset_requests WHERE email=?', [UNKNOWN]);
+  check('no reviewable row created for an unknown email', unkCnt[0].n === 0, unkCnt[0].n);
+
   console.log('\n5 — Dedupe: 2nd submission keeps exactly one pending row');
   await req('POST', '/api/auth/forgot-password', { email: OWNER_EMAIL, mobile: MOBILE, securityAnswer: POB });
   const [openCnt] = await db.query("SELECT COUNT(*) AS n FROM password_reset_requests WHERE email=? AND status='pending'", [OWNER_EMAIL]);
@@ -167,6 +173,10 @@ async function run() {
   r = await req('GET', '/api/admin/tickets?status=open', null, saToken);
   const tkRow = r.body && r.body.data && r.body.data.find(t => t.message === 'Recovery test ticket ' + RUN);
   check('ticket visible to operator, tagged to store', !!tkRow && tkRow.store_id === storeId);
+
+  console.log('\n15b — Duplicate ticket (identical text within the window) → 429');
+  r = await req('POST', '/api/support/tickets', { category: 'bug', message: 'Recovery test ticket ' + RUN }, ownerToken2);
+  check('duplicate ticket suppressed → 429', r.status === 429, r.body && r.body.message);
 
   console.log('\n16 — Notification counts shape');
   r = await req('GET', '/api/admin/notifications', null, saToken);

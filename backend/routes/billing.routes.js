@@ -9,7 +9,12 @@ const { loadStore } = require('../middleware/tenant.middleware');
 // bridge; the Lemon Squeezy checkout/portal/webhook routes are removed.)
 router.use(authMiddleware, loadStore, adminMiddleware);
 
-router.get('/state',  controller.state);
-router.post('/claim', controller.claim);
+router.get('/state',    controller.state);
+router.post('/claim',   controller.claim);
+// Edit (fix a typo'd ref / switch plan) or withdraw the still-pending claim. Both
+// are covered by the claimLimiter in server.js (it mounts on /api/billing/claim
+// for every method).
+router.patch('/claim',  controller.editClaim);
+router.delete('/claim', controller.cancelClaim);
 
 module.exports = router;

@@ -23,6 +23,7 @@ const state = async (req, res, next) => {
     const b         = resolveBilling(req.store);
     const seatsUsed = await userModel.countActiveCashiers(req.user.storeId);
     const pending   = await claimModel.findPendingByStore(req.user.storeId);
+    const latest    = await claimModel.findLatestByStore(req.user.storeId);
     const cfg       = await platformConfig.get();
     res.json({
       success: true,
@@ -40,6 +41,18 @@ const state = async (req, res, next) => {
           amountPhp:   pending.amount_php,
           gcashRef:    pending.gcash_ref,
           submittedAt: pending.submitted_at,
+        } : null,
+        // The most recent claim, any status — lets the client tell the owner when a
+        // payment was rejected (with the operator's note), which pendingClaim can't.
+        lastClaim: latest ? {
+          id:          latest.id,
+          plan:        latest.plan,
+          amountPhp:   latest.amount_php,
+          gcashRef:    latest.gcash_ref,
+          status:      latest.status,
+          reviewNote:  latest.review_note || null,
+          submittedAt: latest.submitted_at,
+          reviewedAt:  latest.reviewed_at || null,
         } : null,
         gcash: {
           qrUrl:  platformConfig.qrUrl(cfg),
@@ -101,6 +114,73 @@ const claim = async (req, res, next) => {
   }
 };
 
+// ── PATCH /api/billing/claim  { plan?, gcashRef? } ─────────────────────────
+// Fix a typo'd reference (or switch plan) on the still-pending claim, in place —
+// so the owner isn't stuck waiting for the operator just to correct a mistake.
+// Only the fields supplied change; the rest keep their current values.
+const editClaim = async (req, res, next) => {
+  try {
+    const pending = await claimModel.findPendingByStore(req.user.storeId);
+    if (!pending) {
+      return res.status(404).json({ success: false, message: 'No payment is awaiting review to edit.' });
+    }
+
+    const plan     = (req.body && req.body.plan     !== undefined) ? req.body.plan : pending.plan;
+    const gcashRef = (req.body && req.body.gcashRef !== undefined)
+      ? String(req.body.gcashRef).trim() : pending.gcash_ref;
+
+    if (!['plus', 'pro'].includes(plan)) {
+      return res.status(400).json({ success: false, message: "plan must be 'plus' or 'pro'" });
+    }
+    if (!GCASH_REF_RE.test(gcashRef)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Enter the numeric GCash reference number from your receipt.',
+      });
+    }
+    // A reference can be claimed once, ever — but the claim may legitimately keep
+    // its OWN current ref, so only a DIFFERENT claim's ref is a conflict.
+    const dup = await claimModel.findByRef(gcashRef);
+    if (dup && dup.id !== pending.id) {
+      return res.status(409).json({ success: false, message: 'That GCash reference was already submitted.' });
+    }
+
+    // Price is re-snapshotted server-side from the (possibly changed) plan.
+    const amountPhp = PLANS[plan].pricePhp;
+    const affected  = await claimModel.updatePending(req.user.storeId, {
+      plan, amount_php: amountPhp, gcash_ref: gcashRef,
+    });
+    if (affected === 0) {
+      // Lost the race: the operator reviewed it between our read and write.
+      return res.status(409).json({ success: false, message: 'This payment was just reviewed and can no longer be edited.' });
+    }
+
+    res.json({ success: true, data: { status: 'pending', plan, amountPhp, gcashRef } });
+  } catch (err) {
+    // UNIQUE(gcash_ref) race between the pre-check and UPDATE -> friendly 409.
+    if (err && err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'That GCash reference was already submitted.' });
+    }
+    next(err);
+  }
+};
+
+// ── DELETE /api/billing/claim ──────────────────────────────────────────────
+// Withdraw the pending claim (owner changed their mind / wrong plan). Hard-deletes
+// the pending row, freeing its reference for reuse. 404 if none pending (e.g. the
+// operator already reviewed it).
+const cancelClaim = async (req, res, next) => {
+  try {
+    const affected = await claimModel.deletePending(req.user.storeId);
+    if (affected === 0) {
+      return res.status(404).json({ success: false, message: 'No payment is awaiting review to cancel.' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ── GET /api/billing/qr ───────────────────────────────────────────────────
 // PUBLIC (no auth): serves the global receiving GCash QR as an image. The QR is
 // public-by-design (it's shown to anyone paying), and an <img> tag can't send an
@@ -120,4 +200,4 @@ const qrImage = async (req, res, next) => {
   }
 };
 
-module.exports = { state, claim, qrImage };
+module.exports = { state, claim, editClaim, cancelClaim, qrImage };

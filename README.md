@@ -736,6 +736,11 @@
       Records a manual-recovery request for operator review. Computes a verification
       scorecard (mobile/answer MATCH BOOLEANS — never the raw secrets), dedupes open
       requests, and ALWAYS returns the same generic message (anti-enumeration).
+      A request row is persisted ONLY when the email maps to a real OWNER account —
+      the operator can act on nothing else (approve 422s without an owner), so this
+      keeps the review board clean and stops a junk-email flood. The response AND
+      timing are identical on hit vs miss (a dummy bcrypt runs on the miss path), so
+      this doesn't weaken anti-enumeration.
       → 200 { success, message: "If that account exists, …" }   (hit AND miss)
 
     GET    /me             Auth required
@@ -1203,18 +1208,37 @@
     request (config/plans.resolveBilling). Lemon Squeezy is retired.
 
     GET    /state          Plan, billing state, seats, prices, pending claim,
-                           and the global GCash QR (no external call).
+                           last claim outcome, and the global GCash QR (no external call).
       → 200 { success, data: { plan, state, paidUntil, graceEndsAt,
               trialEndsAt, seatsUsed, seatsTotal,
               prices: { plus, pro },
               pendingClaim: {...} | null,
+              lastClaim: { id, plan, amountPhp, gcashRef, status,
+                           reviewNote, submittedAt, reviewedAt } | null,
               gcash: { qrUrl, name, number } } }
+      lastClaim is the most recent claim of ANY status — it lets the owner learn a
+      payment was REJECTED (with the operator's note), which pendingClaim can't
+      show (a reviewed claim is no longer pending). The Billing page shows a
+      rejection banner + a Submit-again CTA when lastClaim.status === 'rejected'
+      and nothing is pending.
 
     POST   /claim          Body: { plan: 'plus'|'pro', gcashRef }
       Verify-first: records a `pending` claim; does NOT change the plan.
       → 201 { success, data: { status: 'pending' } }
       → 400 bad plan / ref | 409 a claim is already pending, or the ref was
         already submitted (gcash_ref is globally UNIQUE).  Rate-limited (10/15min).
+
+    PATCH  /claim          Body: { plan?, gcashRef? }   (only the sent fields change)
+      Fix a typo'd reference (or switch plan) on the STILL-PENDING claim, in place —
+      so a wrong character doesn't force the owner to wait for the operator. Re-checks
+      ref uniqueness (excluding the claim's own ref) and re-snapshots the price.
+      → 200 { success, data: { status: 'pending', plan, amountPhp, gcashRef } }
+      → 400 bad plan / ref | 404 nothing pending | 409 ref already used, or the
+        claim was just reviewed.  Rate-limited (shares the /claim 10/15min limiter).
+
+    DELETE /claim          Withdraw the pending claim (changed mind / wrong plan).
+      Hard-deletes the pending row, freeing its reference for reuse.
+      → 200 { success } | 404 nothing pending.  Rate-limited (shares /claim).
 
   ──────────────────────────────────────────────────────────────
   OPERATOR  /api/admin    (Phase 6.6 — platform super-admin only)
@@ -1304,9 +1328,12 @@
     POST   /tickets        Auth + loadStore (any tenant user; rate-limited 10/15min)
       Body: { category?, message }   category ∈ bug | question | billing | other
       Submits a one-way support ticket, AUTO-TAGGED with the session's user_id +
-      store_id (never the body). Capped at 5 OPEN tickets per store. The super-admin
-      reads/closes them via /api/admin/tickets.
-      → 201 { success } | 400 empty / too long (>2000) | 429 too many open
+      store_id (never the body). The super-admin reads/closes them via
+      /api/admin/tickets. Anti-spam, layered: max 5 OPEN tickets per store, a
+      per-store/day total cap of 10 (so close→reopen can't flood the inbox), and
+      identical text from the same store within 2 minutes is dropped as a duplicate.
+      → 201 { success } | 400 empty / too long (>2000)
+      → 429 too many open | daily cap reached | duplicate within the window
 
   ──────────────────────────────────────────────────────────────
   HEALTH CHECK  /api/health

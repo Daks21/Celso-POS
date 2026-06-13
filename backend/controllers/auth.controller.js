@@ -300,15 +300,24 @@ const forgotPassword = async (req, res, next) => {
       await compareAnswer(securityAnswer, DUMMY_ANSWER_HASH); // uniform timing on a miss
     }
 
-    await resetRequest.create({
-      email: normEmail,
-      submitted_mobile: String(mobile).trim().slice(0, 20),
-      mobile_match: mobileMatch,
-      answer_match: answerMatch,
-      history_answers: historyAnswers ? String(historyAnswers).slice(0, 2000) : null,
-      user_id: userId,
-      store_id: storeId,
-    });
+    // Anti-spam: only persist a REVIEWABLE request when the email maps to a real
+    // owner account. The operator can only act on matched requests anyway
+    // (approveReset 422s without an owner), so storing no-match rows just floods the
+    // board — and an attacker rotating junk emails could spam it. The response AND
+    // timing are unchanged (the dummy-hash bcrypt above already ran on the miss
+    // path), so this doesn't weaken anti-enumeration. A real owner is still bounded
+    // by the per-email/day cap + one-open dedupe checked above.
+    if (userId) {
+      await resetRequest.create({
+        email: normEmail,
+        submitted_mobile: String(mobile).trim().slice(0, 20),
+        mobile_match: mobileMatch,
+        answer_match: answerMatch,
+        history_answers: historyAnswers ? String(historyAnswers).slice(0, 2000) : null,
+        user_id: userId,
+        store_id: storeId,
+      });
+    }
 
     return generic();
   } catch (err) {

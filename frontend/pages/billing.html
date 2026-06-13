@@ -44,6 +44,12 @@
     html[data-theme="dark"] .bill-chip--bad{background:rgba(248,113,113,.16);color:#fca5a5}
     html[data-theme="dark"] .bill-countdown.is-bad .bill-cd-days{color:#fca5a5}
 
+    .bill-reject{background:rgba(220,38,38,.08);border:1px solid var(--color-error);border-radius:var(--radius-md);padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .bill-reject-title{font-size:15px;font-weight:700;color:var(--color-error)}
+    .bill-reject-note{font-size:13px;color:var(--color-text);margin-top:3px;max-width:560px}
+    html[data-theme="dark"] .bill-reject{background:rgba(248,113,113,.12)}
+    html[data-theme="dark"] .bill-reject-title{color:#fca5a5}
+
     .bill-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
     .bill-card{position:relative;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:20px;display:flex;flex-direction:column;box-shadow:var(--shadow-sm)}
     .bill-card.is-current{border-color:var(--color-primary);box-shadow:0 0 0 1px var(--color-primary),var(--shadow-md)}
@@ -125,6 +131,14 @@
             </div>
             <div class="bill-cd-bar"><div class="bill-cd-fill" id="bill-cd-fill"></div></div>
           </div>
+        </div>
+
+        <div class="bill-reject" id="bill-reject" style="display:none">
+          <div>
+            <div class="bill-reject-title">Your last payment couldn’t be verified</div>
+            <div class="bill-reject-note" id="bill-reject-note"></div>
+          </div>
+          <button type="button" class="bill-btn" id="bill-reject-cta" style="max-width:200px">Submit again</button>
         </div>
 
         <div class="bill-grid">

@@ -407,6 +407,14 @@ async function getBillingState() { return apiCall('/billing/state'); }
 async function submitClaim(plan, gcashRef) {
   return apiCall('/billing/claim', { method: 'POST', body: JSON.stringify({ plan, gcashRef }) });
 }
+// Fix a typo'd reference (or switch plan) on the still-pending claim, in place.
+async function editClaim(plan, gcashRef) {
+  return apiCall('/billing/claim', { method: 'PATCH', body: JSON.stringify({ plan, gcashRef }) });
+}
+// Withdraw the pending claim (owner changed their mind / wrong plan).
+async function cancelClaim() {
+  return apiCall('/billing/claim', { method: 'DELETE' });
+}
 
 // --- Operator / super-admin (Phase 6.6; /api/admin — 404s for non-super-admins) ---
 async function getAdminStats(period) {

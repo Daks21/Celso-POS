@@ -9,7 +9,9 @@ const ticketModel = require('../models/ticket.model');
 
 const ALLOWED_CATEGORIES = ['bug', 'question', 'billing', 'other'];
 const MAX_MESSAGE_LEN     = 2000;
-const MAX_OPEN_PER_STORE  = 5;   // anti-spam: don't let one store pile up open tickets
+const MAX_OPEN_PER_STORE  = 5;           // don't let one store pile up open tickets
+const MAX_PER_DAY         = 10;          // total/store/day — bounds close→reopen churn
+const DUP_WINDOW_MS       = 2 * 60 * 1000; // identical text within 2 min = a duplicate
 
 // POST /api/support/tickets   { category?, message }
 const submit = async (req, res, next) => {
@@ -30,6 +32,26 @@ const submit = async (req, res, next) => {
       return res.status(429).json({
         success: false,
         message: "You have several open tickets already — we'll get back to you soon.",
+      });
+    }
+
+    // Per-store/day total cap — the open cap bounds the standing queue, this bounds
+    // churn from repeatedly closing and re-opening to flood the operator.
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    if (await ticketModel.countByStoreSince(req.user.storeId, since24h) >= MAX_PER_DAY) {
+      return res.status(429).json({
+        success: false,
+        message: "You've reached today's limit for messages — we'll get back to you soon.",
+      });
+    }
+
+    // Duplicate suppression: identical text from this store within a short window
+    // (accidental double-tap / rapid spam) is dropped without creating a new ticket.
+    const dupSince = new Date(Date.now() - DUP_WINDOW_MS);
+    if (await ticketModel.existsRecentDuplicate(req.user.storeId, message, dupSince)) {
+      return res.status(429).json({
+        success: false,
+        message: 'You just sent this — please give us a moment to read it.',
       });
     }
 

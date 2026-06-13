@@ -19,6 +19,7 @@ window.BillingModal = (function () {
   var _built = false;
   var _state = null;
   var _plan = null;
+  var _editing = false;   // true when the pay form is correcting an existing pending claim
 
   function peso(n) { return '₱' + Number(n || 0).toLocaleString('en-PH'); }
 
@@ -54,6 +55,7 @@ window.BillingModal = (function () {
       return;
     }
     _plan = plan;
+    _editing = false;
     build();
     var overlay = document.getElementById('bm-overlay');
     var body = document.getElementById('bm-body');
@@ -70,8 +72,11 @@ window.BillingModal = (function () {
     renderPay();
   }
 
-  function renderPay() {
-    document.getElementById('bm-title').textContent = 'Pay for ' + (LABELS[_plan] || _plan);
+  // prefillRef: pre-populate the reference field (used when editing a pending claim).
+  function renderPay(prefillRef) {
+    document.getElementById('bm-title').textContent = _editing
+      ? 'Update your payment reference'
+      : 'Pay for ' + (LABELS[_plan] || _plan);
     var body = document.getElementById('bm-body');
     var g = _state.gcash || {};
     var amount = (_state.prices && _state.prices[_plan]) || 0;
@@ -99,7 +104,8 @@ window.BillingModal = (function () {
         '<input class="bm-input" id="bm-ref" inputmode="numeric" autocomplete="off" ' +
           'placeholder="GCash reference number">' +
         '<div class="bm-err" id="bm-err"></div>' +
-        '<button type="button" class="bm-submit" id="bm-submit">I’ve paid — submit for review</button>' +
+        '<button type="button" class="bm-submit" id="bm-submit">' +
+          (_editing ? 'Update reference' : 'I’ve paid — submit for review') + '</button>' +
         '<p class="bm-note">We’ll verify your payment and activate ' + LABELS[_plan] +
           ' (usually within a day). You’ll keep your current access until then.</p>' +
       '</div>';
@@ -109,6 +115,7 @@ window.BillingModal = (function () {
     body.querySelector('#bm-amount').textContent = peso(amount);
     body.querySelector('#bm-gname').textContent = g.name || '';
     body.querySelector('#bm-gnumber').textContent = g.number || '';
+    if (prefillRef) body.querySelector('#bm-ref').value = prefillRef;
 
     body.querySelector('#bm-submit').addEventListener('click', submit);
     body.querySelector('#bm-ref').addEventListener('keydown', function (e) {
@@ -126,13 +133,16 @@ window.BillingModal = (function () {
       errEl.textContent = 'Enter the numeric reference number from your GCash receipt.';
       return;
     }
-    btn.disabled = true; btn.textContent = 'Submitting…';
-    var res = await submitClaim(_plan, ref);
+    var wasEditing = _editing;
+    btn.disabled = true; btn.textContent = wasEditing ? 'Updating…' : 'Submitting…';
+    var res = wasEditing ? await editClaim(_plan, ref) : await submitClaim(_plan, ref);
     if (res && res.success) {
+      _editing = false;
       renderPending({ plan: _plan, amountPhp: (_state.prices && _state.prices[_plan]) || 0, gcashRef: ref });
     } else {
       errEl.textContent = (res && res.message) || 'Could not submit. Please try again.';
-      btn.disabled = false; btn.textContent = 'I’ve paid — submit for review';
+      btn.disabled = false;
+      btn.textContent = wasEditing ? 'Update reference' : 'I’ve paid — submit for review';
     }
   }
 
@@ -146,12 +156,39 @@ window.BillingModal = (function () {
         'We’ll activate it shortly — you’ll keep your current access in the meantime.</p>' +
         '<p class="bm-note">Reference <span id="bm-pr"></span>' +
           '<span id="bm-pa"></span></p>' +
+        // Until the operator reviews it, the owner can still fix a wrong reference
+        // or withdraw the request entirely.
+        '<p class="bm-note">Wrong reference number? You can still correct it.</p>' +
+        '<div class="bm-pending-actions">' +
+          '<button type="button" class="bm-linkbtn" id="bm-edit">Edit reference</button>' +
+          '<button type="button" class="bm-linkbtn bm-linkbtn--danger" id="bm-cancel">Cancel request</button>' +
+        '</div>' +
         '<button type="button" class="bm-submit" id="bm-done" style="max-width:160px;margin:8px auto 0">Done</button>' +
       '</div>';
     body.querySelector('#bm-pp').textContent = LABELS[claim.plan] || claim.plan;
     body.querySelector('#bm-pr').textContent = claim.gcashRef || '';
     body.querySelector('#bm-pa').textContent = claim.amountPhp ? ('  ·  ' + peso(claim.amountPhp)) : '';
     body.querySelector('#bm-done').addEventListener('click', close);
+
+    body.querySelector('#bm-edit').addEventListener('click', function () {
+      _editing = true;
+      _plan = claim.plan;            // keep the same plan; the owner is just fixing the ref
+      renderPay(claim.gcashRef);
+    });
+
+    body.querySelector('#bm-cancel').addEventListener('click', async function () {
+      if (!window.confirm('Cancel this payment request? You can submit a new one afterwards.')) return;
+      var cancelBtn = document.getElementById('bm-cancel');
+      cancelBtn.disabled = true; cancelBtn.textContent = 'Cancelling…';
+      var res = await cancelClaim();
+      if (res && res.success) {
+        _editing = false;
+        renderPay('');               // back to a fresh pay form so they can resubmit
+      } else {
+        cancelBtn.disabled = false; cancelBtn.textContent = 'Cancel request';
+        window.alert((res && res.message) || 'Could not cancel. Please try again.');
+      }
+    });
   }
 
   return { open: open, close: close };

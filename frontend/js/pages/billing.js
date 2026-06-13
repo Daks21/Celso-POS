@@ -102,6 +102,33 @@
     });
   }
 
+  // Surface the outcome of a reviewed payment the owner might not know about:
+  // when the most recent claim was REJECTED and nothing is pending now, show a
+  // banner with the operator's note + a Submit-again CTA. (A pending or approved
+  // claim shows through the chips/plan state instead.) Session-dismissed per claim
+  // id so it doesn't nag on every load once acknowledged.
+  function renderReject(d) {
+    var el = document.getElementById('bill-reject');
+    if (!el) return;
+    var lc = d.lastClaim;
+    if (!lc || lc.status !== 'rejected' || d.pendingClaim) { el.style.display = 'none'; return; }
+    try {
+      if (sessionStorage.getItem('billRejectDismissed') === String(lc.id)) { el.style.display = 'none'; return; }
+    } catch (_) {}
+
+    var msg = 'Your GCash payment for ' + (LABELS[lc.plan] || lc.plan) +
+      (lc.gcashRef ? ' (ref ' + lc.gcashRef + ')' : '') + ' was not approved.';
+    if (lc.reviewNote) msg += ' Reason: ' + lc.reviewNote + '.';
+    msg += ' Double-check the reference number and submit again.';
+    document.getElementById('bill-reject-note').textContent = msg;  // textContent — operator note is untrusted
+    el.style.display = 'flex';
+
+    document.getElementById('bill-reject-cta').onclick = function () {
+      try { sessionStorage.setItem('billRejectDismissed', String(lc.id)); } catch (_) {}
+      if (typeof BillingModal !== 'undefined') BillingModal.open(lc.plan);
+    };
+  }
+
   // Deep-link from a locked page / dashboard promo: ?plan=plus highlights and
   // scrolls to that card so the suggested plan isn't lost in the grid.
   function highlightSuggested() {
@@ -122,6 +149,7 @@
     renderChips(d);
     renderCountdown(d);
     renderPlans(d);
+    renderReject(d);
     if (!d.gcash || !d.gcash.qrUrl) {
       noteEl.textContent = 'Online payments aren’t set up yet — upgrades will be available once the GCash QR is configured.';
     } else {

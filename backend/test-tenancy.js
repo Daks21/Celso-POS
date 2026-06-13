@@ -272,6 +272,41 @@ async function run() {
   check('Duplicate gcash_ref → 409',
     (await req('POST', '/api/billing/claim', { plan: 'pro', gcashRef: refB }, tokenA)).status === 409);
 
+  // ── Claim self-service: rejection feedback + edit + cancel (owner side) ──
+  // B's most recent claim was just rejected — /state.lastClaim surfaces it (with
+  // the operator's note) so the owner learns why; pendingClaim can't, it's gone.
+  check('B /state.lastClaim surfaces the rejection + note',
+    bState.body.data.lastClaim && bState.body.data.lastClaim.status === 'rejected' &&
+    bState.body.data.lastClaim.reviewNote === 'test reject');
+
+  // A (active plus, no pending) submits a fresh claim, then corrects a typo'd ref
+  // IN PLACE — without burning the one-pending slot.
+  const refEdit1 = '93' + String(RUN).slice(-9);
+  const refEdit2 = '94' + String(RUN).slice(-9);
+  check('A submits a new claim to edit → 201',
+    (await req('POST', '/api/billing/claim', { plan: 'pro', gcashRef: refEdit1 }, tokenA)).status === 201);
+
+  const editOk = await req('PATCH', '/api/billing/claim', { gcashRef: refEdit2 }, tokenA);
+  check('A edits the pending claim ref in place → 200',
+    editOk.status === 200 && editOk.body.data && editOk.body.data.gcashRef === refEdit2);
+  const aStateEdit = await req('GET', '/api/billing/state', null, tokenA);
+  check('Pending claim now carries the corrected ref',
+    aStateEdit.body.data.pendingClaim && aStateEdit.body.data.pendingClaim.gcashRef === refEdit2);
+
+  // Editing onto a ref already used by ANOTHER claim (refA, approved) is rejected.
+  check('Edit onto an already-used ref → 409',
+    (await req('PATCH', '/api/billing/claim', { gcashRef: refA }, tokenA)).status === 409);
+
+  // Withdraw the pending claim → frees it; a second cancel/edit finds nothing.
+  check('A cancels the pending claim → 200',
+    (await req('DELETE', '/api/billing/claim', null, tokenA)).status === 200);
+  check('A /state has no pending claim after cancel',
+    !(await req('GET', '/api/billing/state', null, tokenA)).body.data.pendingClaim);
+  check('Cancel again with nothing pending → 404',
+    (await req('DELETE', '/api/billing/claim', null, tokenA)).status === 404);
+  check('Edit with nothing pending → 404',
+    (await req('PATCH', '/api/billing/claim', { gcashRef: refEdit1 }, tokenA)).status === 404);
+
   // ── Cleanup (best-effort) ────────────────────────────────────
   console.log('\n── Cleanup ────────────────────────────────────────────────');
   try {
