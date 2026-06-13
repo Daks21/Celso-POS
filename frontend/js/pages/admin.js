@@ -368,12 +368,14 @@ checkAuth();
     var res = await safe(getAdminTickets(ticketStatus));
     if (!res || !res.success) { ticketsBody.innerHTML = '<tr><td colspan="6" class="op-muted">Could not load tickets.</td></tr>'; return; }
     var rows = res.data || [];
+    ticketsBody._rows = {};
     if (!rows.length) { ticketsBody.innerHTML = '<tr><td colspan="6" class="op-muted">No ' + ticketStatus + ' tickets.</td></tr>'; return; }
     ticketsBody.innerHTML = rows.map(function (t) {
+      ticketsBody._rows[t.id] = t;
       var action = t.status === 'open'
         ? '<button class="op-btn-sm op-approve op-ticket-close" data-id="' + t.id + '">Close</button>'
         : '<span class="op-status op-status--completed">closed</span>';
-      return '<tr>' +
+      return '<tr class="op-row-click" data-id="' + t.id + '">' +
         '<td>' + esc(t.user_name || (t.user_id ? ('User #' + t.user_id) : '—')) + '</td>' +
         '<td>' + esc(t.store_name || (t.store_id ? ('Store #' + t.store_id) : '—')) + '</td>' +
         '<td>' + esc(TOPIC[t.category] || t.category) + '</td>' +
@@ -388,17 +390,66 @@ checkAuth();
 
   if (ticketsBody) ticketsBody.addEventListener('click', async function (e) {
     var btn = e.target.closest('.op-ticket-close');
-    if (!btn) return;
-    btn.disabled = true; btn.textContent = '…';
-    var res = await safe(closeAdminTicket(btn.getAttribute('data-id')));
-    if (res && res.success) {
-      if (typeof showApiSuccess === 'function') showApiSuccess('Ticket closed.');
-      loadTickets(); loadNotifications();
-    } else {
-      if (typeof showApiError === 'function') showApiError((res && res.message) || 'Could not close ticket.');
-      btn.disabled = false; btn.textContent = 'Close';
+    if (btn) {
+      btn.disabled = true; btn.textContent = '…';
+      var res = await safe(closeAdminTicket(btn.getAttribute('data-id')));
+      if (res && res.success) {
+        if (typeof showApiSuccess === 'function') showApiSuccess('Ticket closed.');
+        loadTickets(); loadNotifications();
+      } else {
+        if (typeof showApiError === 'function') showApiError((res && res.message) || 'Could not close ticket.');
+        btn.disabled = false; btn.textContent = 'Close';
+      }
+      return;
     }
+    var tr = e.target.closest('tr.op-row-click');
+    if (!tr) return;
+    var t = ticketsBody._rows && ticketsBody._rows[tr.getAttribute('data-id')];
+    if (t) openTicketModal(t);
   });
+
+  // ── Support ticket detail modal ──
+  var ticketModal = document.getElementById('op-ticket-modal');
+  var ticketModalBody = document.getElementById('op-ticket-modal-body');
+
+  function closeTicketModal() { if (ticketModal) ticketModal.style.display = 'none'; }
+  (function () {
+    var closeBtn = document.getElementById('op-ticket-modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeTicketModal);
+    if (ticketModal) ticketModal.addEventListener('click', function (e) { if (e.target === ticketModal) closeTicketModal(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeTicketModal(); });
+  })();
+
+  function openTicketModal(t) {
+    if (!ticketModal || !ticketModalBody) return;
+    var sc = '<div class="op-scorecard">' +
+      scLine('User', esc(t.user_name || (t.user_id ? ('User #' + t.user_id) : '—'))) +
+      scLine('Store', esc(t.store_name || (t.store_id ? ('Store #' + t.store_id) : '—'))) +
+      scLine('Topic', esc(TOPIC[t.category] || t.category)) +
+      scLine('Submitted', fmtDate(t.created_at)) +
+      scLine('Status', '<span class="op-status op-status--' + (t.status === 'open' ? 'pending' : 'completed') + '">' + esc(t.status) + '</span>') +
+      '</div>';
+    var msg = '<div class="op-ticket-msg">' + esc(t.message || '') + '</div>';
+    var actions = t.status === 'open'
+      ? '<div class="op-modal-actions"><button class="op-btn-sm op-approve op-ticket-close" data-id="' + t.id + '">Close ticket</button></div>'
+      : '';
+    ticketModalBody.innerHTML = sc + msg + actions;
+
+    var closeTicketBtn = ticketModalBody.querySelector('.op-ticket-close');
+    if (closeTicketBtn) closeTicketBtn.addEventListener('click', async function () {
+      closeTicketBtn.disabled = true; closeTicketBtn.textContent = '…';
+      var res = await safe(closeAdminTicket(t.id));
+      if (res && res.success) {
+        if (typeof showApiSuccess === 'function') showApiSuccess('Ticket closed.');
+        closeTicketModal(); loadTickets(); loadNotifications();
+      } else {
+        if (typeof showApiError === 'function') showApiError((res && res.message) || 'Could not close ticket.');
+        closeTicketBtn.disabled = false; closeTicketBtn.textContent = 'Close ticket';
+      }
+    });
+
+    ticketModal.style.display = 'flex';
+  }
 
   // ── Notification bell + per-card badges ──
   function setCardBadge(id, n) {

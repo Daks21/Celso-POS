@@ -60,7 +60,7 @@
     .op-match-no{color:var(--color-error);font-weight:700}
     .op-freq-flag{color:var(--color-error);font-weight:700}
     .op-row-click{cursor:pointer}
-    .op-msg-cell{max-width:320px;white-space:normal;word-break:break-word}
+    .op-msg-cell{max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .op-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
     .op-modal{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);max-width:560px;width:100%;max-height:90vh;overflow:auto;scrollbar-width:none}
     .op-modal::-webkit-scrollbar{display:none}
@@ -79,6 +79,7 @@
     .op-codebox{margin-top:14px;padding:14px;border:1px dashed var(--color-primary);border-radius:var(--radius-sm);background:rgba(90,158,111,.10)}
     .op-codebox code{display:block;font-size:24px;font-weight:700;letter-spacing:3px;color:var(--color-text);margin:6px 0;text-align:center}
     .op-modal-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+    .op-ticket-msg{margin-top:12px;padding:12px 14px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-bg,rgba(0,0,0,.02));white-space:pre-wrap;word-break:break-word;font-size:13.5px;line-height:1.55;color:var(--color-text)}
 
     .op-qr-grid{display:grid;grid-template-columns:200px 1fr;gap:20px;align-items:start}
     .op-qr-preview img{width:180px;height:180px;object-fit:contain;border:1px solid var(--color-border);border-radius:var(--radius-md);background:#fff}
@@ -240,6 +241,17 @@
         <button type="button" class="op-modal-close" id="op-reset-modal-close" aria-label="Close">&times;</button>
       </div>
       <div class="op-modal-body" id="op-reset-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Support ticket detail -->
+  <div class="op-modal-overlay" id="op-ticket-modal" style="display:none">
+    <div class="op-modal">
+      <div class="op-modal-head">
+        <h3>Support ticket</h3>
+        <button type="button" class="op-modal-close" id="op-ticket-modal-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="op-modal-body" id="op-ticket-modal-body"></div>
     </div>
   </div>
 
