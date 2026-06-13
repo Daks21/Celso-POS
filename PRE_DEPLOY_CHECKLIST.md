@@ -1,5 +1,15 @@
 # Celso POS — Pre-Deploy Smoke & QA Checklist
 
+> **Purpose:** the go/no-go runbook for launch day. Work through it top-to-bottom
+> every time you deploy to production — A (verify locally) → B (prod setup, order
+> matters) → C (smoke the live URL) → D (known accepted risks). It exists so a
+> deploy is a deliberate, repeatable procedure, not a guess: it remembers the
+> easy-to-forget, expensive-to-miss steps (e.g. set `TRUST_PROXY`, never run
+> `seed.sql` in prod) for a solo operator with no second pair of eyes. Go/no-go
+> rule is at the bottom. Keep it in sync when behavior changes, or it quietly
+> certifies things it no longer tests. NOT a substitute for the automated suites
+> or for proven backups — it points at those.
+
 Right-sized for a first production launch: a **delta + smoke** pass, not a full re-QA.
 The whole app was already vetted in the earlier A–E QA; everything new since is Phase
 6.7 (password recovery + support tickets) + the show-password/security fixes, all
@@ -46,6 +56,18 @@ Status at last check: `test-recovery` 41/41 · `test-tenancy` 57/57 · `test-int
 - [ ] **Billing claim self-service:** submit a GCash claim → on the pending screen, **Edit reference** corrects a typo'd ref and **Cancel request** withdraws it; after an operator **rejects** a claim, the Billing page shows the rejection banner + Submit-again CTA.
 - [ ] Log out → confirm the session is fully cleared (shared-device wipe).
 
+**A4b. Full-feature smoke (~10 min) — the paths the automated suites DON'T cover by hand.**
+> The suites cover sales/products/tenancy/recovery; these features are not asserted there,
+> so tick each once so a deploy doesn't *assume* they still work.
+- [ ] **Inventory:** restock a product (qty goes up, audit row logged); a damage/return adjustment moves stock the right way and never below 0.
+- [ ] **Products:** delete → it appears in **Archived** → **Restore** brings it back on the same id with history intact.
+- [ ] **Finance:** add a capital-in and a withdrawal (incl. a borrowed loan with terms) → **Net / Debt / Profit** tiles update; edit + delete a manual entry.
+- [ ] **Analytics:** page loads — KPI cards, charts, heatmap, and (Plus) inventory-health + monthly-goal projection all render without errors.
+- [ ] **Sale edit:** edit a past sale from History (change a qty / toggle tax) → stock, Finance "Money In", and totals all reconcile.
+- [ ] **Os AI (Plus):** enable in Account → FAB appears → ask one question → it streams a reply; a Free store sees the upgrade gate instead.
+- [ ] **Super-admin OPERATIONS (not just reachable):** approve a real claim → store activates + seats reconcile; reject one → owner sees the rejection; **Revert** a mistaken approval; upload/replace the GCash QR; review + approve a reset request.
+- [ ] **Plan gating:** a Free owner sees locked overlays on Plus pages; an operator-approved upgrade unlocks them **without re-login** (entitlements refresh on next page load).
+
 **A5. Cache-bust before pushing:**
 - [ ] `node scripts/bust-cache.js` → commit the `?v=` bumps (so new `icons.js`/`main.css`/pages aren't served stale).
 
@@ -61,6 +83,7 @@ Status at last check: `test-recovery` 41/41 · `test-tenancy` 57/57 · `test-int
 - [ ] Deploy the code (push / trigger build).
 - [ ] Seed the operator: `node backend/scripts/create-superadmin.js` against prod (needed to review billing claims AND password-reset requests).
 - [ ] (Billing) Upload the GCash receiving QR + name/number in the operator console, if launching paid plans.
+- [ ] **Backups (non-negotiable — financial data):** enable automated daily DB backups on the MySQL host, then perform **ONE test restore** into a scratch DB and confirm it loads. Backups you've never restored are not backups. (README Phase 7.6.)
 
 ## C. Post-deploy smoke (on the live URL)
 - [ ] Site loads over **HTTPS** (Railway provides it); no mixed-content warnings.
