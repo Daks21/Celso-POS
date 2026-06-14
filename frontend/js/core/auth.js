@@ -383,7 +383,7 @@ function _cachePreferences(prefs, userId) {
     dashboardRecentCount: 5, dashboardWidgets: [],
     navLabel: 'app', logoTarget: defaultLogoTarget(), showThemeToggle: false,
     financeDebtBalanceVisible: true, osEnabled: false,
-    numpadOnDesktop: false,
+    numpadOnDesktop: false, printSalesRecordEnabled: false,
   };
   var p = Object.assign({}, DEFAULTS, prefs);
 
@@ -413,6 +413,7 @@ function _cachePreferences(prefs, userId) {
   // storeName/storeAddress are no longer sourced from per-user preferences —
   // they live on the store row and are cached from the login / getMe response.
   localStorage.setItem('numpadOnDesktop', String(p.numpadOnDesktop === true));
+  localStorage.setItem('printSalesRecordEnabled', String(p.printSalesRecordEnabled === true));
 
   // Restore user-specific prefs blob (Os toggle, advanced analytics, etc.)
   var userPrefsKey = 'prefs_' + String(userId);

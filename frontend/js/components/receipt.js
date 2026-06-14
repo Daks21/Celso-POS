@@ -72,6 +72,12 @@ function showReceipt(sale) {
   receiptPayment.textContent = formatPeso(sale.payment);
   receiptChange.textContent = formatPeso(sale.change);
 
+  // Printing an internal sales record is opt-in (default OFF) via Account settings.
+  if (printReceiptButton) {
+    printReceiptButton.style.display =
+      localStorage.getItem("printSalesRecordEnabled") === "true" ? "" : "none";
+  }
+
   receiptModal.style.display = "flex";
 }
 

@@ -418,6 +418,16 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     );
 
+    // ── Print Sales Record button on the receipt modal (default OFF) ──
+    initPrefToggle(
+      'print-sales-record-toggle',
+      localStorage.getItem('printSalesRecordEnabled') === 'true',  // default OFF
+      function(isOn) {
+        localStorage.setItem('printSalesRecordEnabled', String(isOn));
+        syncToDb();
+      }
+    );
+
     // ── Timezone (store-wide) ──
     var tzSelect    = document.getElementById('timezone-select');
     var tzSaveBtn   = document.getElementById('save-timezone-btn');

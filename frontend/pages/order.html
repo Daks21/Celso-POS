@@ -309,6 +309,7 @@
         <div class="receipt-header">
           <h2 id="receipt-store-name">Celso POS Store</h2>
           <p id="receipt-store-address">123 Sample Street, Quezon City</p>
+          <p class="receipt-doctype">Sales Record</p>
 
           <div class="receipt-meta">
             <p>Receipt #: <span id="receipt-number">---</span></p>
@@ -369,12 +370,15 @@
 
         <div class="receipt-footer">
           <p>Thank you for your purchase!</p>
+          <p class="receipt-disclaimer">This is an internal sales record only and
+          is not a BIR-registered invoice. Please issue your BIR-compliant invoice
+          to the customer separately.</p>
         </div>
       </div>
 
       <div class="receipt-actions">
-        <button type="button" class="submit-button" id="print-receipt-button">
-          Print Receipt
+        <button type="button" class="submit-button" id="print-receipt-button" style="display:none">
+          Print Sales Record
         </button>
 
         <button type="button" class="secondary-button" id="new-sale-button">

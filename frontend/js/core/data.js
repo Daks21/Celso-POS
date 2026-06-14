@@ -142,6 +142,7 @@ function collectCurrentPreferences(userId) {
     storeName:                localStorage.getItem('storeName')    || '',
     storeAddress:             localStorage.getItem('storeAddress') || '',
     numpadOnDesktop:          localStorage.getItem('numpadOnDesktop') === 'true',
+    printSalesRecordEnabled:  localStorage.getItem('printSalesRecordEnabled') === 'true',
   };
 }
 

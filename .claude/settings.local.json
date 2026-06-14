@@ -124,7 +124,9 @@
       "PowerShell($r = Invoke-WebRequest -Uri 'http://localhost:3000/index.html' -UseBasicParsing -TimeoutSec 5; \"HTTP $\\($r.StatusCode\\)\"; \"=== global playwright path ===\"; \\(npm root -g\\); $p = Join-Path \\(npm root -g\\) 'playwright'; \"playwright module exists: $\\(Test-Path $p\\)\")",
       "Bash(findstr /V \"resp\")",
       "Bash(PORT=3999 node *)",
-      "Bash(TEST_PORT=3999 node test-recovery.js)"
+      "Bash(TEST_PORT=3999 node test-recovery.js)",
+      "Bash(ls -la celsopos_*)",
+      "Bash(ls -la Celsopos_*)"
     ]
   }
 }
