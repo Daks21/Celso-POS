@@ -158,8 +158,9 @@ const login = async (req, res, next) => {
       { id: user.id, fullName: user.fullName, email: user.email, role: user.role, storeId: user.storeId, sid: sessionId },
       process.env.JWT_SECRET,
       // Short-lived by default: store devices are shared, so a long-lived token
-      // left signed in is a risk. Tunable per-deployment via JWT_EXPIRES_IN.
-      { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
+      // left signed in is a risk. 12h is shift-bound — a session a cashier forgot
+      // to log out of dies overnight. Tunable per-deployment via JWT_EXPIRES_IN.
+      { expiresIn: process.env.JWT_EXPIRES_IN || '12h' }
     );
 
     // Return THIS store's timezone so the client renders dates in store-local

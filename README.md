@@ -1440,9 +1440,9 @@
                                 testing from a laptop); then the connection does not
                                 pin a CA (rejectUnauthorized:false).
     FRONTEND_URL       http://localhost:5173   CORS origin
-    JWT_EXPIRES_IN     1d       Token lifetime (e.g. 1d, 12h, 30m; any
+    JWT_EXPIRES_IN     12h      Token lifetime (e.g. 1d, 12h, 30m; any
                                 jsonwebtoken-accepted span). Devices are commonly
-                                SHARED — prefer a shift-bound 12h in production so a
+                                SHARED, so the default is a shift-bound 12h: a
                                 session a cashier forgot to log out of dies
                                 overnight instead of lasting a full day.
     NODE_ENV           —        Set to 'production' on the live deploy (switches
@@ -1483,7 +1483,7 @@
     DB_NAME=celsopos_db
     PORT=3000
     FRONTEND_URL=http://localhost:5173
-    JWT_EXPIRES_IN=1d
+    JWT_EXPIRES_IN=12h
     GROQ_API_KEY=gsk_your_groq_api_key_here
 
 ================================================================
@@ -1495,7 +1495,7 @@
 
   JWT AUTHENTICATION
     Signed with a 128-character cryptographically random JWT_SECRET.
-    Token expiry: 1 day (24h), configurable via JWT_EXPIRES_IN. Role
+    Token expiry: 12 hours (shift-bound default), configurable via JWT_EXPIRES_IN. Role
     (admin/cashier), store_id, and the login session id are embedded in the
     payload. Entitlements are NOT in the token — they resolve from the DB per
     request (so a token can't elevate a plan).
