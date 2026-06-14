@@ -377,8 +377,10 @@
   │  auth.middleware, migrate_password_recovery.sql (users.mobile/security_answer_hash/
   │  pw_reset_expires_at, password_reset_requests, support_tickets). Frontend adds
   │  pages/auth/forgot-password.html + change-password.html (+ their js), register +
-  │  account Security/Support fields, and the operator reset board + ticket inbox +
-  │  bell on pages/admin.html. See celsopos_P6-7.txt.
+  │  account Security/Support fields, and the operator reset board + paid/free
+  │  support ticket inboxes (paid = priority, owner call-back contact) + bell on
+  │  pages/admin.html, with claims/reset/ticket lists paged 10/page server-side.
+  │  See celsopos_P6-7.txt.
   │
   └── tests/   (run from backend/ with the API server up; see Section 9)
       ├── test-checkpoint37.js ← Security + integration tests (37 checks)
