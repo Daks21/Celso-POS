@@ -37,7 +37,7 @@ function showReceipt(sale) {
   if (nameEl) nameEl.textContent = localStorage.getItem('storeName')    || 'Celso POS Store';
   if (addrEl) addrEl.textContent = localStorage.getItem('storeAddress') || '123 Sample Street, Quezon City';
 
-  receiptNumber.textContent = sale.receiptNo || `RCPT-${sale.id}`;
+  receiptNumber.textContent = sale.receiptNo || ('RCPT-' + String(sale.id).padStart(6, '0'));
   receiptDate.textContent = formatDateTz(sale.timestamp);
   receiptTime.textContent = formatTimeTz(sale.timestamp);
   receiptCashier.textContent = sale.cashier;

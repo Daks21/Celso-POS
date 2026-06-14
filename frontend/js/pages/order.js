@@ -718,51 +718,9 @@ async function completeSale() {
   }
 }
 
-function showReceipt(sale) {
-  var nameEl = document.getElementById('receipt-store-name');
-  var addrEl = document.getElementById('receipt-store-address');
-  if (nameEl) nameEl.textContent = localStorage.getItem('storeName')    || 'Celso POS Store';
-  if (addrEl) addrEl.textContent = localStorage.getItem('storeAddress') || '123 Sample Street, Quezon City';
-
-  receiptNumber.textContent = sale.receiptNo || ('RCPT-' + String(sale.id).padStart(6, '0'));
-  receiptDate.textContent = formatDateTz(sale.timestamp);
-  receiptTime.textContent = formatTimeTz(sale.timestamp);
-  receiptCashier.textContent = sale.cashier;
-
-  receiptItemsBody.innerHTML = "";
-
-  sale.items.forEach(function (item) {
-    const row = document.createElement("tr");
-    const tdName  = document.createElement("td"); tdName.textContent  = item.name;
-    const tdQty   = document.createElement("td"); tdQty.textContent   = item.quantity;
-    const tdPrice = document.createElement("td"); tdPrice.textContent = formatPeso(item.price);
-    const tdTotal = document.createElement("td"); tdTotal.textContent = formatPeso(item.lineTotal);
-    row.appendChild(tdName);
-    row.appendChild(tdQty);
-    row.appendChild(tdPrice);
-    row.appendChild(tdTotal);
-    receiptItemsBody.appendChild(row);
-  });
-
-  receiptSubtotal.textContent = formatPeso(sale.subtotal);
-
-  const receiptTaxRow    = document.getElementById('receipt-tax-row');
-  const receiptTaxAmount = document.getElementById('receipt-tax-amount');
-  if (receiptTaxRow && receiptTaxAmount) {
-    if (sale.tax > 0) {
-      receiptTaxAmount.textContent = formatPeso(sale.tax);
-      receiptTaxRow.style.display  = '';
-    } else {
-      receiptTaxRow.style.display = 'none';
-    }
-  }
-
-  receiptGrandTotal.textContent = formatPeso(sale.total);
-  receiptPayment.textContent = formatPeso(sale.payment);
-  receiptChange.textContent = formatPeso(sale.change);
-
-  receiptModal.style.display = "flex";
-}
+// showReceipt() lives in components/receipt.js (loaded before this file) so the
+// New Order and Sales History pages share one implementation, including the
+// opt-in Print Sales Record gating. Do not redefine it here.
 
 function renderCategoryPills() {
   const pillsContainer = document.getElementById('pos-category-pills');
