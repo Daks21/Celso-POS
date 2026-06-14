@@ -15,7 +15,7 @@
   PURPOSE       :
     - Help small business owners manage products and stock
     - Record and track sales quickly (POS-style)
-    - Generate receipts and view sales history
+    - Generate internal sales records (not BIR invoices) and view sales history
     - Provide a dashboard and analytics for business insights
     - Track capital, expenses, withdrawals, and outstanding utang
       (cashflow log — money in / money out / net / utang balance)
@@ -1785,10 +1785,22 @@
         HTML-escaped
 
     Module 1.8 — Receipt Generation
-      - Shared receipt modal (used on POS and History)
+      - Shared receipt modal — one implementation in components/receipt.js,
+        used by both POS (New Order) and History
       - Receipt number, date, cashier, itemized table
       - Subtotal, tax, total, payment, change
-      - Browser print support
+      - Labeled "Sales Record", NOT a BIR invoice: Celso POS is an internal
+        management tool, not a BIR-accredited POS. The modal carries a
+        "Sales Record" heading and a footer disclaimer stating it is not a
+        BIR-registered invoice and that the store must issue BIR-compliant
+        invoices separately. No BIR fields (TIN, accreditation no.) are
+        added — that keeps the app outside POS-accreditation scope. See the
+        Account → BIR & Compliance note.
+      - Opt-in browser print: the "Print Sales Record" button is hidden by
+        default and only shown when enabled in Account → New Order
+        (printSalesRecordEnabled, default OFF). Discourages slips being
+        mistaken for official invoices while still allowing print for users
+        who want one.
 
     Module 1.9 — Account Settings & Dropdown
       - Sidebar user card with popup dropdown
@@ -1800,8 +1812,15 @@
         the login/getMe response; rendered as the header on printed receipts
         (POS + History). The store name also drives the sidebar brand,
         falling back to "Celso POS" when blank.
-      - New Order: a single "numpad on desktop" toggle (off by default);
-        phones & tablets always use the numpad. Desktop owners type directly.
+      - New Order: a "numpad on desktop" toggle (off by default; phones &
+        tablets always use the numpad, desktop owners type directly), and a
+        "Print Sales Record button" toggle (off by default) that gates the
+        receipt-modal print button. Both auto-save and sync per-user via the
+        preferences blob.
+      - BIR & Compliance: a static note clarifying Celso POS is a management
+        tool (not a BIR-accredited POS), the Sales Record is not a BIR
+        invoice, and the owner remains responsible for their own BIR
+        registration and compliant invoicing.
       - Dashboard row count controls: separate selectors for
         Low Stock Alerts rows and Recent Transactions rows
       - Items popover toggle: show or hide the transaction detail
