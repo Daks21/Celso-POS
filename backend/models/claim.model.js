@@ -70,10 +70,21 @@ const deletePending = async (storeId) => {
 };
 
 // Operator list: claims joined to their store + submitting owner for display.
-// Optional status filter; pending first, then newest first.
-const listForAdmin = async ({ status } = {}) => {
+// Optional status filter; pending first, then newest first. Server-side paged:
+// returns { rows, total } where total is the unpaged count for the same filter.
+const listForAdmin = async ({ status, limit = 10, offset = 0 } = {}) => {
   const where  = status ? 'WHERE c.status = ?' : '';
   const params = status ? [status] : [];
+  const lim = Math.max(1, Math.min(100, Number(limit) || 10));
+  const off = Math.max(0, Number(offset) || 0);
+
+  const [cnt] = await db.query(
+    `SELECT COUNT(*) AS n
+       FROM payment_claims c
+       JOIN stores s ON s.id = c.store_id
+       ${where}`,
+    params
+  );
   const [rows] = await db.query(
     `SELECT c.*, s.name AS store_name,
             u.email AS owner_email, u.full_name AS owner_name
@@ -81,10 +92,11 @@ const listForAdmin = async ({ status } = {}) => {
        JOIN stores s     ON s.id = c.store_id
        LEFT JOIN users u ON u.id = c.submitted_by
        ${where}
-       ORDER BY (c.status = 'pending') DESC, c.submitted_at DESC`,
+       ORDER BY (c.status = 'pending') DESC, c.submitted_at DESC
+       LIMIT ${lim} OFFSET ${off}`,
     params
   );
-  return rows;
+  return { rows, total: cnt[0].n };
 };
 
 module.exports = {

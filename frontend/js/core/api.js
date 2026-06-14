@@ -420,8 +420,11 @@ async function cancelClaim() {
 async function getAdminStats(period) {
   return apiCall('/admin/stats' + (period ? ('?period=' + encodeURIComponent(period)) : ''));
 }
-async function getAdminClaims(status) {
-  return apiCall('/admin/claims' + (status ? ('?status=' + encodeURIComponent(status)) : ''));
+async function getAdminClaims(status, page) {
+  var qs = [];
+  if (status) qs.push('status=' + encodeURIComponent(status));
+  if (page)   qs.push('page=' + encodeURIComponent(page));
+  return apiCall('/admin/claims' + (qs.length ? ('?' + qs.join('&')) : ''));
 }
 async function approveAdminClaim(id) {
   return apiCall('/admin/claims/' + id + '/approve', { method: 'POST' });
@@ -438,8 +441,11 @@ async function saveAdminQr(payload) {
 }
 
 // --- Admin: password recovery review + support tickets (Phase 6.7) ---
-async function getResetRequests(status) {
-  return apiCall('/admin/reset-requests' + (status ? ('?status=' + encodeURIComponent(status)) : ''));
+async function getResetRequests(status, page) {
+  var qs = [];
+  if (status) qs.push('status=' + encodeURIComponent(status));
+  if (page)   qs.push('page=' + encodeURIComponent(page));
+  return apiCall('/admin/reset-requests' + (qs.length ? ('?' + qs.join('&')) : ''));
 }
 async function getResetHistory(id) {
   return apiCall('/admin/reset-requests/' + id + '/history');
@@ -453,8 +459,12 @@ async function regenerateResetRequest(id, operatorPassword) {
 async function rejectResetRequest(id, note) {
   return apiCall('/admin/reset-requests/' + id + '/reject', { method: 'POST', body: JSON.stringify({ note: note || '' }) });
 }
-async function getAdminTickets(status) {
-  return apiCall('/admin/tickets' + (status ? ('?status=' + encodeURIComponent(status)) : ''));
+async function getAdminTickets(status, tier, page) {
+  var qs = [];
+  if (status) qs.push('status=' + encodeURIComponent(status));
+  if (tier)   qs.push('tier=' + encodeURIComponent(tier));
+  if (page)   qs.push('page=' + encodeURIComponent(page));
+  return apiCall('/admin/tickets' + (qs.length ? ('?' + qs.join('&')) : ''));
 }
 async function closeAdminTicket(id) {
   return apiCall('/admin/tickets/' + id + '/close', { method: 'POST' });

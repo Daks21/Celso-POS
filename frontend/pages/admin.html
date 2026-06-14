@@ -80,12 +80,17 @@
     .op-codebox code{display:block;font-size:24px;font-weight:700;letter-spacing:3px;color:var(--color-text);margin:6px 0;text-align:center}
     .op-modal-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
     .op-ticket-msg{margin-top:12px;padding:12px 14px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-bg,rgba(0,0,0,.02));white-space:pre-wrap;word-break:break-word;font-size:13.5px;line-height:1.55;color:var(--color-text)}
-    /* Priority support inbox — paid customers grouped on top */
-    .op-tickets-sec td{padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--color-text-muted);background:rgba(128,128,128,.08)}
-    .op-tickets-sec--paid td{color:var(--color-primary);background:rgba(90,158,111,.12)}
-    .op-sec-count{display:inline-block;margin-left:6px;padding:0 7px;border-radius:999px;background:var(--color-border);color:var(--color-text);font-size:11px;font-weight:700}
-    .op-tickets-sec--paid .op-sec-count{background:var(--color-primary);color:#fff}
+    /* Priority support inbox — paying customers in their own card */
+    .op-card--priority{border-color:var(--color-primary);box-shadow:0 0 0 1px var(--color-primary) inset}
+    .op-pill-paid{display:inline-block;margin-left:4px;padding:1px 8px;border-radius:999px;background:var(--color-primary);color:#fff;font-size:11px;font-weight:700;vertical-align:middle}
+    .op-pill-free{display:inline-block;margin-left:4px;padding:1px 8px;border-radius:999px;background:rgba(128,128,128,.18);color:var(--color-text-muted);font-size:11px;font-weight:700;vertical-align:middle}
     .op-plan-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(90,158,111,.15);color:var(--color-primary);font-size:11px;font-weight:700;white-space:nowrap}
+    /* Server-side pager footer */
+    .op-pager{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:12px}
+    .op-pager-btn{padding:6px 12px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);color:var(--color-text);font-size:13px;font-weight:600;cursor:pointer}
+    .op-pager-btn:hover:not([disabled]){border-color:var(--color-primary);color:var(--color-primary)}
+    .op-pager-btn[disabled]{opacity:.45;cursor:default}
+    .op-pager-info{font-size:12.5px;color:var(--color-text-muted)}
     .op-row-paid{background:rgba(90,158,111,.05)}
     .op-contact{margin-top:12px;border:1px solid var(--color-primary);border-radius:var(--radius-sm);padding:12px 14px;background:rgba(90,158,111,.06)}
     .op-contact h4{margin:0 0 8px;font-size:13px;color:var(--color-text)}
@@ -185,6 +190,7 @@
           </tbody>
         </table>
       </div>
+      <div class="op-pager" id="op-claims-pager"></div>
     </section>
 
     <section class="op-card" id="op-reset-card">
@@ -206,13 +212,16 @@
           </tbody>
         </table>
       </div>
+      <div class="op-pager" id="op-reset-pager"></div>
       <p class="op-muted" style="margin-top:10px">Click a row to review the verification scorecard and act.</p>
     </section>
 
-    <section class="op-card" id="op-tickets-card">
+    <!-- Priority inbox: paying customers (Plus/Pro), kept separate so volume from
+         free users never buries them. -->
+    <section class="op-card op-card--priority" id="op-tickets-paid-card">
       <div class="op-section-head">
-        <h2>Support tickets <span class="op-badge" id="op-tickets-open-count" style="display:none"></span></h2>
-        <div class="op-tabs" id="op-tickets-tabs">
+        <h2>★ Priority support <span class="op-pill-paid">Paid</span> <span class="op-badge" id="op-tickets-paid-count" style="display:none"></span></h2>
+        <div class="op-tabs" id="op-tickets-paid-tabs">
           <button type="button" class="op-tab is-active" data-status="open">Open</button>
           <button type="button" class="op-tab" data-status="closed">Closed</button>
         </div>
@@ -222,11 +231,33 @@
           <thead>
             <tr><th>User</th><th>Store</th><th>Topic</th><th>Message</th><th>Submitted</th><th>Action</th></tr>
           </thead>
-          <tbody id="op-tickets-body">
+          <tbody id="op-tickets-paid-body">
             <tr><td colspan="6" class="op-muted">Loading…</td></tr>
           </tbody>
         </table>
       </div>
+      <div class="op-pager" id="op-tickets-paid-pager"></div>
+    </section>
+
+    <section class="op-card" id="op-tickets-free-card">
+      <div class="op-section-head">
+        <h2>Support tickets <span class="op-pill-free">Free</span> <span class="op-badge" id="op-tickets-free-count" style="display:none"></span></h2>
+        <div class="op-tabs" id="op-tickets-free-tabs">
+          <button type="button" class="op-tab is-active" data-status="open">Open</button>
+          <button type="button" class="op-tab" data-status="closed">Closed</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr><th>User</th><th>Store</th><th>Topic</th><th>Message</th><th>Submitted</th><th>Action</th></tr>
+          </thead>
+          <tbody id="op-tickets-free-body">
+            <tr><td colspan="6" class="op-muted">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="op-pager" id="op-tickets-free-pager"></div>
     </section>
 
     <section class="op-card">

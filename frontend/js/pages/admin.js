@@ -19,23 +19,50 @@ checkAuth();
   function esc(s) { var t = document.createElement('span'); t.textContent = (s == null ? '' : String(s)); return t.innerHTML; }
   async function safe(p) { try { return await p; } catch (e) { return null; } }
 
+  // Reusable server-side pager. Renders Prev / "from–to of total" / Next into
+  // `footer` and calls onGo(newPage) on click. Hidden when everything fits one page.
+  function renderPager(footer, page, total, pageSize, onGo) {
+    if (!footer) return;
+    var size = pageSize || 10;
+    total = total || 0;
+    if (total <= size) { footer.innerHTML = ''; return; }
+    var pages = Math.max(1, Math.ceil(total / size));
+    var from  = (page - 1) * size + 1;
+    var to    = Math.min(total, page * size);
+    footer.innerHTML =
+      '<button type="button" class="op-pager-btn" data-go="prev"' + (page <= 1 ? ' disabled' : '') + '>‹ Prev</button>' +
+      '<span class="op-pager-info">' + from + '–' + to + ' of ' + total + '</span>' +
+      '<button type="button" class="op-pager-btn" data-go="next"' + (page >= pages ? ' disabled' : '') + '>Next ›</button>';
+    Array.prototype.forEach.call(footer.querySelectorAll('.op-pager-btn'), function (b) {
+      b.addEventListener('click', function () {
+        if (b.hasAttribute('disabled')) return;
+        onGo(b.getAttribute('data-go') === 'next' ? page + 1 : page - 1);
+      });
+    });
+  }
+
   function updateBadge(n) {
     var b = document.getElementById('op-pending-count');
     if (!b) return;
     if (n > 0) { b.textContent = n; b.style.display = ''; } else { b.style.display = 'none'; }
   }
 
+  var claimsPage = 1;
+  var claimsPager = document.getElementById('op-claims-pager');
+
   async function loadClaims() {
     tbody.innerHTML = '<tr><td colspan="7" class="op-muted">Loading…</td></tr>';
-    var res = await safe(getAdminClaims(currentStatus));
+    var res = await safe(getAdminClaims(currentStatus, claimsPage));
     if (!res || !res.success) {
       tbody.innerHTML = '<tr><td colspan="7" class="op-muted">Could not load claims.</td></tr>';
       return;
     }
     var rows = res.data || [];
-    if (currentStatus === 'pending') updateBadge(rows.length);
+    var total = res.total != null ? res.total : rows.length;
+    if (currentStatus === 'pending') updateBadge(total);
     if (!rows.length) {
       tbody.innerHTML = '<tr><td colspan="7" class="op-muted">No ' + currentStatus + ' claims.</td></tr>';
+      if (claimsPager) claimsPager.innerHTML = '';
       return;
     }
     tbody.innerHTML = rows.map(function (c) {
@@ -60,6 +87,7 @@ checkAuth();
         '<td class="op-actions-cell">' + action + '</td>' +
       '</tr>';
     }).join('');
+    renderPager(claimsPager, claimsPage, total, res.pageSize || 10, function (np) { claimsPage = np; loadClaims(); });
   }
 
   tbody.addEventListener('click', async function (e) {
@@ -108,7 +136,7 @@ checkAuth();
       });
     });
   }
-  initTabs('op-claims-tabs', function (status) { currentStatus = status; loadClaims(); });
+  initTabs('op-claims-tabs', function (status) { currentStatus = status; claimsPage = 1; loadClaims(); });
 
   // ── GCash QR settings ──
   async function loadQr() {
@@ -206,15 +234,22 @@ checkAuth();
   // ── Reset requests board ──
   var resetStatus = 'pending';
   var resetBody = document.getElementById('op-reset-body');
+  var resetPage = 1;
+  var resetPager = document.getElementById('op-reset-pager');
 
   async function loadResets() {
     if (!resetBody) return;
     resetBody.innerHTML = '<tr><td colspan="8" class="op-muted">Loading…</td></tr>';
-    var res = await safe(getResetRequests(resetStatus));
+    var res = await safe(getResetRequests(resetStatus, resetPage));
     if (!res || !res.success) { resetBody.innerHTML = '<tr><td colspan="8" class="op-muted">Could not load requests.</td></tr>'; return; }
     var rows = res.data || [];
+    var total = res.total != null ? res.total : rows.length;
     resetBody._rows = {};
-    if (!rows.length) { resetBody.innerHTML = '<tr><td colspan="8" class="op-muted">No requests here.</td></tr>'; return; }
+    if (!rows.length) {
+      resetBody.innerHTML = '<tr><td colspan="8" class="op-muted">No requests here.</td></tr>';
+      if (resetPager) resetPager.innerHTML = '';
+      return;
+    }
     resetBody.innerHTML = rows.map(function (r) {
       resetBody._rows[r.id] = r;
       var st = r.effective_status || r.status;
@@ -231,9 +266,10 @@ checkAuth();
         '<td><span class="op-status op-status--' + st + '">' + esc(st) + '</span></td>' +
       '</tr>';
     }).join('');
+    renderPager(resetPager, resetPage, total, res.pageSize || 10, function (np) { resetPage = np; loadResets(); });
   }
 
-  initTabs('op-reset-tabs', function (status) { resetStatus = status; loadResets(); });
+  initTabs('op-reset-tabs', function (status) { resetStatus = status; resetPage = 1; loadResets(); });
 
   if (resetBody) resetBody.addEventListener('click', function (e) {
     var tr = e.target.closest('tr.op-row-click');
@@ -357,20 +393,14 @@ checkAuth();
     }
   }
 
-  // ── Support tickets ──
-  var ticketStatus = 'open';
-  var ticketsBody = document.getElementById('op-tickets-body');
+  // ── Support tickets — two separate inboxes (paid priority + free) ──
   var TOPIC = { bug: 'Something broken', question: 'Question', billing: 'Billing', other: 'Other' };
-
-  function ticketSection(label, count, cls) {
-    return '<tr class="op-tickets-sec' + (cls ? ' ' + cls : '') + '"><td colspan="6">' +
-      label + ' <span class="op-sec-count">' + count + '</span></td></tr>';
-  }
 
   function ticketRow(t) {
     var action = t.status === 'open'
       ? '<button class="op-btn-sm op-approve op-ticket-close" data-id="' + t.id + '">Close</button>'
       : '<span class="op-status op-status--completed">closed</span>';
+    // In the paid card the plan pill distinguishes Plus/Pro (and flags grace).
     var badge = t.paid
       ? ' <span class="op-plan-badge">' + esc(t.plan_label) + (t.billing_state === 'grace' ? ' · grace' : '') + '</span>'
       : '';
@@ -384,51 +414,60 @@ checkAuth();
     '</tr>';
   }
 
-  async function loadTickets() {
-    if (!ticketsBody) return;
-    ticketsBody.innerHTML = '<tr><td colspan="6" class="op-muted">Loading…</td></tr>';
-    var res = await safe(getAdminTickets(ticketStatus));
-    if (!res || !res.success) { ticketsBody.innerHTML = '<tr><td colspan="6" class="op-muted">Could not load tickets.</td></tr>'; return; }
-    var rows = res.data || [];
-    ticketsBody._rows = {};
-    if (!rows.length) { ticketsBody.innerHTML = '<tr><td colspan="6" class="op-muted">No ' + ticketStatus + ' tickets.</td></tr>'; return; }
-    rows.forEach(function (t) { ticketsBody._rows[t.id] = t; });
+  // One inbox card bound to a tier ('paid' | 'free'). Owns its own status tab,
+  // page state, row cache, pager, and open-count badge — paid and free never mix.
+  function makeTicketInbox(tier, ids) {
+    var body  = document.getElementById(ids.body);
+    var pager = document.getElementById(ids.pager);
+    var state = { status: 'open', page: 1 };
 
-    // Paid customers get a prioritized inbox section on top. Only group when there
-    // are paying customers present; otherwise render a plain list as before.
-    var paid = rows.filter(function (t) { return t.paid; });
-    var free = rows.filter(function (t) { return !t.paid; });
-    var html = '';
-    if (paid.length) {
-      html += ticketSection('★ Paid customers', paid.length, 'op-tickets-sec--paid') + paid.map(ticketRow).join('');
-      if (free.length) html += ticketSection('Free users', free.length, '') + free.map(ticketRow).join('');
-    } else {
-      html = free.map(ticketRow).join('');
+    async function load() {
+      if (!body) return;
+      body.innerHTML = '<tr><td colspan="6" class="op-muted">Loading…</td></tr>';
+      var res = await safe(getAdminTickets(state.status, tier, state.page));
+      if (!res || !res.success) { body.innerHTML = '<tr><td colspan="6" class="op-muted">Could not load tickets.</td></tr>'; return; }
+      var rows = res.data || [];
+      var total = res.total != null ? res.total : rows.length;
+      body._rows = {};
+      // Open badge reflects this tier's open count; only refresh while Open is active.
+      if (ids.badge && state.status === 'open') setCardBadge(ids.badge, total);
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="6" class="op-muted">No ' + state.status + ' tickets.</td></tr>';
+        if (pager) pager.innerHTML = '';
+        return;
+      }
+      rows.forEach(function (t) { body._rows[t.id] = t; });
+      body.innerHTML = rows.map(ticketRow).join('');
+      renderPager(pager, state.page, total, res.pageSize || 10, function (np) { state.page = np; load(); });
     }
-    ticketsBody.innerHTML = html;
+
+    if (body) body.addEventListener('click', async function (e) {
+      var btn = e.target.closest('.op-ticket-close');
+      if (btn) {
+        btn.disabled = true; btn.textContent = '…';
+        var res = await safe(closeAdminTicket(btn.getAttribute('data-id')));
+        if (res && res.success) {
+          if (typeof showApiSuccess === 'function') showApiSuccess('Ticket closed.');
+          load(); loadNotifications();
+        } else {
+          if (typeof showApiError === 'function') showApiError((res && res.message) || 'Could not close ticket.');
+          btn.disabled = false; btn.textContent = 'Close';
+        }
+        return;
+      }
+      var tr = e.target.closest('tr.op-row-click');
+      if (!tr) return;
+      var t = body._rows && body._rows[tr.getAttribute('data-id')];
+      if (t) openTicketModal(t);
+    });
+
+    initTabs(ids.tabs, function (status) { state.status = status; state.page = 1; load(); });
+    return { load: load };
   }
 
-  initTabs('op-tickets-tabs', function (status) { ticketStatus = status; loadTickets(); });
-
-  if (ticketsBody) ticketsBody.addEventListener('click', async function (e) {
-    var btn = e.target.closest('.op-ticket-close');
-    if (btn) {
-      btn.disabled = true; btn.textContent = '…';
-      var res = await safe(closeAdminTicket(btn.getAttribute('data-id')));
-      if (res && res.success) {
-        if (typeof showApiSuccess === 'function') showApiSuccess('Ticket closed.');
-        loadTickets(); loadNotifications();
-      } else {
-        if (typeof showApiError === 'function') showApiError((res && res.message) || 'Could not close ticket.');
-        btn.disabled = false; btn.textContent = 'Close';
-      }
-      return;
-    }
-    var tr = e.target.closest('tr.op-row-click');
-    if (!tr) return;
-    var t = ticketsBody._rows && ticketsBody._rows[tr.getAttribute('data-id')];
-    if (t) openTicketModal(t);
-  });
+  var paidInbox = makeTicketInbox('paid', { body: 'op-tickets-paid-body', pager: 'op-tickets-paid-pager', tabs: 'op-tickets-paid-tabs', badge: 'op-tickets-paid-count' });
+  var freeInbox = makeTicketInbox('free', { body: 'op-tickets-free-body', pager: 'op-tickets-free-pager', tabs: 'op-tickets-free-tabs', badge: 'op-tickets-free-count' });
+  function reloadTickets() { paidInbox.load(); freeInbox.load(); }
 
   // ── Support ticket detail modal ──
   var ticketModal = document.getElementById('op-ticket-modal');
@@ -483,7 +522,7 @@ checkAuth();
       var res = await safe(closeAdminTicket(t.id));
       if (res && res.success) {
         if (typeof showApiSuccess === 'function') showApiSuccess('Ticket closed.');
-        closeTicketModal(); loadTickets(); loadNotifications();
+        closeTicketModal(); reloadTickets(); loadNotifications();
       } else {
         if (typeof showApiError === 'function') showApiError((res && res.message) || 'Could not close ticket.');
         closeTicketBtn.disabled = false; closeTicketBtn.textContent = 'Close ticket';
@@ -505,7 +544,8 @@ checkAuth();
     var d = res.data;
     setCardBadge('op-bell-badge', (d.pendingResets || 0) + (d.openTickets || 0));
     setCardBadge('op-reset-pending-count', d.pendingResets || 0);
-    setCardBadge('op-tickets-open-count', d.openTickets || 0);
+    // Per-tier open-count badges (op-tickets-paid-count / -free-count) are set by
+    // each inbox's own load; the bell total above already covers all open tickets.
   }
   var bellBtn = document.getElementById('op-bell');
   if (bellBtn) bellBtn.addEventListener('click', function () {
@@ -517,6 +557,6 @@ checkAuth();
   loadClaims();
   loadQr();
   loadResets();
-  loadTickets();
+  reloadTickets();
   loadNotifications();
 })();

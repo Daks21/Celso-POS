@@ -64,9 +64,8 @@ const countByEmailSince = async (email, since) => {
 //   'approved' -> code issued AND still valid (the "Pending Login" board column)
 //   'done'     -> completed | rejected | (approved but expired)
 //   undefined  -> everything
-const listForAdmin = async ({ status } = {}) => {
+const listForAdmin = async ({ status, limit = 10, offset = 0 } = {}) => {
   let where = '';
-  const params = [];
   if (status === 'pending') {
     where = "WHERE r.status = 'pending'";
   } else if (status === 'approved') {
@@ -74,6 +73,12 @@ const listForAdmin = async ({ status } = {}) => {
   } else if (status === 'done') {
     where = "WHERE r.status IN ('completed','rejected') OR (r.status = 'approved' AND r.code_expires_at < NOW())";
   }
+  const lim = Math.max(1, Math.min(100, Number(limit) || 10));
+  const off = Math.max(0, Number(offset) || 0);
+
+  const [cnt] = await db.query(
+    `SELECT COUNT(*) AS n FROM password_reset_requests r ${where}`
+  );
   const [rows] = await db.query(
     `SELECT r.*, ${EFFECTIVE_STATUS} AS effective_status,
             u.full_name AS owner_name, u.email AS owner_email,
@@ -85,10 +90,10 @@ const listForAdmin = async ({ status } = {}) => {
        LEFT JOIN users  u ON u.id = r.user_id
        LEFT JOIN stores s ON s.id = r.store_id
        ${where}
-       ORDER BY (r.status = 'pending') DESC, r.submitted_at DESC`,
-    params
+       ORDER BY (r.status = 'pending') DESC, r.submitted_at DESC
+       LIMIT ${lim} OFFSET ${off}`
   );
-  return rows;
+  return { rows, total: cnt[0].n };
 };
 
 // Past requests for one email — the modal's frequency drill-down.

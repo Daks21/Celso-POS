@@ -20,6 +20,10 @@ const platformConfig = require('../models/platformConfig.model');
 const pool           = require('../config/db.config');
 const { resolveBilling, addOneMonth, cashierSeats, PLANS } = require('../config/plans');
 
+// Operator inbox cards (claims / resets / tickets) page server-side, 10 per page.
+const PAGE_SIZE = 10;
+const pageOf = (req) => Math.max(1, parseInt(req.query.page, 10) || 1);
+
 // Phase 6.7 password recovery: temp code lifetime (must match the login expiry check).
 const RESET_CODE_TTL_HOURS = 12;
 
@@ -33,8 +37,11 @@ const listClaims = async (req, res, next) => {
   try {
     const allowed = ['pending', 'approved', 'rejected'];
     const status  = allowed.includes(req.query.status) ? req.query.status : undefined;
-    const rows = await claimModel.listForAdmin({ status });
-    res.json({ success: true, data: rows });
+    const page    = pageOf(req);
+    const { rows, total } = await claimModel.listForAdmin({
+      status, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE,
+    });
+    res.json({ success: true, data: rows, total, page, pageSize: PAGE_SIZE });
   } catch (err) {
     next(err);
   }
@@ -432,8 +439,11 @@ const listResetRequests = async (req, res, next) => {
   try {
     const allowed = ['pending', 'approved', 'done'];
     const status  = allowed.includes(req.query.status) ? req.query.status : undefined;
-    const rows = await resetRequest.listForAdmin({ status });
-    res.json({ success: true, data: rows });
+    const page    = pageOf(req);
+    const { rows, total } = await resetRequest.listForAdmin({
+      status, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE,
+    });
+    res.json({ success: true, data: rows, total, page, pageSize: PAGE_SIZE });
   } catch (err) {
     next(err);
   }
@@ -566,7 +576,11 @@ const rejectReset = async (req, res, next) => {
 const listTickets = async (req, res, next) => {
   try {
     const status = ['open', 'closed'].includes(req.query.status) ? req.query.status : undefined;
-    const rows = await ticketModel.listForAdmin({ status });
+    const tier   = ['paid', 'free'].includes(req.query.tier) ? req.query.tier : undefined;
+    const page   = pageOf(req);
+    const { rows, total } = await ticketModel.listForAdmin({
+      status, tier, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE,
+    });
 
     // Resolve each ticket's LIVE billing tier (paid customers are prioritized in
     // the operator inbox) and attach the owner's call-back contact. Paid status is
@@ -601,7 +615,7 @@ const listTickets = async (req, res, next) => {
       };
     });
 
-    res.json({ success: true, data });
+    res.json({ success: true, data, total, page, pageSize: PAGE_SIZE });
   } catch (err) {
     next(err);
   }

@@ -1312,11 +1312,19 @@
     POST   /reset-requests/:id/reject       Body: { note? }   → 200 | 404 | 409
 
     ── Support tickets + notifications (Phase 6.7) ──
-    GET    /tickets?status=open|closed   → 200 { success, data: [ ticket + user/store
-                                           + live paid tier + store-owner contact ] }
-                                           Paid customers are surfaced in a prioritized
-                                           inbox section (owner name/mobile/email for
-                                           call-back, since the gateway is one-way).
+    GET    /tickets?status=open|closed&tier=paid|free&page=N
+                                         → 200 { success, data: [ ticket + user/store
+                                           + live paid tier + store-owner contact ],
+                                           total, page, pageSize:10 }
+                                           Paid (Plus/Pro) and Free tickets are SEPARATE
+                                           inboxes (own cards/tabs), paged 10/page server-
+                                           side so free-user volume never buries payers.
+                                           tier is a SQL mirror of resolveBilling()'s
+                                           active|grace test; the row badge is exact.
+                                           Owner name/mobile/email is the call-back contact
+                                           (gateway is one-way). Claims + reset-requests
+                                           lists are likewise paged 10/page (?page=N →
+                                           { data, total, page, pageSize }).
     POST   /tickets/:id/close            → 200 { success } | 404
     GET    /notifications   operator bell counts
       → 200 { success, data: { pendingResets, openTickets } }

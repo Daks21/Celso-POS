@@ -1,4 +1,20 @@
 const db = require('../config/db.config');
+const { GRACE_DAYS } = require('../config/plans');
+
+// SQL mirror of resolveBilling()'s active|grace test — used ONLY to partition the
+// paid vs free inboxes so each can be paginated server-side. The controller still
+// computes the EXACT tier per row (resolveBilling) for the displayed badge, so a
+// store sitting precisely on the grace boundary is at worst shown in the other
+// card. GRACE_DAYS is interpolated from plans.js (our constant, not user input).
+// All DATETIMEs are stored UTC, so compare against UTC_TIMESTAMP().
+const PAID_PREDICATE = `(
+  s.plan IS NOT NULL AND s.plan <> 'free'
+  AND (s.subscription_status IS NULL OR s.subscription_status <> 'canceled')
+  AND (
+        (s.paid_until IS NULL AND s.subscription_status = 'active')
+     OR (s.paid_until IS NOT NULL AND DATE_ADD(s.paid_until, INTERVAL ${Number(GRACE_DAYS)} DAY) >= UTC_TIMESTAMP())
+      )
+)`;
 
 // support_tickets — a one-way issue inbox (Phase 6.7). An owner submits free text
 // from Account Settings; the row is AUTO-TAGGED with the submitting user_id +
@@ -25,9 +41,24 @@ const create = async ({ store_id, user_id, category, message }) => {
 // controller can resolve the live paid tier for the priority inbox) and the
 // store OWNER's contact (full_name/email/mobile) — the call-back target, since a
 // submitting cashier usually has no reachable number / only a fake store handle.
-const listForAdmin = async ({ status } = {}) => {
-  const where  = (status === 'open' || status === 'closed') ? 'WHERE t.status = ?' : '';
-  const params = where ? [status] : [];
+const listForAdmin = async ({ status, tier, limit = 10, offset = 0 } = {}) => {
+  const conds = [];
+  const params = [];
+  if (status === 'open' || status === 'closed') { conds.push('t.status = ?'); params.push(status); }
+  if (tier === 'paid')      conds.push(PAID_PREDICATE);
+  else if (tier === 'free') conds.push('NOT ' + PAID_PREDICATE);
+  const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+  const lim = Math.max(1, Math.min(100, Number(limit) || 10));
+  const off = Math.max(0, Number(offset) || 0);
+
+  // The store JOIN is needed for both the tier predicate and the count.
+  const [cnt] = await db.query(
+    `SELECT COUNT(*) AS n
+       FROM support_tickets t
+       LEFT JOIN stores s ON s.id = t.store_id
+       ${where}`,
+    params
+  );
   const [rows] = await db.query(
     `SELECT t.*,
             u.full_name AS user_name, u.email AS user_email,
@@ -40,10 +71,11 @@ const listForAdmin = async ({ status } = {}) => {
        LEFT JOIN stores s ON s.id = t.store_id
        LEFT JOIN users  o ON o.id = s.owner_user_id
        ${where}
-       ORDER BY t.created_at DESC`,
+       ORDER BY t.created_at DESC
+       LIMIT ${lim} OFFSET ${off}`,
     params
   );
-  return rows;
+  return { rows, total: cnt[0].n };
 };
 
 const close = async (id, closedBy) => {
