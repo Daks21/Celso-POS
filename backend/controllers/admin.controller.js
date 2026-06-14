@@ -301,6 +301,12 @@ const uploadQr = async (req, res, next) => {
 // state figures — stores/plans/MRR/active users — are always "now"; only signups
 // and revenue move with the filter.
 const STATS_PERIODS = ['this_month', 'last_month', 'last_3_months', 'all'];
+
+// Paid tiers, derived from PLANS (price > 0) in ascending price order, so the
+// plan breakdown + MRR auto-track any pricing/tier change — no hardcoded plus/pro.
+const PAID_TIERS = Object.keys(PLANS)
+  .filter((k) => PLANS[k].pricePhp > 0)
+  .sort((a, b) => PLANS[a].pricePhp - PLANS[b].pricePhp);
 function periodBounds(key, now) {
   const y = now.getUTCFullYear(), m = now.getUTCMonth();
   if (key === 'last_month')
@@ -326,7 +332,7 @@ const getStats = async (req, res, next) => {
       period: periodKey,
       periodLabel: label,
       stores:  { total: 0, paying: 0, free: 0 },
-      plans:   { plus: 0, pro: 0 },                          // effective PAID tiers only
+      plans:   PAID_TIERS.reduce((o, k) => { o[k] = 0; return o; }, {}), // effective PAID tiers only
       mrrPhp:  0,                                            // paid plans only
       users:   { total: 0, owners: 0, cashiers: 0, suspended: 0, active7d: 0, active30d: 0 },
       periodSignups: 0,        // new stores created in the selected window
@@ -374,6 +380,12 @@ const getStats = async (req, res, next) => {
     const [[pend]] = await pool.query("SELECT COUNT(*) AS n FROM payment_claims WHERE status = 'pending'");
     stats.periodRevenuePhp = Number(rev.php) || 0;
     stats.pendingClaims    = Number(pend.n) || 0;
+
+    // Ordered, labelled breakdown the operator card renders generically (so adding
+    // or renaming a paid tier needs no frontend change).
+    stats.planBreakdown = PAID_TIERS.map((k) => ({
+      key: k, label: PLANS[k].label, pricePhp: PLANS[k].pricePhp, count: stats.plans[k] || 0,
+    }));
 
     res.json({ success: true, data: stats });
   } catch (err) {

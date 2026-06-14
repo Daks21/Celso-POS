@@ -185,10 +185,6 @@ checkAuth();
 
   // ── Platform overview ──
   function setText(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
-  function setBar(id, val, max) {
-    var el = document.getElementById(id);
-    if (el) el.style.width = (max > 0 ? Math.round((val / max) * 100) : 0) + '%';
-  }
 
   var periodSel = document.getElementById('op-period');
   function currentPeriod() { return periodSel ? periodSel.value : 'this_month'; }
@@ -216,9 +212,24 @@ checkAuth();
     setText('st-rev', peso(d.periodRevenuePhp));
     setText('st-rev-period', d.periodLabel || '');
 
-    var maxPlan = Math.max(1, p.plus || 0, p.pro || 0);
-    setText('st-plus',  p.plus  || 0); setBar('bar-plus',  p.plus  || 0, maxPlan);
-    setText('st-pro',   p.pro   || 0); setBar('bar-pro',   p.pro   || 0, maxPlan);
+    // Plan split — rendered generically from the server's paid-tier breakdown so it
+    // tracks any pricing/tier change. Falls back to the legacy plans object shape.
+    var breakdown = d.planBreakdown ||
+      Object.keys(p).map(function (k) { return { label: k, count: p[k] }; });
+    renderPlanSplit(breakdown);
+  }
+
+  function renderPlanSplit(breakdown) {
+    var box = document.getElementById('op-plan-split');
+    if (!box) return;
+    if (!breakdown.length) { box.innerHTML = ''; return; }
+    var maxPlan = breakdown.reduce(function (m, b) { return Math.max(m, b.count || 0); }, 1);
+    box.innerHTML = breakdown.map(function (b) {
+      var pct = maxPlan > 0 ? Math.round(((b.count || 0) / maxPlan) * 100) : 0;
+      return '<div class="op-plan-row"><span>' + esc(b.label) + '</span>' +
+        '<div class="op-plan-bar"><div style="width:' + pct + '%"></div></div>' +
+        '<b>' + (b.count || 0) + '</b></div>';
+    }).join('');
   }
 
   if (periodSel) periodSel.addEventListener('change', loadStats);

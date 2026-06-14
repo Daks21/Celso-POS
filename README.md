@@ -1259,8 +1259,12 @@
       → 200 { success, data: {
               period, periodLabel,
               stores:  { total, paying, free },
-              plans:   { plus, pro },                      // effective PAID tiers
-              mrrPhp,
+              plans:   { <paidTierKey>: count, … },        // effective PAID tiers (keys
+                                                           // derived from PLANS, price>0)
+              planBreakdown: [ { key, label, pricePhp, count }, … ],  // ordered by price;
+                                                           // the operator card renders this
+                                                           // generically (no hardcoded tiers)
+              mrrPhp,                                      // Σ price of active+grace stores
               users:   { total, owners, cashiers, suspended, active7d, active30d },
               periodSignups, periodRevenuePhp,             // move with `period`
               pendingClaims } }
