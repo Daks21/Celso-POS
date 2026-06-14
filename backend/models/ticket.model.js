@@ -21,15 +21,24 @@ const create = async ({ store_id, user_id, category, message }) => {
 };
 
 // Operator list: tickets joined to the submitter + store for display. Optional
-// status filter; newest first.
+// status filter; newest first. Also pulls the store's billing columns (so the
+// controller can resolve the live paid tier for the priority inbox) and the
+// store OWNER's contact (full_name/email/mobile) — the call-back target, since a
+// submitting cashier usually has no reachable number / only a fake store handle.
 const listForAdmin = async ({ status } = {}) => {
   const where  = (status === 'open' || status === 'closed') ? 'WHERE t.status = ?' : '';
   const params = where ? [status] : [];
   const [rows] = await db.query(
-    `SELECT t.*, u.full_name AS user_name, u.email AS user_email, s.name AS store_name
+    `SELECT t.*,
+            u.full_name AS user_name, u.email AS user_email,
+            s.name AS store_name,
+            s.plan AS store_plan, s.subscription_status AS store_sub_status,
+            s.paid_until AS store_paid_until,
+            o.full_name AS owner_name, o.email AS owner_email, o.mobile AS owner_mobile
        FROM support_tickets t
        LEFT JOIN users  u ON u.id = t.user_id
        LEFT JOIN stores s ON s.id = t.store_id
+       LEFT JOIN users  o ON o.id = s.owner_user_id
        ${where}
        ORDER BY t.created_at DESC`,
     params

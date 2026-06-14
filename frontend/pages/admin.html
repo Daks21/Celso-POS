@@ -80,6 +80,21 @@
     .op-codebox code{display:block;font-size:24px;font-weight:700;letter-spacing:3px;color:var(--color-text);margin:6px 0;text-align:center}
     .op-modal-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
     .op-ticket-msg{margin-top:12px;padding:12px 14px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-bg,rgba(0,0,0,.02));white-space:pre-wrap;word-break:break-word;font-size:13.5px;line-height:1.55;color:var(--color-text)}
+    /* Priority support inbox — paid customers grouped on top */
+    .op-tickets-sec td{padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--color-text-muted);background:rgba(128,128,128,.08)}
+    .op-tickets-sec--paid td{color:var(--color-primary);background:rgba(90,158,111,.12)}
+    .op-sec-count{display:inline-block;margin-left:6px;padding:0 7px;border-radius:999px;background:var(--color-border);color:var(--color-text);font-size:11px;font-weight:700}
+    .op-tickets-sec--paid .op-sec-count{background:var(--color-primary);color:#fff}
+    .op-plan-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(90,158,111,.15);color:var(--color-primary);font-size:11px;font-weight:700;white-space:nowrap}
+    .op-row-paid{background:rgba(90,158,111,.05)}
+    .op-contact{margin-top:12px;border:1px solid var(--color-primary);border-radius:var(--radius-sm);padding:12px 14px;background:rgba(90,158,111,.06)}
+    .op-contact h4{margin:0 0 8px;font-size:13px;color:var(--color-text)}
+    .op-contact .sc-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;align-items:baseline;padding:2px 0}
+    .op-contact .sc-row>span:first-child{color:var(--color-text-muted)}
+    .op-contact .sc-row>span:last-child{text-align:right;font-weight:600;color:var(--color-text)}
+    .op-contact a{color:var(--color-primary);text-decoration:none;font-weight:700}
+    .op-contact a:hover{text-decoration:underline}
+    .op-contact .op-muted{margin:8px 0 0;font-size:12px}
 
     .op-qr-grid{display:grid;grid-template-columns:200px 1fr;gap:20px;align-items:start}
     .op-qr-preview img{width:180px;height:180px;object-fit:contain;border:1px solid var(--color-border);border-radius:var(--radius-md);background:#fff}

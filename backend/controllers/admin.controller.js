@@ -567,7 +567,41 @@ const listTickets = async (req, res, next) => {
   try {
     const status = ['open', 'closed'].includes(req.query.status) ? req.query.status : undefined;
     const rows = await ticketModel.listForAdmin({ status });
-    res.json({ success: true, data: rows });
+
+    // Resolve each ticket's LIVE billing tier (paid customers are prioritized in
+    // the operator inbox) and attach the owner's call-back contact. Paid status is
+    // computed per request from the store's billing columns — never snapshotted —
+    // so the inbox reflects who is paying NOW, not who paid when they wrote.
+    const data = rows.map((r) => {
+      const billing = resolveBilling({
+        plan: r.store_plan,
+        subscription_status: r.store_sub_status,
+        paid_until: r.store_paid_until,
+      });
+      const isPaid = billing.plan !== 'free';
+      return {
+        id: r.id,
+        store_id: r.store_id,
+        user_id: r.user_id,
+        category: r.category,
+        message: r.message,
+        status: r.status,
+        created_at: r.created_at,
+        user_name: r.user_name,
+        user_email: r.user_email,
+        store_name: r.store_name,
+        // Priority inbox: live tier + the owner contact to call/text.
+        paid: isPaid,
+        plan: billing.plan,                                   // free | plus | pro
+        plan_label: (PLANS[billing.plan] || PLANS.free).label,
+        billing_state: billing.state,                         // active | grace | free
+        owner_name: r.owner_name,
+        owner_email: r.owner_email,
+        owner_mobile: r.owner_mobile,
+      };
+    });
+
+    res.json({ success: true, data });
   } catch (err) {
     next(err);
   }

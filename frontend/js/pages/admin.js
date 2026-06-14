@@ -362,6 +362,28 @@ checkAuth();
   var ticketsBody = document.getElementById('op-tickets-body');
   var TOPIC = { bug: 'Something broken', question: 'Question', billing: 'Billing', other: 'Other' };
 
+  function ticketSection(label, count, cls) {
+    return '<tr class="op-tickets-sec' + (cls ? ' ' + cls : '') + '"><td colspan="6">' +
+      label + ' <span class="op-sec-count">' + count + '</span></td></tr>';
+  }
+
+  function ticketRow(t) {
+    var action = t.status === 'open'
+      ? '<button class="op-btn-sm op-approve op-ticket-close" data-id="' + t.id + '">Close</button>'
+      : '<span class="op-status op-status--completed">closed</span>';
+    var badge = t.paid
+      ? ' <span class="op-plan-badge">' + esc(t.plan_label) + (t.billing_state === 'grace' ? ' · grace' : '') + '</span>'
+      : '';
+    return '<tr class="op-row-click' + (t.paid ? ' op-row-paid' : '') + '" data-id="' + t.id + '">' +
+      '<td>' + esc(t.user_name || (t.user_id ? ('User #' + t.user_id) : '—')) + '</td>' +
+      '<td>' + esc(t.store_name || (t.store_id ? ('Store #' + t.store_id) : '—')) + badge + '</td>' +
+      '<td>' + esc(TOPIC[t.category] || t.category) + '</td>' +
+      '<td class="op-msg-cell">' + esc(t.message) + '</td>' +
+      '<td>' + fmtDate(t.created_at) + '</td>' +
+      '<td class="op-actions-cell">' + action + '</td>' +
+    '</tr>';
+  }
+
   async function loadTickets() {
     if (!ticketsBody) return;
     ticketsBody.innerHTML = '<tr><td colspan="6" class="op-muted">Loading…</td></tr>';
@@ -370,20 +392,20 @@ checkAuth();
     var rows = res.data || [];
     ticketsBody._rows = {};
     if (!rows.length) { ticketsBody.innerHTML = '<tr><td colspan="6" class="op-muted">No ' + ticketStatus + ' tickets.</td></tr>'; return; }
-    ticketsBody.innerHTML = rows.map(function (t) {
-      ticketsBody._rows[t.id] = t;
-      var action = t.status === 'open'
-        ? '<button class="op-btn-sm op-approve op-ticket-close" data-id="' + t.id + '">Close</button>'
-        : '<span class="op-status op-status--completed">closed</span>';
-      return '<tr class="op-row-click" data-id="' + t.id + '">' +
-        '<td>' + esc(t.user_name || (t.user_id ? ('User #' + t.user_id) : '—')) + '</td>' +
-        '<td>' + esc(t.store_name || (t.store_id ? ('Store #' + t.store_id) : '—')) + '</td>' +
-        '<td>' + esc(TOPIC[t.category] || t.category) + '</td>' +
-        '<td class="op-msg-cell">' + esc(t.message) + '</td>' +
-        '<td>' + fmtDate(t.created_at) + '</td>' +
-        '<td class="op-actions-cell">' + action + '</td>' +
-      '</tr>';
-    }).join('');
+    rows.forEach(function (t) { ticketsBody._rows[t.id] = t; });
+
+    // Paid customers get a prioritized inbox section on top. Only group when there
+    // are paying customers present; otherwise render a plain list as before.
+    var paid = rows.filter(function (t) { return t.paid; });
+    var free = rows.filter(function (t) { return !t.paid; });
+    var html = '';
+    if (paid.length) {
+      html += ticketSection('★ Paid customers', paid.length, 'op-tickets-sec--paid') + paid.map(ticketRow).join('');
+      if (free.length) html += ticketSection('Free users', free.length, '') + free.map(ticketRow).join('');
+    } else {
+      html = free.map(ticketRow).join('');
+    }
+    ticketsBody.innerHTML = html;
   }
 
   initTabs('op-tickets-tabs', function (status) { ticketStatus = status; loadTickets(); });
@@ -420,11 +442,31 @@ checkAuth();
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeTicketModal(); });
   })();
 
+  function contactBlock(t) {
+    var name   = esc(t.owner_name || '—');
+    var mobile = t.owner_mobile
+      ? '<a href="tel:' + esc(t.owner_mobile) + '">' + esc(t.owner_mobile) + '</a>'
+      : '<span class="op-match-no">none on file</span>';
+    var email  = t.owner_email
+      ? '<a href="mailto:' + esc(t.owner_email) + '">' + esc(t.owner_email) + '</a>'
+      : '<span class="op-match-no">—</span>';
+    // If the submitter isn't the owner (a cashier reported it), flag it so the
+    // operator knows the call-back contact differs from who wrote the ticket.
+    var note = (t.user_name && t.owner_name && t.user_name !== t.owner_name)
+      ? '<p class="op-muted">Submitted by ' + esc(t.user_name) + ' (staff) — contact the owner above.</p>'
+      : '';
+    return '<div class="op-contact"><h4>Call-back contact (store owner)</h4>' +
+      '<div class="sc-row"><span>Name</span><span>' + name + '</span></div>' +
+      '<div class="sc-row"><span>Mobile</span><span>' + mobile + '</span></div>' +
+      '<div class="sc-row"><span>Email</span><span>' + email + '</span></div>' +
+      note + '</div>';
+  }
+
   function openTicketModal(t) {
     if (!ticketModal || !ticketModalBody) return;
     var sc = '<div class="op-scorecard">' +
-      scLine('User', esc(t.user_name || (t.user_id ? ('User #' + t.user_id) : '—'))) +
       scLine('Store', esc(t.store_name || (t.store_id ? ('Store #' + t.store_id) : '—'))) +
+      scLine('Plan', t.paid ? (esc(t.plan_label) + (t.billing_state === 'grace' ? ' · grace period' : '')) : 'Free') +
       scLine('Topic', esc(TOPIC[t.category] || t.category)) +
       scLine('Submitted', fmtDate(t.created_at)) +
       scLine('Status', '<span class="op-status op-status--' + (t.status === 'open' ? 'pending' : 'completed') + '">' + esc(t.status) + '</span>') +
@@ -433,7 +475,7 @@ checkAuth();
     var actions = t.status === 'open'
       ? '<div class="op-modal-actions"><button class="op-btn-sm op-approve op-ticket-close" data-id="' + t.id + '">Close ticket</button></div>'
       : '';
-    ticketModalBody.innerHTML = sc + msg + actions;
+    ticketModalBody.innerHTML = sc + contactBlock(t) + msg + actions;
 
     var closeTicketBtn = ticketModalBody.querySelector('.op-ticket-close');
     if (closeTicketBtn) closeTicketBtn.addEventListener('click', async function () {

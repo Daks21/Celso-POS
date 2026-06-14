@@ -431,7 +431,12 @@ html.lite-mode .api-spinner {
    silently ignored elsewhere (e.g. Firefox). Paired with bfcache (instant
    restore on cached back-nav) this makes the trackpad swipe back/forward feel
    smooth. Kept fast so it never slows down quick POS screen-switching, and
-   DISABLED for reduced-motion users and Lite Mode (low-end devices). */
+   DISABLED for reduced-motion users and Lite Mode (low-end devices).
+
+   Note: the page-pan during a two-finger back/forward swipe is the browser's
+   native cross-document gesture (this is an MPA), NOT this opt-in — toggling
+   it off was tested and changed nothing, so it's accepted as standard browser
+   behavior. The opt-in stays for its page-load cross-fade benefit. */
 @view-transition { navigation: auto; }
 
 ::view-transition-old(root),

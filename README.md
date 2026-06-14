@@ -1312,7 +1312,11 @@
     POST   /reset-requests/:id/reject       Body: { note? }   → 200 | 404 | 409
 
     ── Support tickets + notifications (Phase 6.7) ──
-    GET    /tickets?status=open|closed   → 200 { success, data: [ ticket + user/store ] }
+    GET    /tickets?status=open|closed   → 200 { success, data: [ ticket + user/store
+                                           + live paid tier + store-owner contact ] }
+                                           Paid customers are surfaced in a prioritized
+                                           inbox section (owner name/mobile/email for
+                                           call-back, since the gateway is one-way).
     POST   /tickets/:id/close            → 200 { success } | 404
     GET    /notifications   operator bell counts
       → 200 { success, data: { pendingResets, openTickets } }
