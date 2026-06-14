@@ -5,16 +5,21 @@ const BASE_URL = (function () {
 })();
 
 async function apiCall(endpoint, options = {}) {
+  // skipAuthRedirect: opt out of the global 401 -> login redirect below. The
+  // login/recovery endpoints use this so a 401 from BAD CREDENTIALS surfaces as
+  // an in-form error instead of being mistaken for an expired session (which
+  // clears state and navigates away). It is NOT a fetch option, so pull it out.
+  const { skipAuthRedirect, ...fetchOptions } = options;
   const token = localStorage.getItem('token');
   const defaultHeaders = {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
   };
   const response = await fetch(BASE_URL + endpoint, {
-    ...options,
-    headers: { ...defaultHeaders, ...(options.headers || {}) },
+    ...fetchOptions,
+    headers: { ...defaultHeaders, ...(fetchOptions.headers || {}) },
   });
-  if (response.status === 401) {
+  if (response.status === 401 && !skipAuthRedirect) {
     clearSession();
     window.location.href = getLoginPath();
     return;
@@ -54,9 +59,12 @@ function getChangePasswordPath() {
 // --- Auth ---
 
 async function login(email, password) {
+  // A failed login returns 401 (bad credentials). Opt out of the global 401
+  // redirect so the handler can show "Invalid email or password" in the form.
   return apiCall('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
+    skipAuthRedirect: true,
   });
 }
 
