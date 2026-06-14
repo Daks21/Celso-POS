@@ -30,5 +30,10 @@ coverage/
 test_*.js
 verify_*.js
 
+# Local dev/debug helpers — destructive or demo-cred bound, never run by the app.
+# Kept on disk for local debugging but never shipped (see QA finding #3).
+scripts/_*.js
+scripts/cleanup-test-cashiers.js
+
 # Local planning / build-guide docs (kept out of the repo)
 celsopos_*.txt
