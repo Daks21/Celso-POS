@@ -234,7 +234,12 @@ const changePassword = async (req, res, next) => {
         return res.status(400).json({ success: false, message: 'Your current password is required.' });
       }
       const ok = await bcrypt.compare(currentPassword, user.password);
-      if (!ok) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+      // 400 (not 401): a wrong CURRENT password is bad input, not an expired
+      // session. The client's apiCall auto-redirects to login on 401, which here
+      // would kick the owner out mid-edit instead of showing the inline error.
+      // A genuinely invalid/expired token is still caught as 401 by the auth
+      // middleware before this controller runs, so that redirect path is intact.
+      if (!ok) return res.status(400).json({ success: false, message: 'Current password is incorrect' });
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);
@@ -360,7 +365,10 @@ const updateRecovery = async (req, res, next) => {
     const user = await findByEmail(req.user.email);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     const ok = await bcrypt.compare(currentPassword, user.password);
-    if (!ok) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    // 400 (not 401): a wrong current password is bad input, not an expired
+    // session — the client auto-redirects to login on 401. A real invalid token
+    // is still caught as 401 by the auth middleware before this controller runs.
+    if (!ok) return res.status(400).json({ success: false, message: 'Current password is incorrect' });
 
     await setRecoveryInfo(req.user.id, fields);
     res.json({ success: true, message: 'Recovery details updated' });
